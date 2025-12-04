@@ -56,7 +56,7 @@ class _PlumbingScreenState extends State<PlumbingScreen> {
 
     final int serviceTotal = items.fold(
       0,
-      (sum, item) => sum + item.unitPrice * item.quantity,
+      (total, item) => total + item.unitPrice * item.quantity,
     );
     final int totalAmount = serviceTotal + visitationFee + platformFee;
 
@@ -497,140 +497,140 @@ class _PlumbingScreenState extends State<PlumbingScreen> {
       builder: (sheetContext) {
         return StatefulBuilder(
           builder: (BuildContext ctx, StateSetter modalSetState) {
-            return DraggableScrollableSheet(
-              initialChildSize: 0.5,
-              minChildSize: 0.3,
-              maxChildSize: 0.8,
-              expand: false,
-              builder: (context, scrollController) {
-                return Container(
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.vertical(
-                      top: Radius.circular(24),
+          return DraggableScrollableSheet(
+            initialChildSize: 0.5,
+            minChildSize: 0.3,
+            maxChildSize: 0.8,
+            expand: false,
+            builder: (context, scrollController) {
+              return Container(
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(
+                    top: Radius.circular(24),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    const SizedBox(height: 8),
+                    GestureDetector(
+                      onTap: () => Navigator.of(sheetContext).pop(),
+                      child: Center(
+                        child: Container(
+                          width: 60,
+                          height: 5,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade400,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
-                  child: Column(
-                    children: [
-                      const SizedBox(height: 8),
-                      GestureDetector(
-                        onTap: () => Navigator.of(sheetContext).pop(),
-                        child: Center(
-                          child: Container(
-                            width: 60,
-                            height: 5,
-                            decoration: BoxDecoration(
-                              color: Colors.grey.shade400,
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                          ),
-                        ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Choose Preferences',
+                      style: TextStyle(
+                        fontFamily: 'Montserrat',
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
                       ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'Choose Preferences',
-                        style: TextStyle(
-                          fontFamily: 'Montserrat',
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      Expanded(
-                        child: ListView(
-                          controller: scrollController,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 24,
-                          ),
-                          children: [
-                            const Text(
-                              'Language',
-                              style: TextStyle(
-                                fontFamily: 'Montserrat',
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            _LanguageCheckboxRow(
-                              label: 'English',
-                              value: _englishSelected,
-                              onChanged: (val) {
-                                setState(() {
-                                  _englishSelected = val;
-                                });
-                                modalSetState(() {
-                                  _englishSelected = val;
-                                });
-                              },
-                            ),
-                            const SizedBox(height: 8),
-                            _LanguageCheckboxRow(
-                              label: 'Sinhala',
-                              value: _sinhalaSelected,
-                              onChanged: (val) {
-                                setState(() {
-                                  _sinhalaSelected = val;
-                                });
-                                modalSetState(() {
-                                  _sinhalaSelected = val;
-                                });
-                              },
-                            ),
-                            const SizedBox(height: 8),
-                            _LanguageCheckboxRow(
-                              label: 'Tamil',
-                              value: _tamilSelected,
-                              onChanged: (val) {
-                                setState(() {
-                                  _tamilSelected = val;
-                                });
-                                modalSetState(() {
-                                  _tamilSelected = val;
-                                });
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                      Padding(
+                    ),
+                    const SizedBox(height: 24),
+                    Expanded(
+                      child: ListView(
+                        controller: scrollController,
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 20.0,
-                          vertical: 16.0,
+                          horizontal: 24,
                         ),
-                        child: SizedBox(
-                          width: double.infinity,
-                          height: 48,
-                          child: ElevatedButton(
-                            onPressed: () {
-                              Navigator.of(sheetContext).pop();
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.black,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              elevation: 0,
+                        children: [
+                          const Text(
+                            'Language',
+                            style: TextStyle(
+                              fontFamily: 'Montserrat',
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
                             ),
-                            child: const Text(
-                              'Done',
-                              style: TextStyle(
-                                fontFamily: 'Montserrat',
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white,
-                              ),
+                          ),
+                          const SizedBox(height: 16),
+                          _LanguageCheckboxRow(
+                            label: 'English',
+                            value: _englishSelected,
+                            onChanged: (val) {
+                              setState(() {
+                                _englishSelected = val;
+                              });
+                              modalSetState(() {
+                                _englishSelected = val;
+                              });
+                            },
+                          ),
+                          const SizedBox(height: 8),
+                          _LanguageCheckboxRow(
+                            label: 'Sinhala',
+                            value: _sinhalaSelected,
+                            onChanged: (val) {
+                              setState(() {
+                                _sinhalaSelected = val;
+                              });
+                              modalSetState(() {
+                                _sinhalaSelected = val;
+                              });
+                            },
+                          ),
+                          const SizedBox(height: 8),
+                          _LanguageCheckboxRow(
+                            label: 'Tamil',
+                            value: _tamilSelected,
+                            onChanged: (val) {
+                              setState(() {
+                                _tamilSelected = val;
+                              });
+                              modalSetState(() {
+                                _tamilSelected = val;
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20.0,
+                        vertical: 16.0,
+                      ),
+                      child: SizedBox(
+                        width: double.infinity,
+                        height: 48,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            Navigator.of(sheetContext).pop();
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.black,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            elevation: 0,
+                          ),
+                          child: const Text(
+                            'Done',
+                            style: TextStyle(
+                              fontFamily: 'Montserrat',
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
                             ),
                           ),
                         ),
                       ),
-                    ],
-                  ),
-                );
-              },
-            );
-          },
-        );
+                    ),
+                  ],
+                ),
+              );
+            },
+          );
+        },
+      );
       },
     );
   }
@@ -684,7 +684,7 @@ class _PlumbingScreenState extends State<PlumbingScreen> {
           builder: (BuildContext ctx, StateSetter modalSetState) {
             final int serviceTotal = items.fold(
               0,
-              (sum, item) => sum + item.unitPrice * item.quantity,
+              (total, item) => total + item.unitPrice * item.quantity,
             );
             final int totalAmount =
                 serviceTotal + visitationFee + platformFee;
