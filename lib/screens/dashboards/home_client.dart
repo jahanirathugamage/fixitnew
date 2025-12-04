@@ -1,9 +1,13 @@
-import 'dart:convert';
-import 'dart:typed_data';
+// lib/screens/dashboards/home_client.dart
 
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+
+// MVC
+import '../../models/client/client_settings.dart';
+import '../../controllers/client/client_settings_controller.dart';
+
+// Shared bottom nav from client home screen
+import 'client/home_screen.dart' show ClientBottomNavBar;
 
 class HomeClient extends StatefulWidget {
   const HomeClient({super.key});
@@ -13,10 +17,8 @@ class HomeClient extends StatefulWidget {
 }
 
 class _HomeClientState extends State<HomeClient> {
-  String firstName = "";
-  String email = "";
-  String? profileImageBase64; // Base64 image
-  String? profileImageUrl;    // legacy URL (if any)
+  final _controller = ClientSettingsController();
+  ClientSettings? _settings;
 
   @override
   void initState() {
@@ -25,39 +27,25 @@ class _HomeClientState extends State<HomeClient> {
   }
 
   Future<void> _loadClientData() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
+    final settings = await _controller.loadSettings();
+    if (!mounted) return;
 
-    final doc = await FirebaseFirestore.instance
-        .collection("clients")
-        .doc(user.uid)
-        .get();
-
-    if (doc.exists) {
-      final data = doc.data() ?? {};
-      setState(() {
-        firstName = (data["firstName"] ?? "") as String;
-        email = (data["email"] ?? user.email ?? "") as String;
-        profileImageBase64 = data["profileImageBase64"] as String?;
-        profileImageUrl = data["profileImageUrl"] as String?;
-      });
-    }
+    setState(() {
+      _settings = settings;
+    });
   }
 
   ImageProvider? _buildProfileImageProvider() {
-    // Prefer Base64 if present
-    if (profileImageBase64 != null && profileImageBase64!.isNotEmpty) {
-      try {
-        Uint8List bytes = base64Decode(profileImageBase64!);
-        return MemoryImage(bytes);
-      } catch (_) {
-        // ignore and try URL fallback
-      }
+    final s = _settings;
+    if (s == null) return null;
+
+    if (s.profileImageBytes != null) {
+      return MemoryImage(s.profileImageBytes!);
     }
 
-    // Fallback to old URL if it exists
-    if (profileImageUrl != null && profileImageUrl!.isNotEmpty) {
-      return NetworkImage(profileImageUrl!);
+    final url = s.profileImageUrl;
+    if (url != null && url.isNotEmpty) {
+      return NetworkImage(url);
     }
 
     return null;
@@ -66,13 +54,18 @@ class _HomeClientState extends State<HomeClient> {
   @override
   Widget build(BuildContext context) {
     final profileImageProvider = _buildProfileImageProvider();
+    final firstName = _settings?.firstName ?? '';
+    final email = _settings?.email ?? '';
 
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text(
-          "Settings",
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+          'Settings',
+          style: TextStyle(
+            color: Colors.black,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         backgroundColor: Colors.white,
         elevation: 0,
@@ -93,8 +86,11 @@ class _HomeClientState extends State<HomeClient> {
                   backgroundColor: Colors.black12,
                   backgroundImage: profileImageProvider,
                   child: profileImageProvider == null
-                      ? const Icon(Icons.person,
-                          size: 40, color: Colors.black)
+                      ? const Icon(
+                          Icons.person,
+                          size: 40,
+                          color: Colors.black,
+                        )
                       : null,
                 ),
                 const SizedBox(width: 16),
@@ -102,12 +98,17 @@ class _HomeClientState extends State<HomeClient> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      "Welcome $firstName",
+                      'Welcome $firstName',
                       style: const TextStyle(
-                          fontSize: 20, fontWeight: FontWeight.bold),
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 4),
-                    Text(email, style: const TextStyle(color: Colors.grey)),
+                    Text(
+                      email,
+                      style: const TextStyle(color: Colors.grey),
+                    ),
                   ],
                 ),
               ],
@@ -120,25 +121,35 @@ class _HomeClientState extends State<HomeClient> {
           InkWell(
             onTap: () => Navigator.pushNamed(
               context,
-              "/dashboards/client/update_client_profile",
+              '/dashboards/client/update_client_profile',
             ).then((_) {
               // reload data (and image) when coming back
               _loadClientData();
             }),
             child: const _TileC(
-                icon: Icons.person_outline, text: "Account Information"),
+              icon: Icons.person_outline,
+              text: 'Account Information',
+            ),
           ),
           InkWell(
             onTap: () => Navigator.pushNamed(
-                context, "/dashboards/client/change_client_password"),
+              context,
+              '/dashboards/client/change_client_password',
+            ),
             child: const _TileC(
-                icon: Icons.lock_outline, text: "Change Password"),
+              icon: Icons.lock_outline,
+              text: 'Change Password',
+            ),
           ),
           InkWell(
             onTap: () => Navigator.pushNamed(
-                context, "/dashboards/client/client_bank_details"),
+              context,
+              '/dashboards/client/client_bank_details',
+            ),
             child: const _TileC(
-                icon: Icons.credit_card, text: "Bank Details"),
+              icon: Icons.credit_card,
+              text: 'Bank Details',
+            ),
           ),
 
           const Spacer(),
@@ -157,11 +168,25 @@ class _HomeClientState extends State<HomeClient> {
                   ),
                 ),
                 onPressed: () async {
-                  await FirebaseAuth.instance.signOut();
-                  Navigator.pushNamedAndRemoveUntil(
-                      context, "/login", (route) => false);
+                  // Capture navigator BEFORE async gap
+                  final navigator = Navigator.of(context);
+
+                  await _controller.logout();
+
+                  if (!mounted) return; // still fine to keep
+
+                  navigator.pushNamedAndRemoveUntil(
+                    '/login',
+                    (route) => false,
+                  );
                 },
-                child: const Text("Logout", style: TextStyle(fontSize: 18, color: Colors.white)),
+                child: const Text(
+                  'Logout',
+                  style: TextStyle(
+                    fontSize: 18,
+                    color: Colors.white,
+                  ),
+                ),
               ),
             ),
           ),
@@ -169,41 +194,7 @@ class _HomeClientState extends State<HomeClient> {
       ),
 
       // ----------------------- BOTTOM NAVIGATION -----------------------
-      bottomNavigationBar: Container(
-        height: 70,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          border: Border(top: BorderSide(color: Colors.black12, width: 1)),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            _NavItem(
-              icon: Icons.home_outlined, 
-              label: 'Home', 
-              onTap: () => Navigator.pushNamed(
-                  context, "/dashboards/client/home_screen")),
-            _NavItem(
-              icon: Icons.miscellaneous_services_outlined,
-              label: 'Services',
-              onTap: () => Navigator.pushNamed(
-                  context, "/dashboards/client/client_services"),
-            ),
-            _NavItem(
-              icon: Icons.business_center_outlined,
-              label: 'Jobs',
-              onTap: () => Navigator.pushNamed(
-                  context, "/dashboards/client/client_jobs"),
-            ),
-            _NavItem(
-              icon: Icons.person_outline,
-              label: 'Profile',
-              onTap: () => Navigator.pushNamed(
-                  context, "/dashboards/home_client"),
-            ),
-          ],
-        ),
-      ),
+      bottomNavigationBar: const ClientBottomNavBar(),
     );
   }
 }
@@ -214,7 +205,10 @@ class _TileC extends StatelessWidget {
   final IconData icon;
   final String text;
 
-  const _TileC({required this.icon, required this.text});
+  const _TileC({
+    required this.icon,
+    required this.text,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -224,33 +218,12 @@ class _TileC extends StatelessWidget {
         children: [
           Icon(icon, size: 28),
           const SizedBox(width: 12),
-          Text(text, style: const TextStyle(fontSize: 16)),
+          Text(
+            text,
+            style: const TextStyle(fontSize: 16),
+          ),
           const Spacer(),
           const Icon(Icons.chevron_right),
-        ],
-      ),
-    );
-  }
-}
-
-class _NavItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  const _NavItem(
-      {required this.icon, required this.label, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 28),
-          const SizedBox(height: 4),
-          Text(label, style: const TextStyle(fontSize: 12)),
         ],
       ),
     );

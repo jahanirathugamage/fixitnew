@@ -1,12 +1,11 @@
-// lib/screens/client/update_client_profile.dart
-
 import 'dart:typed_data';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+
+import '../../../controllers/client/update_client_profile_controller.dart';
+import '../../../models/client/client_profile_model.dart';
 
 class UpdateClientProfile extends StatefulWidget {
   const UpdateClientProfile({super.key});
@@ -16,11 +15,11 @@ class UpdateClientProfile extends StatefulWidget {
 }
 
 class _UpdateClientProfileState extends State<UpdateClientProfile> {
-  final user = FirebaseAuth.instance.currentUser;
+  final _controller = UpdateClientProfileController();
+  final _picker = ImagePicker();
 
-  Uint8List? _imageBytes;          // new: in-memory image (Base64)
-  String? _profileImageUrl;        // legacy URL (if any)
-  final picker = ImagePicker();
+  Uint8List? _imageBytes;
+  String? _profileImageUrl;
 
   final _firstName = TextEditingController();
   final _lastName = TextEditingController();
@@ -37,35 +36,25 @@ class _UpdateClientProfileState extends State<UpdateClientProfile> {
   }
 
   Future<void> _loadClientData() async {
-    if (user == null) {
-      setState(() => _loading = false);
-      return;
-    }
+    final profile = await _controller.loadProfile();
 
-    final snap = await FirebaseFirestore.instance
-        .collection("clients")
-        .doc(user!.uid)
-        .get();
+    if (!mounted) return;
 
-    final data = snap.data();
+    if (profile != null) {
+      _firstName.text = profile.firstName;
+      _lastName.text = profile.lastName;
+      _email.text = profile.email;
+      _phone.text = profile.phone;
 
-    if (data != null) {
-      _firstName.text = data["firstName"] ?? "";
-      _lastName.text = data["lastName"] ?? "";
-      _email.text = data["email"] ?? "";
-      _phone.text = data["phone"] ?? "";
-
-      // load Base64 image if available
-      final base64 = data["profileImageBase64"] as String?;
-      if (base64 != null && base64.isNotEmpty) {
+      if (profile.profileImageBase64 != null &&
+          profile.profileImageBase64!.isNotEmpty) {
         try {
-          _imageBytes = base64Decode(base64);
+          _imageBytes = base64Decode(profile.profileImageBase64!);
         } catch (_) {
           _imageBytes = null;
         }
       } else {
-        // fallback: if you had a URL before (from storage)
-        _profileImageUrl = data["profileImageUrl"] as String?;
+        _profileImageUrl = profile.profileImageUrl;
       }
     }
 
@@ -73,38 +62,36 @@ class _UpdateClientProfileState extends State<UpdateClientProfile> {
   }
 
   Future<void> _pickImage() async {
-    final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+    final picked =
+        await _picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
     if (picked != null) {
       final bytes = await picked.readAsBytes();
       setState(() {
         _imageBytes = bytes;
-        _profileImageUrl = null; // we will show the new one
+        _profileImageUrl = null;
       });
     }
   }
 
   Future<void> _save() async {
-    if (user == null) return;
-
     setState(() => _saving = true);
 
-    final updateData = <String, dynamic>{
-      "firstName": _firstName.text.trim(),
-      "lastName": _lastName.text.trim(),
-      "email": _email.text.trim(),
-      "phone": _phone.text.trim(),
-    };
+    final profile = ClientProfile(
+      id: 'current', // not used in update
+      firstName: _firstName.text,
+      lastName: _lastName.text,
+      email: _email.text,
+      phone: _phone.text,
+      profileImageBase64: null,
+      profileImageUrl: _profileImageUrl,
+    );
 
-    // only overwrite image if user picked a new one
-    if (_imageBytes != null) {
-      updateData["profileImageBase64"] = base64Encode(_imageBytes!);
-    }
+    await _controller.saveProfile(
+      profile: profile,
+      newImageBytes: _imageBytes,
+    );
 
-    await FirebaseFirestore.instance
-        .collection("clients")
-        .doc(user!.uid)
-        .update(updateData);
-
+    if (!mounted) return;
     setState(() => _saving = false);
     Navigator.pop(context);
   }
@@ -137,24 +124,23 @@ class _UpdateClientProfileState extends State<UpdateClientProfile> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // BACK + TITLE
               Row(
-  children: [
-    GestureDetector(
-      onTap: () => Navigator.pop(context),
-      child: const Icon(Icons.arrow_back_ios, size: 20),
-    ),
-    const SizedBox(width: 10),
-    const Text(
-      "Manage Account",
-      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-    ),
-  ],
-),
-
+                children: [
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: const Icon(Icons.arrow_back_ios, size: 20),
+                  ),
+                  const SizedBox(width: 10),
+                  const Text(
+                    'Manage Account',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: 20),
-
-              // PROFILE PHOTO
               GestureDetector(
                 onTap: _pickImage,
                 child: Stack(
@@ -176,34 +162,30 @@ class _UpdateClientProfileState extends State<UpdateClientProfile> {
                           color: Colors.black,
                         ),
                         padding: const EdgeInsets.all(4),
-                        child: const Icon(Icons.add,
-                            color: Colors.white, size: 18),
+                        child: const Icon(
+                          Icons.add,
+                          color: Colors.white,
+                          size: 18,
+                        ),
                       ),
-                    )
+                    ),
                   ],
                 ),
               ),
-
               const SizedBox(height: 25),
-
-              _label("First Name"),
+              _label('First Name'),
               _box(_firstName),
-
-              _label("Last Name"),
+              _label('Last Name'),
               _box(_lastName),
-
-              _label("Email"),
+              _label('Email'),
               _box(_email),
-
-              _label("Contact Number"),
+              _label('Contact Number'),
               _box(_phone),
-
               const SizedBox(height: 25),
-
-              _saving ? const CircularProgressIndicator() : _saveButton(),
-
+              _saving
+                  ? const CircularProgressIndicator()
+                  : _saveButton(),
               const SizedBox(height: 15),
-
               _deleteButton(),
             ],
           ),
@@ -246,7 +228,7 @@ class _UpdateClientProfileState extends State<UpdateClientProfile> {
         child: TextButton(
           onPressed: _save,
           child: const Text(
-            "Done",
+            'Done',
             style: TextStyle(color: Colors.white, fontSize: 18),
           ),
         ),
@@ -262,7 +244,7 @@ class _UpdateClientProfileState extends State<UpdateClientProfile> {
         child: TextButton(
           onPressed: () {},
           child: const Text(
-            "Delete Account",
+            'Delete Account',
             style: TextStyle(color: Colors.black, fontSize: 18),
           ),
         ),

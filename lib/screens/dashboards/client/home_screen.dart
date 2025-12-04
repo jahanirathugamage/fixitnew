@@ -1,12 +1,9 @@
-// lib/screens/client/home_client_dashboard.dart
 // ignore_for_file: use_build_context_synchronously
 
-import 'dart:convert';
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+
+import '../../../controllers/client/client_home_controller.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -16,69 +13,13 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  String firstName = "";
-  String email = "";
-  String? profileImageBase64;
+  final _homeController = ClientHomeController();
 
-  bool _loadingUser = true;
+  // --------------------- FIRESTORE BUILDERS ---------------------
 
-  @override
-  void initState() {
-    super.initState();
-    _loadClientData();
-  }
-
-  Future<void> _loadClientData() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      setState(() => _loadingUser = false);
-      return;
-    }
-
-    try {
-      final doc = await FirebaseFirestore.instance
-          .collection("clients")
-          .doc(user.uid)
-          .get();
-
-      if (doc.exists) {
-        final data = doc.data() ?? {};
-        firstName = (data["firstName"] ?? "") as String;
-        email = (data["email"] ?? user.email ?? "") as String;
-        profileImageBase64 = data["profileImageBase64"] as String?;
-      } else {
-        email = user.email ?? "";
-      }
-    } catch (_) {
-      // ignore and just show static header
-    } finally {
-      if (mounted) {
-        setState(() => _loadingUser = false);
-      }
-    }
-  }
-
-  ImageProvider? _buildAvatar() {
-    if (profileImageBase64 == null || profileImageBase64!.isEmpty) {
-      return null;
-    }
-    try {
-      Uint8List bytes = base64Decode(profileImageBase64!);
-      return MemoryImage(bytes);
-    } catch (_) {
-      return null;
-    }
-  }
-
-  // --------- Firestore Builders ---------
-
-  /// Build services grid from `services` collection.
   Widget _buildServicesGrid() {
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('services')
-          .orderBy('order', descending: false)
-          .snapshots(),
+      stream: _homeController.servicesStream,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Padding(
@@ -91,7 +32,7 @@ class _HomeScreenState extends State<HomeScreen> {
           return const Padding(
             padding: EdgeInsets.all(20.0),
             child: Text(
-              "Failed to load services.",
+              'Failed to load services.',
               style: TextStyle(color: Colors.red),
             ),
           );
@@ -99,7 +40,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
         final docs = snapshot.data?.docs ?? [];
         if (docs.isEmpty) {
-          // Fallback when no data
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20.0),
             child: GridView.count(
@@ -151,13 +91,9 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /// Build "Repairs Made Simple" carousel from `repairs` collection.
   Widget _buildRepairsCarousel() {
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('repairs')
-          .orderBy('order', descending: false)
-          .snapshots(),
+      stream: _homeController.repairsStream,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const SizedBox(
@@ -170,7 +106,7 @@ class _HomeScreenState extends State<HomeScreen> {
           return const Padding(
             padding: EdgeInsets.only(left: 20.0, right: 20.0),
             child: Text(
-              "Failed to load repair suggestions.",
+              'Failed to load repair suggestions.',
               style: TextStyle(color: Colors.red),
             ),
           );
@@ -207,7 +143,7 @@ class _HomeScreenState extends State<HomeScreen> {
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: docs.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 16),
+              separatorBuilder: (context, index) => const SizedBox(width: 16),
               itemBuilder: (context, index) {
                 final data = docs[index].data() as Map<String, dynamic>;
                 final title = (data['title'] ?? '') as String;
@@ -225,60 +161,32 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // --------------------------- BUILD ---------------------------
+
   @override
   Widget build(BuildContext context) {
-    final avatarProvider = _buildAvatar();
-
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
         child: Column(
           children: [
-            // ---------------------- HEADER ----------------------
+            // Header
             Padding(
               padding: const EdgeInsets.all(20.0),
               child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'FixIt',
-                          style: TextStyle(
-                            fontFamily: 'Montserrat',
-                            fontSize: 32,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        if (!_loadingUser && firstName.isNotEmpty) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            'Hi, $firstName',
-                            style: const TextStyle(
-                              fontFamily: 'Montserrat',
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.grey,
-                            ),
-                          ),
-                        ],
-                      ],
+                children: const [
+                  Text(
+                    'FixIt',
+                    style: TextStyle(
+                      fontFamily: 'Montserrat',
+                      fontSize: 32,
+                      fontWeight: FontWeight.w800,
                     ),
-                  ),
-                  CircleAvatar(
-                    radius: 20,
-                    backgroundColor: Colors.black12,
-                    backgroundImage: avatarProvider,
-                    child: avatarProvider == null
-                        ? const Icon(Icons.person, size: 20, color: Colors.black)
-                        : null,
                   ),
                 ],
               ),
             ),
-
-            // ---------------------- BODY ----------------------
+            // Body
             Expanded(
               child: SingleChildScrollView(
                 child: Column(
@@ -296,11 +204,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                     const SizedBox(height: 20),
-
                     _buildServicesGrid(),
-
                     const SizedBox(height: 40),
-
                     const Padding(
                       padding: EdgeInsets.symmetric(horizontal: 20.0),
                       child: Text(
@@ -313,55 +218,14 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                     const SizedBox(height: 20),
-
                     _buildRepairsCarousel(),
-
                     const SizedBox(height: 20),
                   ],
                 ),
               ),
             ),
-
-            // ---------------------- BOTTOM NAV ----------------------
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                border: Border(
-                  top: BorderSide(
-                    color: Colors.grey.shade300,
-                    width: 1,
-                  ),
-                ),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 15),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    NavIcon(
-                      icon: Icons.home,
-                      onTap: () => Navigator.pushNamed(
-                          context, "/dashboards/client/home_screen"),
-                    ),
-                    NavIcon(
-                      icon: Icons.build,
-                      onTap: () => Navigator.pushNamed(
-                          context, "/dashboards/client/client_services"),
-                    ),
-                    NavIcon(
-                      icon: Icons.receipt_long,
-                      onTap: () => Navigator.pushNamed(
-                          context, "/dashboards/client/client_jobs"),
-                    ),
-                    NavIcon(
-                      icon: Icons.person,
-                      onTap: () => Navigator.pushNamed(
-                          context, "/dashboards/home_client"),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+            // Bottom nav (NO services icon)
+            const ClientBottomNavBar(),
           ],
         ),
       ),
@@ -369,7 +233,70 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// -------------- Helper to map Firestore icon keys to Icons -------------
+// ----------------- NAVIGATION (maintainable bottom nav) -----------------
+
+class ClientNavItem {
+  final IconData icon;
+  final String routeName;
+
+  const ClientNavItem({
+    required this.icon,
+    required this.routeName,
+  });
+}
+
+const List<ClientNavItem> _clientNavItems = [
+  ClientNavItem(
+    icon: Icons.home,
+    routeName: '/dashboards/client/home_screen',
+  ),
+  ClientNavItem(
+    icon: Icons.receipt_long,
+    routeName: '/dashboards/client/client_jobs',
+  ),
+  ClientNavItem(
+    icon: Icons.person,
+    routeName: '/dashboards/home_client',
+  ),
+];
+
+class ClientBottomNavBar extends StatelessWidget {
+  const ClientBottomNavBar({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(
+          top: BorderSide(
+            color: Colors.grey.shade300,
+            width: 1,
+          ),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 15),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: _clientNavItems
+              .map(
+                (item) => NavIcon(
+                  icon: item.icon,
+                  onTap: () => Navigator.pushNamed(
+                    context,
+                    item.routeName,
+                  ),
+                ),
+              )
+              .toList(),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------- SERVICE ICON MAPPING ----------------------
 
 IconData _mapServiceIcon(String key, {IconData fallback = Icons.build}) {
   switch (key.toLowerCase()) {
@@ -425,41 +352,34 @@ class _ServiceCardState extends State<ServiceCard> {
         switch (normalized) {
           case 'ac':
           case 'air conditioning':
-            Navigator.pushNamed(context, "/services/ac_screen");
+            Navigator.pushNamed(context, '/service/ac');
             break;
-
           case 'plumbing':
-            Navigator.pushNamed(context, "/services/plumbing_screen");
+            Navigator.pushNamed(context, '/service/plumbing');
             break;
-
           case 'electrical':
-            Navigator.pushNamed(context, "/services/electrical_screen");
+            Navigator.pushNamed(context, '/service/electrical');
             break;
-
           case 'carpentry':
-            Navigator.pushNamed(context, "/services/carpentry_screen");
+            Navigator.pushNamed(context, '/service/carpentry');
             break;
-
           case 'cleaning':
-            Navigator.pushNamed(context, "/services/cleaning_screen");
+            Navigator.pushNamed(context, '/service/cleaning');
             break;
-
           case 'gardening':
-            Navigator.pushNamed(context, "/services/gardening_screen");
+            Navigator.pushNamed(context, '/service/gardening');
             break;
-
           case 'pest control':
           case 'pest_control':
-            Navigator.pushNamed(context, "/services/pestcontrol_screen");
+            Navigator.pushNamed(context, '/service/pest');
             break;
-
           case 'appliances':
-            Navigator.pushNamed(context, "/services/appliances_screen");
+          case 'appliance repair':
+            Navigator.pushNamed(context, '/service/appliances');
             break;
-
           default:
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text("No screen mapped for ${widget.label}")),
+              SnackBar(content: Text('No screen mapped for ${widget.label}')),
             );
         }
       },

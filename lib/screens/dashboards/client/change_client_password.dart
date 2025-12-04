@@ -1,8 +1,7 @@
-// lib/screens/client/change_client_password.dart
 // ignore_for_file: use_build_context_synchronously
 
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import '../../../controllers/client/change_client_password_controller.dart';
 
 class ChangeClientPasswordScreen extends StatefulWidget {
   const ChangeClientPasswordScreen({super.key});
@@ -17,6 +16,8 @@ class _ChangeClientPasswordScreenState
   final _currentController = TextEditingController();
   final _newController = TextEditingController();
   final _confirmController = TextEditingController();
+
+  final _controller = ChangeClientPasswordController();
 
   bool _saving = false;
   String? _error;
@@ -33,79 +34,35 @@ class _ChangeClientPasswordScreenState
     super.dispose();
   }
 
-  Future<void> _changePassword() async {
-    final user = FirebaseAuth.instance.currentUser;
-
-    if (user == null) {
-      setState(() => _error = "User not logged in.");
-      return;
-    }
-
-    final current = _currentController.text.trim();
-    final newPwd = _newController.text.trim();
-    final confirm = _confirmController.text.trim();
-
-    if (current.isEmpty || newPwd.isEmpty || confirm.isEmpty) {
-      setState(() => _error = "All fields are required.");
-      return;
-    }
-
-    if (newPwd != confirm) {
-      setState(() => _error = "New password and confirmation do not match.");
-      return;
-    }
-
-    if (newPwd.length < 6) {
-      setState(() => _error = "Password must be at least 6 characters.");
-      return;
-    }
-
-    if (user.email == null) {
-      setState(() => _error = "Cannot change password for this account type.");
-      return;
-    }
-
+  Future<void> _handleChangePassword() async {
     setState(() {
       _saving = true;
       _error = null;
     });
 
-    try {
-      // 1) Re-authenticate with current password
-      final cred = EmailAuthProvider.credential(
-        email: user.email!,
-        password: current,
-      );
+    final err = await _controller.changePassword(
+      currentPassword: _currentController.text.trim(),
+      newPassword: _newController.text.trim(),
+      confirmPassword: _confirmController.text.trim(),
+    );
 
-      await user.reauthenticateWithCredential(cred);
+    if (!mounted) return;
 
-      // 2) Update password
-      await user.updatePassword(newPwd);
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Password updated successfully")),
-      );
-
-      Navigator.pop(context);
-    } on FirebaseAuthException catch (e) {
-      String msg = "Failed to change password.";
-      if (e.code == 'wrong-password') {
-        msg = "Current password is incorrect.";
-      } else if (e.code == 'weak-password') {
-        msg = "The new password is too weak.";
-      } else if (e.code == 'requires-recent-login') {
-        msg =
-            "Please log in again and then try changing your password.";
-      }
-      setState(() => _error = msg);
-    } catch (e) {
-      setState(() => _error = "Error: $e");
-    } finally {
-      if (mounted) {
-        setState(() => _saving = false);
-      }
+    if (err != null) {
+      setState(() {
+        _error = err;
+        _saving = false;
+      });
+      return;
     }
+
+    setState(() => _saving = false);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Password updated successfully')),
+    );
+
+    Navigator.pop(context);
   }
 
   Widget _passwordField({
@@ -147,7 +104,6 @@ class _ChangeClientPasswordScreenState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Top row: back + title
               Row(
                 children: [
                   IconButton(
@@ -158,7 +114,7 @@ class _ChangeClientPasswordScreenState
                   ),
                   const SizedBox(width: 10),
                   const Text(
-                    "Change Password",
+                    'Change Password',
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
@@ -166,36 +122,31 @@ class _ChangeClientPasswordScreenState
                   ),
                 ],
               ),
-
               const SizedBox(height: 40),
-
               _passwordField(
-                hint: "Current Password",
+                hint: 'Current Password',
                 controller: _currentController,
                 obscure: _obscureCurrent,
                 toggleObscure: () {
                   setState(() => _obscureCurrent = !_obscureCurrent);
                 },
               ),
-
               _passwordField(
-                hint: "New Password",
+                hint: 'New Password',
                 controller: _newController,
                 obscure: _obscureNew,
                 toggleObscure: () {
                   setState(() => _obscureNew = !_obscureNew);
                 },
               ),
-
               _passwordField(
-                hint: "Confirm Password",
+                hint: 'Confirm Password',
                 controller: _confirmController,
                 obscure: _obscureConfirm,
                 toggleObscure: () {
                   setState(() => _obscureConfirm = !_obscureConfirm);
                 },
               ),
-
               if (_error != null) ...[
                 const SizedBox(height: 8),
                 Text(
@@ -203,14 +154,12 @@ class _ChangeClientPasswordScreenState
                   style: const TextStyle(color: Colors.red),
                 ),
               ],
-
               const SizedBox(height: 30),
-
               SizedBox(
                 width: double.infinity,
                 height: 52,
                 child: ElevatedButton(
-                  onPressed: _saving ? null : _changePassword,
+                  onPressed: _saving ? null : _handleChangePassword,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.black,
                     shape: RoundedRectangleBorder(
@@ -227,7 +176,7 @@ class _ChangeClientPasswordScreenState
                           ),
                         )
                       : const Text(
-                          "Done",
+                          'Done',
                           style: TextStyle(
                             fontSize: 18,
                             color: Colors.white,
