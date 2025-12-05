@@ -1,0 +1,93 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper: check if current user is an admin (users/{uid}.role == "admin")
+    function isAdmin() {
+      return request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid))
+          .data.role == "admin";
+    }
+
+    // USERS (role store)
+    match /users/{uid} {
+      allow create: if request.auth != null;
+      allow read, update: if request.auth != null && request.auth.uid == uid;
+      // (optional) allow admins to read all users:
+      // allow read: if isAdmin() || (request.auth != null && request.auth.uid == uid);
+    }
+
+    // ADMINS — only that admin can manage own admin profile
+    match /admins/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // ADMIN INVITATIONS (only Cloud Functions via Admin SDK)
+    match /adminInvites/{inviteId} {
+      allow read, write: if false;
+    }
+
+    // CLIENTS
+    match /clients/{uid} {
+      allow create: if request.auth != null;
+      allow read, update: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // CONTRACTORS
+    match /contractors/{uid} {
+      allow create: if request.auth != null;
+      allow read:   if request.auth != null;
+
+      // Contractor themself OR any admin can update
+      allow update: if request.auth != null &&
+                    (request.auth.uid == uid || isAdmin());
+    }
+
+    // PROVIDERS under contractors
+    match /contractors/{contractorId}/providers/{providerId} {
+
+      // contractor creates providers
+      allow create: if request.auth != null &&
+                    request.auth.uid == contractorId;
+
+      // provider can read/update their own info
+      allow read, update: if request.auth != null &&
+                          request.auth.uid == providerId;
+
+      // contractor can manage providers
+      allow read, update: if request.auth != null &&
+                          request.auth.uid == contractorId;
+
+      // admins can also read/update providers
+      allow read, update: if isAdmin();
+    }
+
+    // PUBLIC SERVICE CATALOG
+    match /services/{serviceId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // PUBLIC REPAIRS LIST
+    match /repairs/{repairId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // ================== JOBS (created from Electrical / Carpentry screens) ==================
+    match /jobs/{jobId} {
+
+      // Clients can create jobs for themselves
+      // Your code sets: 'clientId': user.uid
+      allow create: if request.auth != null
+                    && request.resource.data.clientId == request.auth.uid;
+
+      // Client can read/update their own jobs
+      allow read, update: if request.auth != null
+                          && resource.data.clientId == request.auth.uid;
+
+      // Admins can read/update all jobs
+      allow read, update: if isAdmin();
+    }
+  }
+}

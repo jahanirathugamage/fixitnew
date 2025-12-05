@@ -1,20 +1,17 @@
 // lib/screens/admin/contracting_firms_information_screen.dart
 
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+
+import '../../controllers/admin/contracting_firms_controller.dart';
+import '../../models/admin/contracting_firm.dart';
 
 class ContractingFirmsInformationScreen extends StatelessWidget {
   const ContractingFirmsInformationScreen({super.key});
 
-  Stream<QuerySnapshot<Map<String, dynamic>>> _approvedFirms() {
-    return FirebaseFirestore.instance
-        .collection('contractors')
-        .where('status', isEqualTo: 'approved') // ✅ only approved
-        .snapshots();
-  }
-
   @override
   Widget build(BuildContext context) {
+    final controller = ContractingFirmsController();
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -32,14 +29,25 @@ class ContractingFirmsInformationScreen extends StatelessWidget {
           ),
         ),
       ),
-      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-        stream: _approvedFirms(),
+      body: StreamBuilder<List<ContractingFirm>>(
+        stream: controller.approvedFirmsStream(),
         builder: (context, snap) {
           if (snap.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          if (!snap.hasData || snap.data!.docs.isEmpty) {
+          if (snap.hasError) {
+            return Center(
+              child: Text(
+                'Error: ${snap.error}',
+                style: const TextStyle(color: Colors.red),
+              ),
+            );
+          }
+
+          final firms = snap.data ?? [];
+
+          if (firms.isEmpty) {
             return const Center(
               child: Text(
                 'No approved firms yet.',
@@ -48,23 +56,16 @@ class ContractingFirmsInformationScreen extends StatelessWidget {
             );
           }
 
-          final docs = snap.data!.docs;
-
           return ListView.separated(
-            itemCount: docs.length,
-            separatorBuilder: (_, __) => const Divider(height: 1),
-            itemBuilder: (_, i) {
-              final data = docs[i].data();
-              final companyName =
-                  (data['companyName'] ?? 'Unknown Company') as String;
-              final city =
-                  (data['companyCity'] ?? '') as String;
-              final contact =
-                  (data['companyContact'] ?? '') as String;
+            itemCount: firms.length,
+            separatorBuilder: (context, index) =>
+                const Divider(height: 1),
+            itemBuilder: (context, i) {
+              final firm = firms[i];
 
               return ListTile(
                 title: Text(
-                  companyName,
+                  firm.companyName,
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -72,8 +73,8 @@ class ContractingFirmsInformationScreen extends StatelessWidget {
                 ),
                 subtitle: Text(
                   [
-                    if (city.isNotEmpty) city,
-                    if (contact.isNotEmpty) 'Tel: $contact',
+                    if (firm.city.isNotEmpty) firm.city,
+                    if (firm.contact.isNotEmpty) 'Tel: ${firm.contact}',
                   ].join(' • '),
                 ),
               );

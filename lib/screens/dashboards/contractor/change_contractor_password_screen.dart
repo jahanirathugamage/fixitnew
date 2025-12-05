@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:fixitnew/controllers/contractor/change_contractor_password_controller.dart';
 
 class ChangeContractorPasswordScreen extends StatefulWidget {
   const ChangeContractorPasswordScreen({super.key});
@@ -15,57 +15,38 @@ class _ChangeContractorPasswordScreenState
   final _newPass = TextEditingController();
   final _confirm = TextEditingController();
 
+  final _controller = ChangeContractorPasswordController();
+
   bool _saving = false;
   String? _error;
 
   Future<void> _change() async {
-    final user = FirebaseAuth.instance.currentUser;
-
-    if (user == null) {
-      setState(() => _error = "No user logged in");
-      return;
-    }
-
-    if (_current.text.trim().isEmpty ||
-        _newPass.text.trim().isEmpty ||
-        _confirm.text.trim().isEmpty) {
-      setState(() => _error = "All fields are required");
-      return;
-    }
-
-    if (_newPass.text.trim() != _confirm.text.trim()) {
-      setState(() => _error = "New passwords do not match");
-      return;
-    }
-
     setState(() {
       _saving = true;
       _error = null;
     });
 
-    try {
-      // Re-authenticate
-      final cred = EmailAuthProvider.credential(
-        email: user.email!,
-        password: _current.text.trim(),
-      );
+    final result = await _controller.changePassword(
+      currentPassword: _current.text,
+      newPassword: _newPass.text,
+      confirmPassword: _confirm.text,
+    );
 
-      await user.reauthenticateWithCredential(cred);
+    if (!mounted) return;
 
-      // Update password
-      await user.updatePassword(_newPass.text.trim());
-
-      if (!mounted) return;
-
+    if (result != null) {
+      // Error
+      setState(() {
+        _error = result;
+        _saving = false;
+      });
+    } else {
+      // Success
+      setState(() => _saving = false);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Password updated successfully")),
       );
-
       Navigator.pop(context);
-    } catch (e) {
-      setState(() => _error = e.toString());
-    } finally {
-      if (mounted) setState(() => _saving = false);
     }
   }
 
@@ -87,6 +68,14 @@ class _ChangeContractorPasswordScreenState
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _current.dispose();
+    _newPass.dispose();
+    _confirm.dispose();
+    super.dispose();
   }
 
   @override

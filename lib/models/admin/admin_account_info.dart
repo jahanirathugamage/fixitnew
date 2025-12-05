@@ -1,27 +1,21 @@
-// lib/models/admin/admin_user.dart
+// lib/models/admin/admin_account_info.dart
 
-class AdminUser {
-  final String id;
+class AdminAccountInfo {
   final String firstName;
   final String lastName;
   final String email;
-  final String role;
 
-  AdminUser({
-    required this.id,
+  AdminAccountInfo({
     required this.firstName,
     required this.lastName,
     required this.email,
-    required this.role,
   });
 
-  factory AdminUser.fromMap(String id, Map<String, dynamic> data) {
-    return AdminUser(
-      id: id,
+  factory AdminAccountInfo.fromMap(Map<String, dynamic> data) {
+    return AdminAccountInfo(
       firstName: (data['firstName'] ?? '') as String,
       lastName: (data['lastName'] ?? '') as String,
       email: (data['email'] ?? '') as String,
-      role: (data['role'] ?? 'admin') as String,
     );
   }
 
@@ -30,7 +24,6 @@ class AdminUser {
       'firstName': firstName,
       'lastName': lastName,
       'email': email,
-      'role': role,
     };
   }
 }

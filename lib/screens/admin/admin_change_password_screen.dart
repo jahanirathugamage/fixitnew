@@ -2,7 +2,8 @@
 // ignore_for_file: use_build_context_synchronously
 
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+
+import '../../controllers/admin/admin_change_password_controller.dart';
 
 class AdminChangePasswordScreen extends StatefulWidget {
   const AdminChangePasswordScreen({super.key});
@@ -17,6 +18,8 @@ class _AdminChangePasswordScreenState
   final _current = TextEditingController();
   final _new = TextEditingController();
   final _confirm = TextEditingController();
+
+  final _controller = AdminChangePasswordController();
 
   bool _loading = false;
   String? _error;
@@ -38,51 +41,33 @@ class _AdminChangePasswordScreenState
     final newPassword = _new.text.trim();
     final confirmPassword = _confirm.text.trim();
 
-    setState(() => _error = null);
+    final validationError = _controller.validatePasswords(
+      currentPassword: currentPassword,
+      newPassword: newPassword,
+      confirmPassword: confirmPassword,
+    );
 
-    if (currentPassword.isEmpty ||
-        newPassword.isEmpty ||
-        confirmPassword.isEmpty) {
-      setState(() => _error = 'Please fill all the fields.');
+    if (validationError != null) {
+      setState(() => _error = validationError);
       return;
     }
 
-    if (newPassword.length < 6) {
-      setState(() => _error = 'New password must be at least 6 characters.');
-      return;
-    }
-
-    if (newPassword != confirmPassword) {
-      setState(() => _error = 'New password and confirm password do not match.');
-      return;
-    }
-
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null || user.email == null) {
-      setState(() => _error = 'No logged in admin user.');
-      return;
-    }
-
-    setState(() => _loading = true);
+    setState(() {
+      _error = null;
+      _loading = true;
+    });
 
     try {
-      // Re-authenticate with current password
-      final cred = EmailAuthProvider.credential(
-        email: user.email!,
-        password: currentPassword,
+      await _controller.changePassword(
+        currentPassword: currentPassword,
+        newPassword: newPassword,
       );
 
-      await user.reauthenticateWithCredential(cred);
-
-      // Update password
-      await user.updatePassword(newPassword);
-
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Password changed successfully.')),
       );
       Navigator.pop(context);
-    } on FirebaseAuthException catch (e) {
-      setState(() => _error = e.message ?? 'Failed to change password.');
     } catch (e) {
       setState(() => _error = 'Failed to change password: $e');
     } finally {
@@ -128,7 +113,6 @@ class _AdminChangePasswordScreenState
       body: SafeArea(
         child: Column(
           children: [
-            // Header
             Padding(
               padding:
                   const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12),
@@ -151,11 +135,10 @@ class _AdminChangePasswordScreenState
                       ),
                     ),
                   ),
-                  const SizedBox(width: 40), // balance the back button space
+                  const SizedBox(width: 40),
                 ],
               ),
             ),
-
             Expanded(
               child: SingleChildScrollView(
                 padding:
@@ -167,8 +150,8 @@ class _AdminChangePasswordScreenState
                       controller: _current,
                       hint: 'Current Password',
                       obscure: _obscureCurrent,
-                      toggle: () =>
-                          setState(() => _obscureCurrent = !_obscureCurrent),
+                      toggle: () => setState(
+                          () => _obscureCurrent = !_obscureCurrent),
                     ),
                     const SizedBox(height: 16),
                     _passwordField(
@@ -183,11 +166,10 @@ class _AdminChangePasswordScreenState
                       controller: _confirm,
                       hint: 'Confirm Password',
                       obscure: _obscureConfirm,
-                      toggle: () =>
-                          setState(() => _obscureConfirm = !_obscureConfirm),
+                      toggle: () => setState(
+                          () => _obscureConfirm = !_obscureConfirm),
                     ),
                     const SizedBox(height: 20),
-
                     if (_error != null)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 8.0),
@@ -196,7 +178,6 @@ class _AdminChangePasswordScreenState
                           style: const TextStyle(color: Colors.red),
                         ),
                       ),
-
                     SizedBox(
                       width: double.infinity,
                       height: 52,

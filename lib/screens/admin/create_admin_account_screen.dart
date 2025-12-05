@@ -2,9 +2,8 @@
 // ignore_for_file: use_build_context_synchronously
 
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:cloud_functions/cloud_functions.dart';
+
+import '../../controllers/admin/admin_invite_controller.dart';
 
 class CreateAdminAccountScreen extends StatefulWidget {
   const CreateAdminAccountScreen({super.key});
@@ -18,6 +17,8 @@ class _CreateAdminAccountScreenState extends State<CreateAdminAccountScreen> {
   final _first = TextEditingController();
   final _last = TextEditingController();
   final _email = TextEditingController();
+
+  final _controller = AdminInviteController();
 
   bool _loading = false;
   String? _error;
@@ -35,75 +36,56 @@ class _CreateAdminAccountScreenState extends State<CreateAdminAccountScreen> {
     final last = _last.text.trim();
     final email = _email.text.trim();
 
-    setState(() => _error = null);
-
-    if (first.isEmpty || last.isEmpty || email.isEmpty || !email.contains("@")) {
-      setState(() =>
-          _error = "Please enter a valid first name, last name and email.");
+    // Local validation
+    final validationError = _controller.validate(first, last, email);
+    if (validationError != null) {
+      setState(() => _error = validationError);
       return;
     }
 
-    final currentUser = FirebaseAuth.instance.currentUser;
-    if (currentUser == null) {
-      setState(() => _error = "You must be logged in.");
-      return;
-    }
-
-    setState(() => _loading = true);
+    setState(() {
+      _error = null;
+      _loading = true;
+    });
 
     try {
-      // Optional: double-check role on client
-      final roleSnap = await FirebaseFirestore.instance
-          .collection("users")
-          .doc(currentUser.uid)
-          .get();
-
-      final role = roleSnap.data()?["role"];
-      if (role != "admin") {
-        setState(() =>
-            _error = "Only admins are allowed to create new admin accounts.");
-        _loading = false;
-        return;
-      }
-
-      // Call Cloud Function that:
-      //  - creates Firestore invite
-      //  - emails approval link to the new admin
-      final callable =
-          FirebaseFunctions.instance.httpsCallable("createAdminInvite");
-
-      await callable.call(<String, dynamic>{
-        "firstName": first,
-        "lastName": last,
-        "email": email,
-      });
+      await _controller.createInvite(
+        firstName: first,
+        lastName: last,
+        email: email,
+      );
 
       if (!mounted) return;
 
       await showDialog(
         context: context,
         builder: (_) => AlertDialog(
-          title: const Text("Admin request sent"),
+          title: const Text('Admin request sent'),
           content: Text(
-            "We’ve created an admin invitation for:\n\n"
-            "$first $last\n$email\n\n"
-            "They will receive an approval link by email. "
-            "After approval they’ll receive their password by email.",
+            'We’ve created an admin invitation for:\n\n'
+            '$first $last\n$email\n\n'
+            'They will receive an email with a link to set a password and '
+            'activate their admin account.',
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text("OK"),
+              child: const Text('OK'),
             ),
           ],
         ),
       );
 
       Navigator.pop(context);
-    } on FirebaseFunctionsException catch (e) {
-      setState(() => _error = e.message ?? "Function error: ${e.code}");
+    } on StateError catch (e) {
+      // Clean status errors from repo/functions
+      if (mounted) {
+        setState(() => _error = e.message);
+      }
     } catch (e) {
-      setState(() => _error = "Unexpected error: $e");
+      if (mounted) {
+        setState(() => _error = 'Unexpected error: $e');
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -116,7 +98,7 @@ class _CreateAdminAccountScreenState extends State<CreateAdminAccountScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // -------- HEADER (back + title) ----------
+            // Header
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
               child: Row(
@@ -131,6 +113,7 @@ class _CreateAdminAccountScreenState extends State<CreateAdminAccountScreen> {
               ),
             ),
 
+            // Form
             Expanded(
               child: SingleChildScrollView(
                 padding:
@@ -140,24 +123,24 @@ class _CreateAdminAccountScreenState extends State<CreateAdminAccountScreen> {
                   children: [
                     const SizedBox(height: 10),
                     const Text(
-                      "Create an admin\naccount",
+                      'Create an admin\naccount',
                       style: TextStyle(
-                        fontFamily: "Montserrat",
+                        fontFamily: 'Montserrat',
                         fontSize: 28,
                         fontWeight: FontWeight.w800,
                         height: 1.2,
                       ),
                     ),
                     const SizedBox(height: 30),
-
-                    _inputBox("First Name", _first),
+                    _inputBox('First Name', _first),
                     const SizedBox(height: 12),
-
-                    _inputBox("Last Name", _last),
+                    _inputBox('Last Name', _last),
                     const SizedBox(height: 12),
-
-                    _inputBox("Email", _email,
-                        keyboardType: TextInputType.emailAddress),
+                    _inputBox(
+                      'Email',
+                      _email,
+                      keyboardType: TextInputType.emailAddress,
+                    ),
                     const SizedBox(height: 18),
 
                     if (_error != null)
@@ -183,7 +166,7 @@ class _CreateAdminAccountScreenState extends State<CreateAdminAccountScreen> {
                                 ),
                               ),
                               child: const Text(
-                                "Register",
+                                'Register',
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontSize: 18,
@@ -197,7 +180,7 @@ class _CreateAdminAccountScreenState extends State<CreateAdminAccountScreen> {
               ),
             ),
 
-            // -------- BOTTOM ADMIN NAVIGATION ----------
+            // Bottom (stub) nav
             Container(
               decoration: const BoxDecoration(
                 border: Border(
@@ -210,22 +193,24 @@ class _CreateAdminAccountScreenState extends State<CreateAdminAccountScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   _AdminNavIcon(
-                    icon: Icons.list_alt, // Manage Services icon
-                    label: "Manage\nServices",
+                    icon: Icons.list_alt,
+                    label: 'Manage\nServices',
                     onTap: () => Navigator.pushNamed(
-                        context, "/dashboards/admin/manage_services"),
+                      context,
+                      '/dashboards/admin/manage_services',
+                    ),
                   ),
                   _AdminNavIcon(
-                    icon: Icons.bar_chart, // Analytics icon
-                    label: "Analytics",
-                    onTap: () => Navigator.pushNamed(
-                        context, "/dashboards/admin/analytics"),
+                    icon: Icons.bar_chart,
+                    label: 'Analytics',
+                    onTap: () =>
+                        Navigator.pushNamed(context, '/dashboards/admin/analytics'),
                   ),
                   _AdminNavIcon(
-                    icon: Icons.settings, // Settings icon
-                    label: "Settings",
-                    onTap: () => Navigator.pushNamed(
-                        context, "/dashboards/admin/settings"),
+                    icon: Icons.settings,
+                    label: 'Settings',
+                    onTap: () =>
+                        Navigator.pushNamed(context, '/dashboards/admin/settings'),
                   ),
                 ],
               ),
@@ -236,8 +221,11 @@ class _CreateAdminAccountScreenState extends State<CreateAdminAccountScreen> {
     );
   }
 
-  Widget _inputBox(String hint, TextEditingController controller,
-      {TextInputType keyboardType = TextInputType.text}) {
+  Widget _inputBox(
+    String hint,
+    TextEditingController controller, {
+    TextInputType keyboardType = TextInputType.text,
+  }) {
     return Container(
       decoration: BoxDecoration(
         border: Border.all(color: Colors.black, width: 1.5),

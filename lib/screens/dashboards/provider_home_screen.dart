@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+
+import 'package:fixitnew/controllers/provider/provider_home_controller.dart';
+import 'package:fixitnew/models/provider/provider_dashboard_model.dart';
 
 class ProviderHomeScreen extends StatefulWidget {
   const ProviderHomeScreen({super.key});
@@ -10,9 +11,11 @@ class ProviderHomeScreen extends StatefulWidget {
 }
 
 class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
-  String providerName = "Loading...";
-  String providerEmail = "Loading...";
-  bool loading = true;
+  final _controller = ProviderHomeController();
+
+  ProviderDashboardModel? _provider;
+  bool _loading = true;
+  String? _error;
 
   @override
   void initState() {
@@ -21,29 +24,19 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
   }
 
   Future<void> _loadProviderData() async {
-    final user = FirebaseAuth.instance.currentUser;
-
-    if (user == null) return;
     try {
-      final snap = await FirebaseFirestore.instance
-          .collection("providers") // ⚠ your provider collection
-          .doc(user.uid)
-          .get();
+      final result = await _controller.loadProvider();
+      if (!mounted) return;
 
       setState(() {
-        providerEmail = user.email ?? "No email";
-
-        providerName = snap.exists
-            ? "${snap["firstName"] ?? ''} ${snap["lastName"] ?? ''}".trim()
-            : "Provider";
-
-        loading = false;
+        _provider = result;
+        _loading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
-        providerEmail = user.email ?? "";
-        providerName = "Provider";
-        loading = false;
+        _error = e.toString();
+        _loading = false;
       });
     }
   }
@@ -52,9 +45,11 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final providerName = _provider?.name ?? 'Provider';
+    final providerEmail = _provider?.email ?? '';
+
     return Scaffold(
       backgroundColor: Colors.white,
-
       appBar: AppBar(
         title: const Text(
           "Provider Dashboard",
@@ -64,17 +59,14 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
         elevation: 0,
         centerTitle: true,
       ),
-
-      body: loading
+      body: _loading
           ? const Center(child: CircularProgressIndicator())
           : Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 20),
 
-                // ===========================
                 // PROFILE HEADER
-                // ===========================
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Row(
@@ -82,7 +74,8 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                       const CircleAvatar(
                         radius: 35,
                         backgroundColor: Colors.black12,
-                        child: Icon(Icons.person, size: 40, color: Colors.black),
+                        child:
+                            Icon(Icons.person, size: 40, color: Colors.black),
                       ),
                       const SizedBox(width: 16),
                       Column(
@@ -91,7 +84,9 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                           Text(
                             "Welcome $providerName",
                             style: const TextStyle(
-                                fontSize: 20, fontWeight: FontWeight.bold),
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                           const SizedBox(height: 4),
                           Text(
@@ -106,9 +101,16 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
 
                 const SizedBox(height: 30),
 
-                // ===========================
+                if (_error != null)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Text(
+                      _error!,
+                      style: const TextStyle(color: Colors.red),
+                    ),
+                  ),
+
                 // SETTINGS LIST
-                // ===========================
                 _TileP(
                   icon: Icons.person_outline,
                   text: "Profile",
@@ -127,9 +129,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
 
                 const Spacer(),
 
-                // ===========================
                 // LOGOUT BUTTON
-                // ===========================
                 Padding(
                   padding: const EdgeInsets.symmetric(
                       horizontal: 20, vertical: 20),
@@ -138,24 +138,31 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                     width: double.infinity,
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.black,
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10))),
+                        backgroundColor: Colors.black,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
                       onPressed: () async {
-                        await FirebaseAuth.instance.signOut();
-                        Navigator.pushNamedAndRemoveUntil(
-                            context, "/login", (route) => false);
+                        // Capture navigator BEFORE the await so we don't use context after
+                        final navigator = Navigator.of(context);
+                        await _controller.signOut();
+                        navigator.pushNamedAndRemoveUntil(
+                          "/login",
+                          (route) => false,
+                        );
                       },
-                      child: const Text("Logout", style: TextStyle(fontSize: 18, color: Colors.white)),
+                      child: const Text(
+                        "Logout",
+                        style:
+                            TextStyle(fontSize: 18, color: Colors.white),
+                      ),
                     ),
                   ),
                 ),
               ],
             ),
-
-      // ===========================
       // BOTTOM NAVIGATION
-      // ===========================
       bottomNavigationBar: Container(
         height: 75,
         decoration: const BoxDecoration(
@@ -192,15 +199,17 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
   }
 }
 
-// =====================================
 // REUSABLE TILE
-// =====================================
 class _TileP extends StatelessWidget {
   final IconData icon;
   final String text;
   final VoidCallback? onTap;
 
-  const _TileP({required this.icon, required this.text, this.onTap});
+  const _TileP({
+    required this.icon,
+    required this.text,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -222,15 +231,17 @@ class _TileP extends StatelessWidget {
   }
 }
 
-// =====================================
 // NAV BAR ITEM
-// =====================================
 class _NavItemP extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback? onTap;
 
-  const _NavItemP({required this.icon, required this.label, this.onTap});
+  const _NavItemP({
+    required this.icon,
+    required this.label,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {

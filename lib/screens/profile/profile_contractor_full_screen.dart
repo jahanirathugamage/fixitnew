@@ -1,13 +1,12 @@
 // lib/screens/profile/profile_contractor_full_screen.dart
-// UI UPDATED — LOGIC UNTOUCHED
+// MVC: View only – business logic handled by ContractorProfileController
 
 import 'dart:typed_data';
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+
+import 'package:fixitnew/controllers/contractor/contractor_profile_controller.dart';
 
 class ProfileContractorFullScreen extends StatefulWidget {
   const ProfileContractorFullScreen({super.key});
@@ -19,7 +18,10 @@ class ProfileContractorFullScreen extends StatefulWidget {
 
 class _ProfileContractorFullScreenState
     extends State<ProfileContractorFullScreen> {
-  // ---------- Controllers (unchanged logic) ----------
+  // ---------- Controller (business logic in MVC) ----------
+  final _profileController = ContractorProfileController();
+
+  // ---------- Text controllers (View state only) ----------
   final _first = TextEditingController();
   final _last = TextEditingController();
   final _nic = TextEditingController();
@@ -56,7 +58,7 @@ class _ProfileContractorFullScreenState
 
   bool _loading = false;
 
-  // ---------- PICKER ----------
+  // ---------- PICKER (UI only) ----------
   Future<void> _pickCert() async {
     try {
       final picked = await _picker.pickImage(
@@ -67,21 +69,12 @@ class _ProfileContractorFullScreenState
         final bytes = await picked.readAsBytes();
         setState(() => _certBytes = bytes);
       }
-    } catch (e) {}
-  }
-
-  // ---------- Encode image ----------
-  Future<String?> _uploadCert(String uid) async {
-    if (_certBytes == null) return null;
-    try {
-      final base64Str = base64Encode(_certBytes!);
-      return base64Str;
-    } catch (e) {
-      return null;
+    } catch (_) {
+      // You can optionally show an error snackbar here
     }
   }
 
-  // ---------- Validation ----------
+  // ---------- Validation (still view-level) ----------
   bool _validateRequiredFields() {
     if (_first.text.trim().isEmpty ||
         _nic.text.trim().isEmpty ||
@@ -89,18 +82,19 @@ class _ProfileContractorFullScreenState
         _company.text.trim().isEmpty ||
         _companyAddressLine1.text.trim().isEmpty ||
         _companyCity.text.trim().isEmpty) {
+      // OPTIONAL: show a snackbar
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please fill in all required fields.'),
+        ),
+      );
       return false;
     }
     return true;
   }
 
-  // ---------- SAVE ----------
+  // ---------- SAVE (calls controller = MVC) ----------
   Future<void> _saveContractor() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      return;
-    }
-
     if (!_validateRequiredFields()) return;
 
     setState(() {
@@ -108,26 +102,22 @@ class _ProfileContractorFullScreenState
     });
 
     try {
-      final certBase64 = await _uploadCert(user.uid);
+      // Collect verification checks
+      final selectedChecks = <String>[];
+      _checks.forEach((key, value) {
+        if (value && key != 'Other') {
+          selectedChecks.add(key);
+        }
+      });
 
-      final selectedChecks =
-          _checks.entries.where((e) => e.value).map((e) => e.key).toList();
-
-      if (_checks['Other'] == true && _otherMethod.text.trim().isNotEmpty) {
+      if (_checks['Other'] == true &&
+          _otherMethod.text.trim().isNotEmpty) {
         selectedChecks.add('Other: ${_otherMethod.text.trim()}');
       }
 
-      await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-        'role': 'contractor',
-        'email': user.email,
-        'phone': user.phoneNumber,
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-
-      await FirebaseFirestore.instance
-          .collection('contractors')
-          .doc(user.uid)
-          .set({
+      // Map to the *same* schema used by UpdateContractorProfile:
+      // companyAddress, address2, city
+      final formFields = <String, dynamic>{
         'firstName': _first.text.trim(),
         'lastName': _last.text.trim(),
         'nic': _nic.text.trim(),
@@ -135,34 +125,46 @@ class _ProfileContractorFullScreenState
         'companyName': _company.text.trim(),
         'companyEmail': _companyEmail.text.trim(),
         'companyContact': _companyContact.text.trim(),
-        'companyAddressLine1': _companyAddressLine1.text.trim(),
-        'companyAddressLine2': _companyAddressLine2.text.trim(),
-        'companyCity': _companyCity.text.trim(),
         'businessRegNo': _businessRegNo.text.trim(),
-        'businessCertBase64': certBase64,
-        'verificationMethods': selectedChecks,
-        'verified': false,
-        'registeredAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+        'companyAddress': _companyAddressLine1.text.trim(),
+        'address2': _companyAddressLine2.text.trim(),
+        'city': _companyCity.text.trim(),
+      };
+
+      // Delegate all business logic (auth, Firestore, base64, users/contractors)
+      await _profileController.saveProfile(
+        formFields: formFields,
+        verificationMethods: selectedChecks,
+        certBytes: _certBytes,
+      );
+
+      if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Contractor profile saved.')),
       );
 
-      // 🔁 Go to login screen (use the same route name as your app, e.g. '/login')
+      // Navigate to login (same as before)
       Navigator.pushNamedAndRemoveUntil(
         context,
-        '/login', // <-- make sure this matches your MaterialApp routes
+        '/login',
         (route) => false,
       );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to save profile: $e')),
+      );
     } finally {
-      setState(() {
-        _loading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _loading = false;
+        });
+      }
     }
   }
 
-  // ---------- NEW CLEAN INPUT ----------
+  // ---------- Clean input widget ----------
   Widget _input(TextEditingController c, String label) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
@@ -183,7 +185,7 @@ class _ProfileContractorFullScreenState
     );
   }
 
-  // ---------- NEW CHECKBOX STYLE ----------
+  // ---------- Checkbox widget ----------
   Widget _checkbox(String label) {
     return CheckboxListTile(
       value: _checks[label],
@@ -198,10 +200,27 @@ class _ProfileContractorFullScreenState
           fontWeight: FontWeight.w500,
         ),
       ),
-      activeColor: Colors.black, // BLACK CHECK
+      activeColor: Colors.black,
       checkColor: Colors.white,
       controlAffinity: ListTileControlAffinity.leading,
     );
+  }
+
+  @override
+  void dispose() {
+    _first.dispose();
+    _last.dispose();
+    _nic.dispose();
+    _personalContact.dispose();
+    _company.dispose();
+    _companyEmail.dispose();
+    _companyContact.dispose();
+    _businessRegNo.dispose();
+    _companyAddressLine1.dispose();
+    _companyAddressLine2.dispose();
+    _companyCity.dispose();
+    _otherMethod.dispose();
+    super.dispose();
   }
 
   @override
@@ -209,7 +228,6 @@ class _ProfileContractorFullScreenState
     return Scaffold(
       backgroundColor: Colors.white,
 
-      // ---------- NEW HEADER ----------
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
@@ -220,12 +238,13 @@ class _ProfileContractorFullScreenState
               Row(
                 children: [
                   IconButton(
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.chevron_left, size: 32)),
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.chevron_left, size: 32),
+                  ),
                   const Expanded(
                     child: Center(
                       child: Text(
-                        "Create an account",
+                        'Create an account',
                         style: TextStyle(
                           fontFamily: 'Montserrat',
                           fontSize: 26,
@@ -240,36 +259,38 @@ class _ProfileContractorFullScreenState
 
               const SizedBox(height: 10),
               const Text(
-                "Contractor Details",
+                'Contractor Details',
                 style: TextStyle(
-                    fontFamily: 'Montserrat',
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600),
+                  fontFamily: 'Montserrat',
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               const SizedBox(height: 10),
 
-              _input(_first, "First Name"),
-              _input(_last, "Last Name"),
-              _input(_nic, "NIC No."),
-              _input(_personalContact, "Contact Number"),
+              _input(_first, 'First Name'),
+              _input(_last, 'Last Name'),
+              _input(_nic, 'NIC No.'),
+              _input(_personalContact, 'Contact Number'),
 
               const SizedBox(height: 20),
               const Text(
-                "Company Details",
+                'Company Details',
                 style: TextStyle(
-                    fontFamily: 'Montserrat',
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600),
+                  fontFamily: 'Montserrat',
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               const SizedBox(height: 10),
 
-              _input(_company, "Company Name"),
-              _input(_companyAddressLine1, "Address line 1"),
-              _input(_companyAddressLine2, "Address line 2 (optional)"),
-              _input(_companyCity, "City"),
-              _input(_companyEmail, "Company email"),
-              _input(_companyContact, "Company contact"),
-              _input(_businessRegNo, "Business Registration No."),
+              _input(_company, 'Company Name'),
+              _input(_companyAddressLine1, 'Address line 1'),
+              _input(_companyAddressLine2, 'Address line 2 (optional)'),
+              _input(_companyCity, 'City'),
+              _input(_companyEmail, 'Company email'),
+              _input(_companyContact, 'Company contact'),
+              _input(_businessRegNo, 'Business Registration No.'),
 
               const SizedBox(height: 10),
 
@@ -286,7 +307,7 @@ class _ProfileContractorFullScreenState
                   child: _certBytes == null
                       ? const Center(
                           child: Text(
-                            "Upload Business Registration Certification",
+                            'Upload Business Registration Certification',
                             style: TextStyle(
                               fontFamily: 'Montserrat',
                               fontSize: 14,
@@ -309,7 +330,7 @@ class _ProfileContractorFullScreenState
               const SizedBox(height: 20),
 
               const Text(
-                "Service Provider Verification",
+                'Service Provider Verification',
                 style: TextStyle(
                   fontFamily: 'Montserrat',
                   fontSize: 16,
@@ -318,7 +339,7 @@ class _ProfileContractorFullScreenState
               ),
               const SizedBox(height: 4),
               const Text(
-                "* Select the methods you use to verify and maintain your workers’ credibility, safety and professionalism.",
+                '* Select the methods you use to verify and maintain your workers’ credibility, safety and professionalism.',
                 style: TextStyle(
                   fontFamily: 'Montserrat',
                   fontSize: 12,
@@ -329,12 +350,14 @@ class _ProfileContractorFullScreenState
 
               // ---------- CHECKBOXES ----------
               ..._checks.keys.map((key) {
-                if (key == "Other") {
-                  return Column(children: [
-                    _checkbox("Other"),
-                    if (_checks["Other"] == true)
-                      _input(_otherMethod, "Other method"),
-                  ]);
+                if (key == 'Other') {
+                  return Column(
+                    children: [
+                      _checkbox('Other'),
+                      if (_checks['Other'] == true)
+                        _input(_otherMethod, 'Other method'),
+                    ],
+                  );
                 }
                 return _checkbox(key);
               }),
@@ -353,7 +376,7 @@ class _ProfileContractorFullScreenState
                   Expanded(
                     child: RichText(
                       text: const TextSpan(
-                        text: "I agree to FixIt’s ",
+                        text: 'I agree to FixIt’s ',
                         style: TextStyle(
                           fontFamily: 'Montserrat',
                           fontSize: 13,
@@ -361,12 +384,13 @@ class _ProfileContractorFullScreenState
                         ),
                         children: [
                           TextSpan(
-                            text: "Terms & Conditions",
+                            text: 'Terms & Conditions',
                             style: TextStyle(
-                                fontWeight: FontWeight.w700,
-                                decoration: TextDecoration.underline),
+                              fontWeight: FontWeight.w700,
+                              decoration: TextDecoration.underline,
+                            ),
                           ),
-                          TextSpan(text: " to register my firm."),
+                          TextSpan(text: ' to register my firm.'),
                         ],
                       ),
                     ),
@@ -387,10 +411,11 @@ class _ProfileContractorFullScreenState
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.black,
                           shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12)),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
                         child: const Text(
-                          "Register",
+                          'Register',
                           style: TextStyle(
                             fontFamily: 'Montserrat',
                             fontSize: 16,

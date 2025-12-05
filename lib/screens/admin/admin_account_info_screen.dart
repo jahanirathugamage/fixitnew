@@ -1,6 +1,9 @@
+// lib/screens/admin/admin_account_info_screen.dart
+
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+
+import '../../models/admin/admin_account_info.dart';
+import '../../controllers/admin/admin_account_controller.dart';
 
 class AdminAccountInfoScreen extends StatefulWidget {
   const AdminAccountInfoScreen({super.key});
@@ -15,11 +18,11 @@ class _AdminAccountInfoScreenState extends State<AdminAccountInfoScreen> {
   final _last = TextEditingController();
   final _email = TextEditingController();
 
+  final _controller = AdminAccountController();
+
   bool _loading = true;
   bool _saving = false;
   String? _error;
-
-  User? get _user => FirebaseAuth.instance.currentUser;
 
   @override
   void initState() {
@@ -28,39 +31,24 @@ class _AdminAccountInfoScreenState extends State<AdminAccountInfoScreen> {
   }
 
   Future<void> _loadAdminProfile() async {
-    final user = _user;
-    if (user == null) {
-      setState(() {
-        _error = 'No logged in admin.';
-        _loading = false;
-      });
-      return;
-    }
-
     try {
-      // primary admin profile in /admins/{uid}
-      final doc = await FirebaseFirestore.instance
-          .collection('admins')
-          .doc(user.uid)
-          .get();
+      final info = await _controller.loadAccount();
 
-      if (doc.exists) {
-        final data = doc.data() ?? {};
-        final firstName = (data['firstName'] ?? '') as String;
-        final lastName = (data['lastName'] ?? '') as String;
-        final email =
-            (data['email'] ?? user.email ?? '') as String;
+      if (!mounted) return;
 
-        _first.text = firstName;
-        _last.text = lastName;
-        _email.text = email;
-      } else {
-        // fallback if admins/{uid} not yet created
-        _first.text = '';
-        _last.text = '';
-        _email.text = user.email ?? '';
+      if (info == null) {
+        setState(() {
+          _error = 'No logged in admin.';
+          _loading = false;
+        });
+        return;
       }
+
+      _first.text = info.firstName;
+      _last.text = info.lastName;
+      _email.text = info.email;
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _error = 'Failed to load profile: $e';
       });
@@ -73,12 +61,6 @@ class _AdminAccountInfoScreenState extends State<AdminAccountInfoScreen> {
 
   Future<void> _save() async {
     if (_saving) return;
-
-    final user = _user;
-    if (user == null) {
-      setState(() => _error = 'No authenticated admin.');
-      return;
-    }
 
     final first = _first.text.trim();
     final last = _last.text.trim();
@@ -95,31 +77,14 @@ class _AdminAccountInfoScreenState extends State<AdminAccountInfoScreen> {
       _error = null;
     });
 
+    final info = AdminAccountInfo(
+      firstName: first,
+      lastName: last,
+      email: email,
+    );
+
     try {
-      final uid = user.uid;
-
-      // 1) Update /admins/{uid}
-      await FirebaseFirestore.instance.collection('admins').doc(uid).set({
-        'firstName': first,
-        'lastName': last,
-        'email': email,
-        'role': 'admin',
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-
-      // 2) Update /users/{uid} (global user doc)
-      await FirebaseFirestore.instance.collection('users').doc(uid).set({
-        'role': 'admin',
-        'firstName': first,
-        'lastName': last,
-        'email': email,
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-
-      // Optional: update auth displayName (does NOT change login email)
-      try {
-        await user.updateDisplayName('$first $last');
-      } catch (_) {}
+      await _controller.saveAccount(info);
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -138,9 +103,6 @@ class _AdminAccountInfoScreenState extends State<AdminAccountInfoScreen> {
   }
 
   Future<void> _deleteAccount() async {
-    final user = _user;
-    if (user == null) return;
-
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -168,37 +130,7 @@ class _AdminAccountInfoScreenState extends State<AdminAccountInfoScreen> {
     if (confirmed != true) return;
 
     try {
-      final uid = user.uid;
-
-      // Delete Firestore docs (ignore if they don't exist)
-      await FirebaseFirestore.instance
-          .collection('admins')
-          .doc(uid)
-          .delete()
-          .catchError((_) {});
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .delete()
-          .catchError((_) {});
-
-      // Try to delete auth user (may fail if not recently logged in)
-      try {
-        await user.delete();
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'Could not delete login user (needs recent login). '
-                'Firestore admin profile was removed.\n$e',
-              ),
-            ),
-          );
-        }
-      }
-
-      await FirebaseAuth.instance.signOut();
+      await _controller.deleteAccount();
 
       if (!mounted) return;
       Navigator.pushNamedAndRemoveUntil(

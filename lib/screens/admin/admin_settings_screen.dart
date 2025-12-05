@@ -1,5 +1,8 @@
+// lib/screens/admin/admin_settings_screen.dart
+
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+
+import '../../controllers/admin/admin_settings_controller.dart';
 
 class AdminSettingsScreen extends StatelessWidget {
   const AdminSettingsScreen({super.key});
@@ -49,16 +52,10 @@ class AdminSettingsScreen extends StatelessWidget {
     );
   }
 
-  Future<void> _logout(BuildContext context) async {
-    await FirebaseAuth.instance.signOut();
-    Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
@@ -75,7 +72,6 @@ class AdminSettingsScreen extends StatelessWidget {
           ),
         ),
       ),
-
       body: SafeArea(
         child: Column(
           children: [
@@ -86,54 +82,57 @@ class AdminSettingsScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Account section
                     _sectionTitle('Account', 'Account Management'),
-
                     _settingsItem(
                       title: 'Account Information',
                       icon: Icons.person_outline,
-                      onTap: () =>
-                          Navigator.pushNamed(context, '/admin/admin_account_info_screen'),
+                      onTap: () => Navigator.pushNamed(
+                        context,
+                        '/admin/admin_account_info_screen',
+                      ),
                     ),
-
                     _settingsItem(
                       title: 'Create Admin Account',
                       icon: Icons.add_circle_outline,
-                      onTap: () =>
-                          Navigator.pushNamed(context, '/admin/create_admin_account_screen'),
+                      onTap: () => Navigator.pushNamed(
+                        context,
+                        '/admin/create_admin_account_screen',
+                      ),
                     ),
-
                     _settingsItem(
                       title: 'Change Password',
                       icon: Icons.lock_outline,
                       onTap: () {
-                        Navigator.pushNamed(context, '/admin/admin_change_password_screen');
+                        Navigator.pushNamed(
+                          context,
+                          '/admin/admin_change_password_screen',
+                        );
                       },
                     ),
-
                     const SizedBox(height: 16),
                     const Divider(thickness: 1, color: Colors.black12),
                     const SizedBox(height: 16),
-
-                    // Company section
                     _sectionTitle(
                       'Company',
                       'Contracting Companies Management',
                     ),
-
                     _settingsItem(
                       title: 'Contracting Firms Information',
                       icon: Icons.info_outline,
                       onTap: () {
-                        Navigator.pushNamed(context, '/admin/contracting_firms_information_screen');
+                        Navigator.pushNamed(
+                          context,
+                          '/admin/contracting_firms_information_screen',
+                        );
                       },
                     ),
-
                     _settingsItem(
                       title: 'Registration Approvals',
                       icon: Icons.verified_user_outlined,
-                      onTap: () =>
-                          Navigator.pushNamed(context, '/admin/contractor_approval_screen'),
+                      onTap: () => Navigator.pushNamed(
+                        context,
+                        '/admin/contractor_approval_screen',
+                      ),
                     ),
                   ],
                 ),
@@ -148,7 +147,18 @@ class AdminSettingsScreen extends StatelessWidget {
                 height: 52,
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () => _logout(context),
+                  onPressed: () async {
+                    final controller = AdminSettingsController();
+                    await controller.logout();
+
+                    if (!context.mounted) return;
+
+                    Navigator.pushNamedAndRemoveUntil(
+                      context,
+                      '/login',
+                      (route) => false,
+                    );
+                  },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.black,
                     foregroundColor: Colors.white,
@@ -178,21 +188,21 @@ class AdminSettingsScreen extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
                   _AdminNavIcon(
-                    icon: Icons.view_list_rounded, // Manage services
+                    icon: Icons.view_list_rounded,
                     isActive: false,
                     onTap: () {
                       // TODO: navigate to admin manage services
                     },
                   ),
                   _AdminNavIcon(
-                    icon: Icons.bar_chart, // Analytics
+                    icon: Icons.bar_chart,
                     isActive: false,
                     onTap: () {
                       // TODO: navigate to admin analytics
                     },
                   ),
                   _AdminNavIcon(
-                    icon: Icons.settings, // Settings
+                    icon: Icons.settings,
                     isActive: true,
                     onTap: () {
                       // already here

@@ -1,8 +1,7 @@
-// lib/screens/admin/contractor_approval_detail_screen.dart
-// Detail + approve / reject UI for one contractor firm.
-
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+
+import '../../controllers/admin/contractor_approvals_controller.dart';
+import '../../models/admin/contractor_verification.dart';
 
 class ContractorApprovalDetailScreen extends StatefulWidget {
   final String contractorId;
@@ -19,26 +18,13 @@ class ContractorApprovalDetailScreen extends StatefulWidget {
 
 class _ContractorApprovalDetailScreenState
     extends State<ContractorApprovalDetailScreen> {
+  final _controller = ContractorApprovalsController();
+
   bool _loading = true;
   String? _error;
 
   Map<String, dynamic>? _data;
-
-  // verification checkboxes (read-only, just mirrors Firestore)
-  final Map<String, bool> _checks = {
-    'NIC Verification': false,
-    'Police Clearance Report': false,
-    'Proof of Address Verification': false,
-    'Grama Niladhari Character Certificate': false,
-    'Trade Qualification Certificates (Ex. NVQ)': false,
-    'On-Site Skill Assessment': false,
-    'Interview Screening Process': false,
-    'Probation Period Monitoring': false,
-    'Workplace Safety & Conduct Briefing': false,
-    'Continual Performance Review': false,
-    'Previous Employer Reference Checks': false,
-    'Other': false,
-  };
+  Map<String, bool> _checks = {};
 
   final TextEditingController _approveNote = TextEditingController();
   final TextEditingController _rejectReason = TextEditingController();
@@ -54,12 +40,12 @@ class _ContractorApprovalDetailScreenState
 
   Future<void> _loadContractor() async {
     try {
-      final snap = await FirebaseFirestore.instance
-          .collection('contractors')
-          .doc(widget.contractorId)
-          .get();
+      final ContractorVerification? verification =
+          await _controller.loadContractor(widget.contractorId);
 
-      if (!snap.exists) {
+      if (!mounted) return;
+
+      if (verification == null) {
         setState(() {
           _error = 'Contractor not found';
           _loading = false;
@@ -67,22 +53,13 @@ class _ContractorApprovalDetailScreenState
         return;
       }
 
-      final data = snap.data() ?? {};
-
-      // verificationMethods is stored as List<String>
-      final methods = (data['verificationMethods'] ?? []) as List<dynamic>;
-      for (final key in _checks.keys.toList()) {
-        _checks[key] = methods.contains(key) ||
-            (key == 'Other' &&
-                methods.any((e) =>
-                    e is String && e.toLowerCase().startsWith('other')));
-      }
-
       setState(() {
-        _data = data;
+        _data = verification.rawData;
+        _checks = verification.checks;
         _loading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _error = 'Failed to load contractor: $e';
         _loading = false;
@@ -92,31 +69,25 @@ class _ContractorApprovalDetailScreenState
 
   Future<void> _approve() async {
     if (_approving || _rejecting) return;
+
     setState(() {
       _approving = true;
       _error = null;
     });
 
     try {
-      await FirebaseFirestore.instance
-          .collection('contractors')
-          .doc(widget.contractorId)
-          .update({
-        'verified': true,
-        'status': 'approved',
-        'approvalNote': _approveNote.text.trim(),
-        'verifiedAt': FieldValue.serverTimestamp(),
-      });
+      await _controller.approveContractor(
+        widget.contractorId,
+        _approveNote.text.trim(),
+      );
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Firm approved')),
       );
-      Navigator.pop(context); // back to list
+      Navigator.pop(context);
     } catch (e) {
-      if (mounted) {
-        setState(() => _error = 'Approve failed: $e');
-      }
+      if (mounted) setState(() => _error = 'Approve failed: $e');
     } finally {
       if (mounted) setState(() => _approving = false);
     }
@@ -136,21 +107,16 @@ class _ContractorApprovalDetailScreenState
     });
 
     try {
-      await FirebaseFirestore.instance
-          .collection('contractors')
-          .doc(widget.contractorId)
-          .update({
-        'verified': false,
-        'status': 'rejected',
-        'rejectionReason': _rejectReason.text.trim(),
-        'reviewedAt': FieldValue.serverTimestamp(),
-      });
+      await _controller.rejectContractor(
+        widget.contractorId,
+        _rejectReason.text.trim(),
+      );
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Firm rejected')),
       );
-      Navigator.pop(context); // back to list
+      Navigator.pop(context);
     } catch (e) {
       if (mounted) setState(() => _error = 'Reject failed: $e');
     } finally {
@@ -187,7 +153,8 @@ class _ContractorApprovalDetailScreenState
     final personalContact = (data['personalContact'] ?? '') as String;
 
     final companyName = (data['companyName'] ?? '') as String;
-    final address1 = (data['companyAddressLine1'] ?? data['companyAddress'] ?? '') as String;
+    final address1 =
+        (data['companyAddressLine1'] ?? data['companyAddress'] ?? '') as String;
     final address2 =
         (data['companyAddressLine2'] ?? data['address2'] ?? '') as String;
     final city = (data['companyCity'] ?? data['city'] ?? '') as String;
@@ -205,7 +172,6 @@ class _ContractorApprovalDetailScreenState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Contractor Details
               const SizedBox(height: 8),
               const Text(
                 'Contractor Details',
@@ -218,11 +184,8 @@ class _ContractorApprovalDetailScreenState
               _infoRow('Name', '$firstName $lastName'),
               _infoRow('NIC No.', nic),
               _infoRow('Contact No.', personalContact),
-
               const SizedBox(height: 16),
               const Divider(),
-
-              // Company Details
               const SizedBox(height: 16),
               const Text(
                 'Company Details',
@@ -235,19 +198,14 @@ class _ContractorApprovalDetailScreenState
               _infoRow('Company Name', companyName),
               _infoRow(
                 'Address',
-                [
-                  address1,
-                  address2,
-                  city,
-                ].where((s) => s.trim().isNotEmpty).join(', '),
+                [address1, address2, city]
+                    .where((s) => s.trim().isNotEmpty)
+                    .join(', '),
               ),
               _infoRow('Email', companyEmail),
               _infoRow('Contact No.', companyContact),
               _infoRow('BR No.', brNo),
-
               const SizedBox(height: 16),
-
-              // Business Cert Image
               Container(
                 width: double.infinity,
                 height: 220,
@@ -257,10 +215,7 @@ class _ContractorApprovalDetailScreenState
                 ),
                 child: _buildCertImage(certUrl),
               ),
-
               const SizedBox(height: 24),
-
-              // Service Provider Verification
               const Text(
                 'Service Provider Verification',
                 style: TextStyle(
@@ -275,14 +230,11 @@ class _ContractorApprovalDetailScreenState
                   contentPadding: EdgeInsets.zero,
                   title: Text(k),
                   value: _checks[k] ?? false,
-                  onChanged: null, // read-only
+                  onChanged: null,
                   controlAffinity: ListTileControlAffinity.leading,
                 );
               }),
-
               const SizedBox(height: 16),
-
-              // Note for approval
               TextField(
                 controller: _approveNote,
                 decoration: InputDecoration(
@@ -294,10 +246,7 @@ class _ContractorApprovalDetailScreenState
                   ),
                 ),
               ),
-
               const SizedBox(height: 12),
-
-              // Approve button
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -322,10 +271,7 @@ class _ContractorApprovalDetailScreenState
                       : const Text('Approve'),
                 ),
               ),
-
               const SizedBox(height: 18),
-
-              // Reason for rejection
               TextField(
                 controller: _rejectReason,
                 maxLines: 4,
@@ -339,10 +285,7 @@ class _ContractorApprovalDetailScreenState
                   ),
                 ),
               ),
-
               const SizedBox(height: 12),
-
-              // Reject button
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton(
@@ -364,7 +307,6 @@ class _ContractorApprovalDetailScreenState
                       : const Text('Reject'),
                 ),
               ),
-
               if (_error != null) ...[
                 const SizedBox(height: 10),
                 Text(
@@ -372,7 +314,6 @@ class _ContractorApprovalDetailScreenState
                   style: const TextStyle(color: Colors.red),
                 ),
               ],
-
               const SizedBox(height: 20),
             ],
           ),
@@ -401,9 +342,8 @@ class _ContractorApprovalDetailScreenState
   }
 
   Widget _infoRow(String label, String value) {
-    if (value.trim().isEmpty) {
-      return const SizedBox.shrink();
-    }
+    if (value.trim().isEmpty) return const SizedBox.shrink();
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 6.0),
       child: Row(
@@ -428,15 +368,13 @@ class _ContractorApprovalDetailScreenState
   }
 
   Widget _buildCertImage(String? url) {
-    // Because in your contractor app the cert can be saved as a *local* path,
-    // we only try network preview when it looks like a URL.
     if (url != null && url.startsWith('http')) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(8),
         child: Image.network(
           url,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) {
+          errorBuilder: (context, error, stackTrace) {
             return const Center(
               child: Text(
                 'Unable to load certificate image',

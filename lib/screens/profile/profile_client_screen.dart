@@ -2,12 +2,11 @@
 // ignore_for_file: use_build_context_synchronously
 
 import 'dart:typed_data';
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
+
+import 'package:fixitnew/controllers/client/client_profile_controller.dart';
 
 class ProfileClientScreen extends StatefulWidget {
   const ProfileClientScreen({super.key});
@@ -24,6 +23,8 @@ class _ProfileClientScreenState extends State<ProfileClientScreen> {
   Uint8List? _imageBytes; // works on web + mobile
   final ImagePicker _picker = ImagePicker();
 
+  final _profileController = ClientProfileController();
+
   bool _saving = false;
   String? _error;
 
@@ -39,34 +40,16 @@ class _ProfileClientScreenState extends State<ProfileClientScreen> {
         setState(() => _imageBytes = bytes);
       }
     } catch (e) {
-      setState(() => _error = "Failed to pick image: $e");
+      setState(() => _error = 'Failed to pick image: $e');
     }
   }
 
-  /// "Upload" image – now returns Base64 string to store in Firestore
-  Future<String?> _encodeImageToBase64() async {
-    if (_imageBytes == null) return null;
-    try {
-      return base64Encode(_imageBytes!);
-    } catch (e) {
-      setState(() => _error = "Image encode failed: $e");
-      return null;
-    }
-  }
-
-  // Save profile
+  // Save profile – delegates to controller (MVC)
   Future<void> _save() async {
     if (_first.text.isEmpty ||
         _last.text.isEmpty ||
         _phone.text.isEmpty) {
-      setState(() => _error = "All fields are required");
-      return;
-    }
-
-    final user = FirebaseAuth.instance.currentUser;
-
-    if (user == null) {
-      setState(() => _error = "User not logged in");
+      setState(() => _error = 'All fields are required');
       return;
     }
 
@@ -76,40 +59,31 @@ class _ProfileClientScreenState extends State<ProfileClientScreen> {
     });
 
     try {
-      final imageBase64 = await _encodeImageToBase64();
+      await _profileController.saveProfile(
+        firstName: _first.text.trim(),
+        lastName: _last.text.trim(),
+        phone: _phone.text.trim(),
+        imageBytes: _imageBytes,
+      );
 
-      // For Firestore rules
-      await FirebaseFirestore.instance
-          .collection("users")
-          .doc(user.uid)
-          .set({
-        "role": "client",
-        "email": user.email,
-      }, SetOptions(merge: true));
+      if (!mounted) return;
 
-      // Actual profile data
-      await FirebaseFirestore.instance
-          .collection("clients")
-          .doc(user.uid)
-          .set({
-        "firstName": _first.text.trim(),
-        "lastName": _last.text.trim(),
-        "phone": _phone.text.trim(),
-        "profileImageBase64": imageBase64, // <-- store Base64 here
-        "email": user.email,
-        "updatedAt": FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profile saved')),
+      );
 
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text("Profile saved")));
-
-      Navigator.pushReplacementNamed(context, "/dashboards/client/home_screen");
+      Navigator.pushReplacementNamed(
+        context,
+        '/dashboards/client/home_screen',
+      );
     } catch (e) {
-      setState(() => _error = "Error: $e");
+      setState(() => _error = 'Error: $e');
     } finally {
-      setState(() {
-        _saving = false;
-      });
+      if (mounted) {
+        setState(() {
+          _saving = false;
+        });
+      }
     }
   }
 
@@ -175,7 +149,7 @@ class _ProfileClientScreenState extends State<ProfileClientScreen> {
 
               // TITLE
               const Text(
-                "Create an\naccount",
+                'Create an\naccount',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 44,
@@ -201,8 +175,11 @@ class _ProfileClientScreenState extends State<ProfileClientScreen> {
                         color: Colors.white,
                       ),
                       child: _imageBytes == null
-                          ? const Icon(Icons.person,
-                              size: 60, color: Colors.grey)
+                          ? const Icon(
+                              Icons.person,
+                              size: 60,
+                              color: Colors.grey,
+                            )
                           : ClipOval(
                               child: Image.memory(
                                 _imageBytes!,
@@ -222,8 +199,11 @@ class _ProfileClientScreenState extends State<ProfileClientScreen> {
                           shape: BoxShape.circle,
                           color: Colors.black,
                         ),
-                        child: const Icon(Icons.add,
-                            color: Colors.white, size: 20),
+                        child: const Icon(
+                          Icons.add,
+                          color: Colors.white,
+                          size: 20,
+                        ),
                       ),
                     ),
                   ],
@@ -233,14 +213,20 @@ class _ProfileClientScreenState extends State<ProfileClientScreen> {
               const SizedBox(height: 40),
 
               // INPUT FIELDS
-              _buildInputField(hintText: "First Name", controller: _first),
-              const SizedBox(height: 16),
-
-              _buildInputField(hintText: "Last Name", controller: _last),
+              _buildInputField(
+                hintText: 'First Name',
+                controller: _first,
+              ),
               const SizedBox(height: 16),
 
               _buildInputField(
-                hintText: "Contact Number",
+                hintText: 'Last Name',
+                controller: _last,
+              ),
+              const SizedBox(height: 16),
+
+              _buildInputField(
+                hintText: 'Contact Number',
                 controller: _phone,
                 keyboardType: TextInputType.phone,
               ),
@@ -272,7 +258,7 @@ class _ProfileClientScreenState extends State<ProfileClientScreen> {
                   child: _saving
                       ? const CircularProgressIndicator(color: Colors.white)
                       : const Text(
-                          "Sign Up",
+                          'Sign Up',
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.w500,

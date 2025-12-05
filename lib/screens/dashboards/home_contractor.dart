@@ -1,6 +1,9 @@
+// lib/screens/dashboards/contractor/home_contractor.dart
+
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+
+import 'package:fixitnew/controllers/contractor/contractor_home_controller.dart';
+import 'package:fixitnew/models/contractor/contractor_dashboard_model.dart';
 
 class HomeContractor extends StatefulWidget {
   const HomeContractor({super.key});
@@ -10,9 +13,11 @@ class HomeContractor extends StatefulWidget {
 }
 
 class _HomeContractorState extends State<HomeContractor> {
-  String contractorName = "Loading...";
-  String contractorEmail = "Loading...";
-  bool loading = true;
+  final _controller = ContractorHomeController();
+
+  ContractorDashboardModel? _contractor;
+  bool _loading = true;
+  String? _error;
 
   @override
   void initState() {
@@ -21,29 +26,19 @@ class _HomeContractorState extends State<HomeContractor> {
   }
 
   Future<void> _loadContractorData() async {
-    final user = FirebaseAuth.instance.currentUser;
-
-    if (user == null) return;
     try {
-      final contractorSnap = await FirebaseFirestore.instance
-          .collection("contractors")
-          .doc(user.uid)
-          .get();
+      final result = await _controller.loadContractor();
+      if (!mounted) return;
 
       setState(() {
-        contractorEmail = user.email ?? "No email";
-
-        contractorName = contractorSnap.exists
-            ? "${contractorSnap["firstName"] ?? ''} ${contractorSnap["lastName"] ?? ''}".trim()
-            : "Contractor";
-
-        loading = false;
+        _contractor = result;
+        _loading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
-        contractorEmail = user.email ?? "";
-        contractorName = "Contractor";
-        loading = false;
+        _error = e.toString();
+        _loading = false;
       });
     }
   }
@@ -53,9 +48,11 @@ class _HomeContractorState extends State<HomeContractor> {
 
   @override
   Widget build(BuildContext context) {
+    final contractorName = _contractor?.name ?? 'Contractor';
+    final contractorEmail = _contractor?.email ?? '';
+
     return Scaffold(
       backgroundColor: Colors.white,
-
       appBar: AppBar(
         title: const Text(
           "Contractor Dashboard",
@@ -65,8 +62,7 @@ class _HomeContractorState extends State<HomeContractor> {
         elevation: 0,
         centerTitle: true,
       ),
-
-      body: loading
+      body: _loading
           ? const Center(child: CircularProgressIndicator())
           : Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -81,8 +77,11 @@ class _HomeContractorState extends State<HomeContractor> {
                       const CircleAvatar(
                         radius: 35,
                         backgroundColor: Colors.black12,
-                        child:
-                            Icon(Icons.engineering, size: 40, color: Colors.black),
+                        child: Icon(
+                          Icons.engineering,
+                          size: 40,
+                          color: Colors.black,
+                        ),
                       ),
                       const SizedBox(width: 16),
                       Column(
@@ -91,7 +90,9 @@ class _HomeContractorState extends State<HomeContractor> {
                           Text(
                             "Welcome $contractorName",
                             style: const TextStyle(
-                                fontSize: 20, fontWeight: FontWeight.bold),
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                           const SizedBox(height: 4),
                           Text(
@@ -106,46 +107,65 @@ class _HomeContractorState extends State<HomeContractor> {
 
                 const SizedBox(height: 30),
 
+                if (_error != null)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Text(
+                      _error!,
+                      style: const TextStyle(color: Colors.red),
+                    ),
+                  ),
+
                 // ----------- SETTINGS LIST -----------
                 _TileC(
                   icon: Icons.person_outline,
                   text: "Account Information",
-                  onTap: () => _go("/dashboards/contractor/update_contractor_profile"),
+                  onTap: () => _go(
+                      "/dashboards/contractor/update_contractor_profile"),
                 ),
-
                 _TileC(
                   icon: Icons.lock_outline,
                   text: "Change Password",
-                  onTap: () => _go("/dashboards/contractor/change_contractor_password"),
+                  onTap: () =>
+                      _go("/dashboards/contractor/change_contractor_password"),
                 ),
-
                 _TileC(
                   icon: Icons.credit_card,
                   text: "Bank Details",
-                  onTap: () => _go("/dashboards/contractor/contractor_bank_details"),
+                  onTap: () =>
+                      _go("/dashboards/contractor/contractor_bank_details"),
                 ),
 
                 const Spacer(),
 
                 // ----------- LOGOUT BUTTON -----------
                 Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 20, vertical: 20),
                   child: SizedBox(
                     height: 55,
                     width: double.infinity,
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.black,
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10))),
+                        backgroundColor: Colors.black,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
                       onPressed: () async {
-                        await FirebaseAuth.instance.signOut();
-                        Navigator.pushNamedAndRemoveUntil(
-                            context, "/login", (route) => false);
+                        // avoid using context after await
+                        final navigator = Navigator.of(context);
+                        await _controller.signOut();
+                        navigator.pushNamedAndRemoveUntil(
+                          "/login",
+                          (route) => false,
+                        );
                       },
-                      child:
-                          const Text("Logout", style: TextStyle(fontSize: 18, color: Colors.white)),
+                      child: const Text(
+                        "Logout",
+                        style:
+                            TextStyle(fontSize: 18, color: Colors.white),
+                      ),
                     ),
                   ),
                 ),
@@ -165,17 +185,20 @@ class _HomeContractorState extends State<HomeContractor> {
             _NavItemC(
               icon: Icons.business_center_outlined,
               label: 'Jobs',
-              onTap: () => _go("/dashboards/contractor/contractor_jobs"),
+              onTap: () =>
+                  _go("/dashboards/contractor/contractor_jobs"),
             ),
             _NavItemC(
               icon: Icons.chat_bubble_outline,
               label: 'Service Providers',
-              onTap: () => _go("/dashboards/contractor/contractor_service_providers"),
+              onTap: () => _go(
+                  "/dashboards/contractor/contractor_service_providers"),
             ),
             _NavItemC(
               icon: Icons.person_outline,
               label: 'Profile',
-              onTap: () => _go("/dashboards/contractor/contractor_profile"),
+              onTap: () =>
+                  _go("/dashboards/contractor/contractor_profile"),
             ),
           ],
         ),

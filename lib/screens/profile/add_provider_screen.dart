@@ -3,17 +3,15 @@
 // lib/screens/profile/add_provider_screen.dart
 //
 // Add Provider screen for fixit_app
-// - Saves provider profile image as Base64 string in Firestore
-// - Calls Cloud Function `createProviderAccount` to create Auth user + send password email
+// - UI only (MVC View)
+// - Uses ContractorProvidersController for all data / Firebase logic
 
-import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:cloud_functions/cloud_functions.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+
+import 'package:fixitnew/controllers/contractor/contractor_providers_controller.dart';
 
 class AddProviderScreen extends StatefulWidget {
   const AddProviderScreen({super.key});
@@ -46,7 +44,7 @@ class _AddProviderScreenState extends State<AddProviderScreen> {
   final ImagePicker _picker = ImagePicker();
 
   // Skills
-  final List<String> _allSkillNames = [
+  final List<String> _allSkillNames = const [
     'Electrical',
     'Plumbing',
     'Cleaning',
@@ -58,6 +56,9 @@ class _AddProviderScreenState extends State<AddProviderScreen> {
   ];
 
   final Map<String, SkillModel> _skills = {};
+
+  // MVC controller
+  final _controller = ContractorProvidersController();
 
   // State
   bool _saving = false;
@@ -106,17 +107,6 @@ class _AddProviderScreenState extends State<AddProviderScreen> {
     }
   }
 
-  // encode to Base64 and return string (or null if no image)
-  Future<String?> _uploadProfileImage() async {
-    if (_profileImageBytes == null) return null;
-    try {
-      return base64Encode(_profileImageBytes!);
-    } catch (e) {
-      setState(() => _error = 'Profile image encode failed: $e');
-      return null;
-    }
-  }
-
   void _toggleLanguage(String key, bool? value) {
     setState(() {
       _languages[key] = value ?? false;
@@ -124,8 +114,7 @@ class _AddProviderScreenState extends State<AddProviderScreen> {
   }
 
   bool _validateForm() {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
+    if (!_controller.isContractorLoggedIn()) {
       setState(() => _error =
           'You must be signed in as a contractor to create a provider.');
       return false;
@@ -169,71 +158,54 @@ class _AddProviderScreenState extends State<AddProviderScreen> {
       _error = null;
     });
 
-    final user = FirebaseAuth.instance.currentUser!;
-    final contractorUid = user.uid;
-
-    final providerRef = FirebaseFirestore.instance
-        .collection('contractors')
-        .doc(contractorUid)
-        .collection('providers')
-        .doc();
-
     try {
-      final profileBase64 = await _uploadProfileImage();
-
+      // Build skills maps for controller
       final skillsForFs = <Map<String, dynamic>>[];
       for (var skill in _skills.values) {
-        if (skill.shouldInclude()) skillsForFs.add(skill.toMap());
+        if (skill.shouldInclude()) {
+          skillsForFs.add(skill.toMap());
+        }
       }
 
-      final languages =
-          _languages.entries.where((e) => e.value).map((e) => e.key).toList();
+      final languages = _languages.entries
+          .where((e) => e.value)
+          .map((e) => e.key)
+          .toList();
 
       final firstName = _firstName.text.trim();
       final lastName = _lastName.text.trim();
       final email = _email.text.trim();
       final password = _password.text.trim();
 
-      final data = {
-        'firstName': firstName,
-        'lastName': lastName,
-        'gender': _gender,
-        'email': email,
-        'phone': _phone.text.trim(),
-        'address1': _address1.text.trim(),
-        'address2': _address2.text.trim(),
-        'city': _city.text.trim(),
-        'profileImageBase64': profileBase64,
-        'languages': languages,
-        'skills': skillsForFs,
-        'createdAt': FieldValue.serverTimestamp(),
-      };
-
-      // 1️⃣ Save provider profile under contractor
-      await providerRef.set(data);
-
-      // 2️⃣ Call Cloud Function to create auth user + send email
-      final callable =
-          FirebaseFunctions.instance.httpsCallable('createProviderAccount');
-      await callable.call(<String, dynamic>{
-        'firstName': firstName,
-        'lastName': lastName,
-        'email': email,
-        'password': password,
-        'providerDocId': providerRef.id,
-      });
+      final errorMessage = await _controller.createProvider(
+        firstName: firstName,
+        lastName: lastName,
+        gender: _gender,
+        email: email,
+        password: password,
+        phone: _phone.text.trim(),
+        address1: _address1.text.trim(),
+        address2: _address2.text.trim(),
+        city: _city.text.trim(),
+        languages: languages,
+        skills: skillsForFs,
+        profileImageBytes: _profileImageBytes,
+      );
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Service provider added. Login details have been emailed to the provider.',
+
+      if (errorMessage == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Service provider added. Login details have been emailed to the provider.',
+            ),
           ),
-        ),
-      );
-      Navigator.of(context).pop();
-    } catch (e) {
-      setState(() => _error = e.toString());
+        );
+        Navigator.of(context).pop();
+      } else {
+        setState(() => _error = errorMessage);
+      }
     } finally {
       if (mounted) {
         setState(() => _saving = false);
@@ -458,7 +430,8 @@ class _AddProviderScreenState extends State<AddProviderScreen> {
                         style: TextStyle(fontWeight: FontWeight.w600),
                       ),
                       TextButton.icon(
-                        onPressed: () => _addCertification(skill.name),
+                        onPressed: () =>
+                            _addCertification(skill.name),
                         icon: const Icon(Icons.add),
                         label: const Text('Add'),
                       ),
@@ -660,7 +633,7 @@ class _AddProviderScreenState extends State<AddProviderScreen> {
           const SizedBox(width: 10),
           const Expanded(
             child: Text(
-              "Create a Service\nProvider Account",
+              'Create a Service\nProvider Account',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
@@ -732,9 +705,7 @@ class _AddProviderScreenState extends State<AddProviderScreen> {
                     const SizedBox(height: 24),
                     _sectionTitle('Languages'),
                     const SizedBox(height: 8),
-                    ..._languages.keys
-                        .map((lang) => _langCheckbox(lang))
-                        ,
+                    ..._languages.keys.map((lang) => _langCheckbox(lang)),
                     if (_error != null)
                       Padding(
                         padding: const EdgeInsets.only(top: 12),

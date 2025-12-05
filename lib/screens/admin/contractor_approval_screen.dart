@@ -1,23 +1,20 @@
+// lib/screens/admin/contractor_approval_screen.dart
+
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+
+import '../../controllers/admin/contractor_approvals_controller.dart';
+import '../../models/admin/contracting_firm.dart';
 import 'contractor_approval_detail_screen.dart';
 
 class ContractorApprovalScreen extends StatelessWidget {
   const ContractorApprovalScreen({super.key});
 
-  // Stream of all unverified contractors
-  Stream<QuerySnapshot> _pendingContractors() {
-    return FirebaseFirestore.instance
-        .collection("contractors")
-        .where("verified", isEqualTo: false)
-        .snapshots();
-  }
-
   @override
   Widget build(BuildContext context) {
+    final controller = ContractorApprovalsController();
+
     return Scaffold(
       backgroundColor: Colors.white,
-
       appBar: AppBar(
         elevation: 0,
         backgroundColor: Colors.white,
@@ -27,16 +24,15 @@ class ContractorApprovalScreen extends StatelessWidget {
         ),
         centerTitle: true,
         title: const Text(
-          "Registration Approvals",
+          'Registration Approvals',
           style: TextStyle(
             color: Colors.black,
             fontWeight: FontWeight.w700,
           ),
         ),
       ),
-
-      body: StreamBuilder<QuerySnapshot>(
-        stream: _pendingContractors(),
+      body: StreamBuilder<List<ContractingFirm>>(
+        stream: controller.pendingContractorsStream(),
         builder: (context, snap) {
           if (snap.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -45,36 +41,32 @@ class ContractorApprovalScreen extends StatelessWidget {
           if (snap.hasError) {
             return Center(
               child: Text(
-                "Error: ${snap.error}",
+                'Error: ${snap.error}',
                 style: const TextStyle(color: Colors.red),
               ),
             );
           }
 
-          if (!snap.hasData || snap.data!.docs.isEmpty) {
+          final firms = snap.data ?? [];
+
+          if (firms.isEmpty) {
             return const Center(
               child: Text(
-                "No pending firms.",
+                'No pending firms.',
                 style: TextStyle(color: Colors.grey),
               ),
             );
           }
 
-          final docs = snap.data!.docs;
-
           return ListView.separated(
-            itemCount: docs.length,
-            separatorBuilder: (_, __) => const Divider(
+            itemCount: firms.length,
+            separatorBuilder: (_, unused) => const Divider(
               height: 1,
               color: Colors.black12,
             ),
-            itemBuilder: (_, i) {
-              final doc = docs[i];
-              final data = doc.data() as Map<String, dynamic>;
-              final contractorId = doc.id;
 
-              final companyName =
-                  (data["companyName"] ?? "Unknown Company") as String;
+            itemBuilder: (_, i) {
+              final firm = firms[i];
 
               return Padding(
                 padding:
@@ -83,7 +75,7 @@ class ContractorApprovalScreen extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        companyName,
+                        firm.companyName,
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
@@ -109,13 +101,13 @@ class ContractorApprovalScreen extends StatelessWidget {
                             context,
                             MaterialPageRoute(
                               builder: (_) => ContractorApprovalDetailScreen(
-                                contractorId: contractorId,
+                                contractorId: firm.id,
                               ),
                             ),
                           );
                         },
                         child: const Text(
-                          "Check",
+                          'Check',
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,

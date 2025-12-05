@@ -1,6 +1,8 @@
+// lib/screens/dashboards/contractor/contractor_service_providers.dart
+
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:fixitnew/controllers/contractor/contractor_providers_controller.dart';
 
 class ContractorServiceProviders extends StatefulWidget {
   const ContractorServiceProviders({super.key});
@@ -12,9 +14,11 @@ class ContractorServiceProviders extends StatefulWidget {
 
 class _ContractorServiceProvidersState
     extends State<ContractorServiceProviders> {
+  final _controller = ContractorProvidersController();
+
   @override
   Widget build(BuildContext context) {
-    final contractorId = FirebaseAuth.instance.currentUser?.uid;
+    final contractorId = _controller.getCurrentContractorId();
 
     if (contractorId == null) {
       return const Scaffold(
@@ -107,11 +111,7 @@ class _ContractorServiceProvidersState
 
                     // ---------------- Firestore Provider List -------------------
                     StreamBuilder<QuerySnapshot>(
-                      stream: FirebaseFirestore.instance
-                          .collection("contractors")
-                          .doc(contractorId)
-                          .collection("providers")
-                          .snapshots(),
+                      stream: _controller.providersStream(contractorId),
                       builder: (context, snapshot) {
                         if (snapshot.connectionState ==
                             ConnectionState.waiting) {
@@ -121,7 +121,8 @@ class _ContractorServiceProvidersState
                           );
                         }
 
-                        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                        if (!snapshot.hasData ||
+                            snapshot.data!.docs.isEmpty) {
                           return const Padding(
                             padding: EdgeInsets.all(20),
                             child: Text(
@@ -133,12 +134,13 @@ class _ContractorServiceProvidersState
 
                         return Column(
                           children: snapshot.data!.docs.map((doc) {
-                            final data = doc.data() as Map<String, dynamic>;
+                            final data =
+                                doc.data() as Map<String, dynamic>;
                             final name =
                                 "${data['firstName'] ?? ''} ${data['lastName'] ?? ''}"
                                     .trim();
-                            final profileImg = (data['profileImage'] as String?)
-                                ?.trim();
+                            final profileImg =
+                                (data['profileImage'] as String?)?.trim();
                             final imageUrl =
                                 (profileImg == null || profileImg.isEmpty)
                                     ? null
@@ -148,7 +150,8 @@ class _ContractorServiceProvidersState
                               context: context,
                               contractorId: contractorId,
                               providerId: doc.id,
-                              name: name.isEmpty ? 'Unnamed Provider' : name,
+                              name:
+                                  name.isEmpty ? 'Unnamed Provider' : name,
                               imageUrl: imageUrl,
                             );
                           }).toList(),
@@ -229,7 +232,8 @@ class _ContractorServiceProvidersState
             child: ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: imageUrl == null
-                  ? const Icon(Icons.person, size: 30, color: Colors.grey)
+                  ? const Icon(Icons.person,
+                      size: 30, color: Colors.grey)
                   : Image.network(
                       imageUrl,
                       fit: BoxFit.cover,
@@ -256,7 +260,7 @@ class _ContractorServiceProvidersState
 
                 Row(
                   children: [
-                    // ------------------ Manage Button ------------------
+                    // Manage Button
                     Expanded(
                       child: ElevatedButton(
                         onPressed: () {
@@ -290,72 +294,75 @@ class _ContractorServiceProvidersState
 
                     const SizedBox(width: 8),
 
-                    // ------------------ Delete Button ------------------
+                    // Delete Button
                     Expanded(
                       child: OutlinedButton(
                         onPressed: () async {
-                          // Confirm before delete
-                          final confirm = await showDialog<bool>(
-                                context: context,
-                                builder: (ctx) => AlertDialog(
-                                  title: const Text('Delete Provider'),
-                                  content: const Text(
-                                      'Are you sure you want to delete this provider?'),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () =>
-                                          Navigator.of(ctx).pop(false),
-                                      child: const Text('Cancel'),
+                          final messenger =
+                              ScaffoldMessenger.of(context);
+
+                          final confirm =
+                              await showDialog<bool>(
+                                    context: context,
+                                    builder: (ctx) => AlertDialog(
+                                      title: const Text(
+                                          'Delete Provider'),
+                                      content: const Text(
+                                          'Are you sure you want to delete this provider?'),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () =>
+                                              Navigator.of(ctx)
+                                                  .pop(false),
+                                          child: const Text('Cancel'),
+                                        ),
+                                        TextButton(
+                                          onPressed: () =>
+                                              Navigator.of(ctx)
+                                                  .pop(true),
+                                          child: const Text(
+                                            'Delete',
+                                            style: TextStyle(
+                                              color: Colors.redAccent,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                    TextButton(
-                                      onPressed: () =>
-                                          Navigator.of(ctx).pop(true),
-                                      child: const Text(
-                                        'Delete',
-                                        style:
-                                            TextStyle(color: Colors.redAccent),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ) ??
-                              false;
+                                  ) ??
+                                  false;
 
-                          if (!confirm) return;
+                          if (!confirm || !context.mounted) return;
 
-                          try {
-                            await FirebaseFirestore.instance
-                                .collection("contractors")
-                                .doc(contractorId)
-                                .collection("providers")
-                                .doc(providerId)
-                                .delete();
+                          final errorMessage =
+                              await _controller.deleteProvider(
+                            contractorId: contractorId,
+                            providerId: providerId,
+                          );
 
-                            if (!mounted) return;
+                          if (!context.mounted) return;
 
-                            ScaffoldMessenger.of(context).showSnackBar(
+                          if (errorMessage == null) {
+                            messenger.showSnackBar(
                               const SnackBar(
-                                content: Text("Provider deleted successfully"),
+                                content: Text(
+                                    "Provider deleted successfully"),
                               ),
                             );
-                            // No need to pop – StreamBuilder will refresh list
-                          } catch (e) {
-                            if (!mounted) return;
-
-                            ScaffoldMessenger.of(context).showSnackBar(
+                          } else {
+                            messenger.showSnackBar(
                               SnackBar(
-                                content: Text(
-                                  "Failed to delete provider: $e",
-                                ),
+                                content: Text(errorMessage),
                               ),
                             );
                           }
                         },
                         style: OutlinedButton.styleFrom(
                           foregroundColor: Colors.black,
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          side:
-                              const BorderSide(color: Colors.black, width: 1.5),
+                          padding: const EdgeInsets.symmetric(
+                              vertical: 10),
+                          side: const BorderSide(
+                              color: Colors.black, width: 1.5),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(6),
                           ),
