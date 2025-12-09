@@ -1,10 +1,18 @@
+// lib/repositories/contractor/provider_repository.dart
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fixitnew/models/contractor/service_provider.dart';
 
 class ProviderRepository {
-  final _auth = FirebaseAuth.instance;
-  final _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth;
+  final FirebaseFirestore _firestore;
+
+  ProviderRepository({
+    FirebaseAuth? auth,
+    FirebaseFirestore? firestore,
+  })  : _auth = auth ?? FirebaseAuth.instance,
+        _firestore = firestore ?? FirebaseFirestore.instance;
 
   String? get contractorId => _auth.currentUser?.uid;
 
@@ -71,6 +79,11 @@ class ProviderRepository {
   // PROVIDER LIST STREAM
   // -------------------------
   Stream<QuerySnapshot> providerStream() {
+    if (contractorId == null) {
+      // Empty stream if not authenticated
+      return const Stream.empty();
+    }
+
     return _firestore
         .collection("contractors")
         .doc(contractorId)

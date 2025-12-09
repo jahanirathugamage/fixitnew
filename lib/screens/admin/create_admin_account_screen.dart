@@ -2,7 +2,6 @@
 // ignore_for_file: use_build_context_synchronously
 
 import 'package:flutter/material.dart';
-
 import '../../controllers/admin/admin_invite_controller.dart';
 
 class CreateAdminAccountScreen extends StatefulWidget {

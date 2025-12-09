@@ -4,13 +4,13 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+
+import 'package:fixitnew/backend/provider_api.dart';
 
 class ContractorProvidersController {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseFunctions _functions = FirebaseFunctions.instance;
 
   /// Get currently logged-in contractor ID
   String? getCurrentContractorId() => _auth.currentUser?.uid;
@@ -91,7 +91,8 @@ class ContractorProvidersController {
   /// Create a new provider:
   ///  - Saves provider data under contractors/{contractorUid}/providers/{providerDocId}
   ///  - Encodes profile image (if provided) as Base64
-  ///  - Calls Cloud Function `createProviderAccount` to create Auth user + send email
+  ///  - Calls Vercel API `create-provider-account` (via ProviderApi)
+  ///    to create Auth user + send email
   ///
   /// Returns `null` on success, or an error message string on failure.
   Future<String?> createProvider({
@@ -144,19 +145,17 @@ class ContractorProvidersController {
         'createdAt': FieldValue.serverTimestamp(),
       };
 
-      // 1️⃣ Save provider profile under contractor
+      // 1️⃣ Save provider profile under contractor in Firestore
       await providerRef.set(data);
 
-      // 2️⃣ Call Cloud Function to create Auth user + send login details
-      final callable =
-          _functions.httpsCallable('createProviderAccount');
-      await callable.call(<String, dynamic>{
-        'firstName': firstName,
-        'lastName': lastName,
-        'email': email,
-        'password': password,
-        'providerDocId': providerRef.id,
-      });
+      // 2️⃣ Call Vercel backend to create Auth user + send login details
+      await ProviderApi.createProviderAccount(
+        firstName: firstName,
+        lastName: lastName,
+        email: email,
+        password: password,
+        providerDocId: providerRef.id,
+      );
 
       return null; // success
     } catch (e) {
