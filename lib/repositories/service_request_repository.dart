@@ -30,7 +30,7 @@ class ServiceRequestRepository {
       throw StateError('No logged in user');
     }
 
-    // ✅ rename "sum" → "total" (or anything) to avoid the lint
+    // Total for all selected tasks
     final int serviceTotal = items.fold<int>(
       0,
       (total, item) => total + item.lineTotal,
@@ -38,12 +38,17 @@ class ServiceRequestRepository {
 
     final int totalAmount = serviceTotal + visitationFee + platformFee;
 
-    final doc = await _firestore.collection('jobs').add({
+    // Create a doc so we can store jobId as a field as well
+    final docRef = _firestore.collection('jobs').doc();
+
+    await docRef.set({
+      'jobId': docRef.id,
       'clientId': user.uid,
       'category': category,
       'location': location,
       'createdAt': FieldValue.serverTimestamp(),
-      'status': 'pending',
+      'updatedAt': FieldValue.serverTimestamp(),
+      'status': 'pending', // or 'pending_provider_match' if you prefer
       'isNow': isNow,
       'scheduledDate': Timestamp.fromDate(scheduledAt),
       'languagePrefs': languages,
@@ -56,6 +61,6 @@ class ServiceRequestRepository {
       },
     });
 
-    return doc.id;
+    return docRef.id;
   }
 }

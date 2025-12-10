@@ -17,10 +17,11 @@ class ServiceRequestController {
     required List<ServiceRequestItem> items,
     required int visitationFee,
     required int platformFee,
+    required String category,
   }) {
     // ✅ now using the injected repository instance
     return _repository.createJob(
-      category: 'plumbing',
+      category: category,
       location: location,
       isNow: isNow,
       scheduledAt: scheduledAt,
