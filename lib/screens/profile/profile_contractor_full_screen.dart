@@ -76,22 +76,55 @@ class _ProfileContractorFullScreenState
 
   // ---------- Validation (still view-level) ----------
   bool _validateRequiredFields() {
+    final phone = _personalContact.text.trim();
+
+    // --- Required fields check ---
     if (_first.text.trim().isEmpty ||
         _nic.text.trim().isEmpty ||
-        _personalContact.text.trim().isEmpty ||
+        phone.isEmpty ||
         _company.text.trim().isEmpty ||
         _companyAddressLine1.text.trim().isEmpty ||
         _companyCity.text.trim().isEmpty) {
-      // OPTIONAL: show a snackbar
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please fill in all required fields.'),
-        ),
-      );
+      _showError("Please fill in all required fields.");
       return false;
     }
+
+    // --- Phone number must be numbers only ---
+    if (!RegExp(r'^[0-9]+$').hasMatch(phone)) {
+      _showError("Contact number must contain digits only.");
+      return false;
+    }
+
+    // --- Phone number must be exactly 10 digits ---
+    if (phone.length != 10) {
+      _showError("Contact number must be exactly 10 digits.");
+      return false;
+    }
+
     return true;
   }
+
+  // Reusable error snackbar
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: Colors.black,
+        content: Text(
+          message,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.all(16),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+    );
+  }
+
 
   // ---------- SAVE (calls controller = MVC) ----------
   Future<void> _saveContractor() async {
@@ -327,7 +360,7 @@ class _ProfileContractorFullScreenState
                 ),
               ),
 
-              const SizedBox(height: 20),
+              const SizedBox(height: 100),
 
               const Text(
                 'Service Provider Verification',

@@ -1,85 +1,55 @@
-import 'dart:convert';
+// lib/controllers/contractor/contractor_profile_controller.dart
+
 import 'dart:typed_data';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:fixitnew/models/contractor/contractor_profile_model.dart';
+import 'package:fixitnew/repositories/contractor/contractor_profile_repository.dart';
 
 class ContractorProfileController {
-  final FirebaseAuth _auth;
-  final FirebaseFirestore _firestore;
+  final ContractorProfileRepository _repository;
 
-  ContractorProfileController({
-    FirebaseAuth? auth,
-    FirebaseFirestore? firestore,
-  })  : _auth = auth ?? FirebaseAuth.instance,
-        _firestore = firestore ?? FirebaseFirestore.instance;
+  ContractorProfileController({ContractorProfileRepository? repository})
+      : _repository = repository ?? ContractorProfileRepository();
 
-  User? get currentUser => _auth.currentUser;
-
-  /// Fetches the contractor document data for current user.
+  /// Returns a Map so your existing screen code can keep using `data['field']`.
   Future<Map<String, dynamic>?> fetchProfile() async {
-    final u = _auth.currentUser;
-    if (u == null) {
-      throw Exception('No logged in user.');
-    }
-
-    final doc =
-        await _firestore.collection('contractors').doc(u.uid).get();
-
-    if (!doc.exists) return null;
-    return doc.data();
+    final profile = await _repository.fetchProfile();
+    return profile?.toMap();
   }
 
-  /// Saves profile data and encodes certificate image to Base64 if provided.
+  /// Accepts the form field map from the view and forwards to repo via model.
   Future<void> saveProfile({
     required Map<String, dynamic> formFields,
     required List<String> verificationMethods,
     Uint8List? certBytes,
   }) async {
-    final u = _auth.currentUser;
-    if (u == null) {
-      throw Exception('No authenticated user.');
-    }
+    final profile = ContractorProfileModel(
+      firstName: formFields['firstName'] as String? ?? '',
+      lastName: formFields['lastName'] as String? ?? '',
+      nic: formFields['nic'] as String? ?? '',
+      personalContact:
+          formFields['personalContact'] as String? ?? '',
+      companyName: formFields['companyName'] as String? ?? '',
+      companyAddressLine1:
+          formFields['companyAddressLine1'] as String? ?? '',
+      companyAddressLine2:
+          formFields['companyAddressLine2'] as String? ?? '',
+      companyCity: formFields['companyCity'] as String? ?? '',
+      companyEmail: formFields['companyEmail'] as String? ?? '',
+      companyContact:
+          formFields['companyContact'] as String? ?? '',
+      businessRegNo:
+          formFields['businessRegNo'] as String? ?? '',
+      verificationMethods: verificationMethods,
+      businessCertBase64: null,
+      certificateUrl: null,
+    );
 
-    final docRef =
-        _firestore.collection('contractors').doc(u.uid);
-
-    final payload = <String, dynamic>{
-      ...formFields,
-      'verificationMethods': verificationMethods,
-      'verified': false,
-      'updatedAt': FieldValue.serverTimestamp(),
-    };
-
-    if (certBytes != null) {
-      final certBase64 = base64Encode(certBytes);
-      payload['businessCertBase64'] = certBase64;
-    }
-
-    // Ensure global user entry exists
-    await _firestore.collection('users').doc(u.uid).set({
-      'role': 'contractor',
-      'email': u.email,
-    }, SetOptions(merge: true));
-
-    await docRef.set(payload, SetOptions(merge: true));
+    await _repository.saveProfile(
+      profile: profile,
+      certBytes: certBytes,
+    );
   }
 
-  /// Deletes contractor data + user doc + FirebaseAuth user.
-  Future<void> deleteAccount() async {
-    final u = _auth.currentUser;
-    if (u == null) return;
-
-    await _firestore
-        .collection('contractors')
-        .doc(u.uid)
-        .delete()
-        .catchError((_) {});
-    await _firestore
-        .collection('users')
-        .doc(u.uid)
-        .delete()
-        .catchError((_) {});
-    await u.delete();
-  }
+  Future<void> deleteAccount() => _repository.deleteAccount();
 }

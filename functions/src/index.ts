@@ -5,7 +5,7 @@ import * as admin from "firebase-admin";
 import * as crypto from "crypto";
 import * as nodemailer from "nodemailer";
 
-// We’ll use `functionsAny` as `any` to avoid v1/v2 typing conflicts.
+// We’ll use `functions` as `any` to avoid v1/v2 typing conflicts.
 const functions: any = functionsModule;
 
 admin.initializeApp();
@@ -43,11 +43,7 @@ const transporter = nodemailer.createTransport({
 });
 
 // Helper to send email
-async function sendEmail(
-  to: string,
-  subject: string,
-  text: string,
-): Promise<void> {
+async function sendEmail(to: string, subject: string, text: string): Promise<void> {
   if (!smtpUser || !smtpPass) {
     console.warn("sendEmail called but SMTP config is missing.");
     return;
@@ -77,7 +73,6 @@ interface AdminInviteData {
 
 export const createAdminInvite = functions.https.onCall(
   async (data: AdminInviteData, context: any) => {
-    // Must be logged in
     if (!context.auth) {
       throw new functionsModule.https.HttpsError(
         "unauthenticated",
@@ -87,12 +82,7 @@ export const createAdminInvite = functions.https.onCall(
 
     const callerUid = context.auth.uid;
 
-    // Check caller is admin
-    const userDoc = await admin
-      .firestore()
-      .collection("users")
-      .doc(callerUid)
-      .get();
+    const userDoc = await admin.firestore().collection("users").doc(callerUid).get();
 
     if (!userDoc.exists || userDoc.data()?.role !== "admin") {
       throw new functionsModule.https.HttpsError(
@@ -112,7 +102,6 @@ export const createAdminInvite = functions.https.onCall(
       );
     }
 
-    // Random token for approval link
     const token = crypto.randomBytes(32).toString("hex");
 
     const inviteRef = admin.firestore().collection("adminInvites").doc(token);
@@ -138,7 +127,7 @@ export const createAdminInvite = functions.https.onCall(
 
     await sendEmail(email, "FixIt admin approval link", text);
 
-    return {ok: true};
+    return { ok: true };
   },
 );
 
@@ -175,42 +164,29 @@ export const handleAdminApproval = functions.https.onRequest(
     const lastName = (data.lastName as string) || "";
     const email = (data.email as string) || "";
 
-    // Random initial password
     const password = crypto.randomBytes(9).toString("base64").slice(0, 12);
 
-    // Create auth user
     const userRecord = await admin.auth().createUser({
       email,
       password,
       displayName: `${firstName} ${lastName}`,
     });
 
-    // users/{uid}
-    await admin
-      .firestore()
-      .collection("users")
-      .doc(userRecord.uid)
-      .set({
-        role: "admin",
-        firstName,
-        lastName,
-        email,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
+    await admin.firestore().collection("users").doc(userRecord.uid).set({
+      role: "admin",
+      firstName,
+      lastName,
+      email,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
 
-    // admins/{uid} (optional)
-    await admin
-      .firestore()
-      .collection("admins")
-      .doc(userRecord.uid)
-      .set({
-        firstName,
-        lastName,
-        email,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
+    await admin.firestore().collection("admins").doc(userRecord.uid).set({
+      firstName,
+      lastName,
+      email,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
 
-    // Mark invite as approved
     await inviteRef.update({
       status: "approved",
       approvedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -223,15 +199,13 @@ export const handleAdminApproval = functions.https.onRequest(
       "You can now log in with:\n\n" +
       `Email: ${email}\n` +
       `Password: ${password}\n\n` +
-      "For security, please log in and change your password " +
-      "immediately.\n\n" +
+      "For security, please log in and change your password immediately.\n\n" +
       "– FixIt Team";
 
     await sendEmail(email, "Your FixIt admin account", text);
 
     res.send(
-      "Your admin account has been created. " +
-        "Please check your email for login details.",
+      "Your admin account has been created. Please check your email for login details.",
     );
   },
 );
@@ -247,29 +221,17 @@ export const onContractorStatusChange = functions.firestore
     const after = change.after.data() || {};
 
     const prevStatus =
-      (before.approvalStatus as string) ||
-      (before.status as string) ||
-      "pending";
+      (before.approvalStatus as string) || (before.status as string) || "pending";
     const newStatus =
-      (after.approvalStatus as string) ||
-      (after.status as string) ||
-      "pending";
+      (after.approvalStatus as string) || (after.status as string) || "pending";
 
-    // Only care about pending -> rejected
     if (prevStatus === "pending" && newStatus === "rejected") {
       const contractorId = context.params.contractorId as string;
 
-      // 1) Try companyEmail on contractor doc
-      let email: string | null =
-        (after.companyEmail as string | undefined) || null;
+      let email: string | null = (after.companyEmail as string | undefined) || null;
 
-      // 2) Fallback to users/{contractorId}.email
       if (!email) {
-        const userSnap = await admin
-          .firestore()
-          .collection("users")
-          .doc(contractorId)
-          .get();
+        const userSnap = await admin.firestore().collection("users").doc(contractorId).get();
         if (userSnap.exists) {
           email = (userSnap.data()?.email as string | undefined) || null;
         }
@@ -280,10 +242,8 @@ export const onContractorStatusChange = functions.firestore
         return null;
       }
 
-      const companyName =
-        (after.companyName as string | undefined) || "your firm";
-      const rawReason =
-        (after.rejectionReason as string | undefined) || "";
+      const companyName = (after.companyName as string | undefined) || "your firm";
+      const rawReason = (after.rejectionReason as string | undefined) || "";
       const cleanReason =
         rawReason && rawReason.trim() !== ""
           ? rawReason
@@ -333,7 +293,6 @@ export const createProviderAccount = functions.https.onCall(
 
     const callerUid = context.auth.uid;
 
-    // Caller must be contractor
     const userSnap = await admin.firestore().collection("users").doc(callerUid).get();
     const role = userSnap.exists ? (userSnap.data()?.role as string) : null;
 
@@ -354,18 +313,19 @@ export const createProviderAccount = functions.https.onCall(
       throw new functionsModule.https.HttpsError("invalid-argument", "Invalid email.");
     }
     if (!password || password.length < 6) {
-      throw new functionsModule.https.HttpsError("invalid-argument", "Password must be at least 6 characters.");
+      throw new functionsModule.https.HttpsError(
+        "invalid-argument",
+        "Password must be at least 6 characters.",
+      );
     }
 
     try {
-      // Create auth user
       const userRecord = await admin.auth().createUser({
         email,
         password,
         displayName: `${firstName} ${lastName}`.trim() || undefined,
       });
 
-      // users/{uid} with role=provider
       await admin.firestore().collection("users").doc(userRecord.uid).set(
         {
           role: "provider",
@@ -378,7 +338,6 @@ export const createProviderAccount = functions.https.onCall(
         { merge: true },
       );
 
-      // Link to contractors/{callerUid}/providers/{providerDocId}
       if (providerDocId) {
         await admin.firestore()
           .collection("contractors")
@@ -388,7 +347,6 @@ export const createProviderAccount = functions.https.onCall(
           .set({ providerUid: userRecord.uid }, { merge: true });
       }
 
-      // Email (optional)
       try {
         const subject = "Your FixIt provider account";
         const text =
@@ -403,15 +361,12 @@ export const createProviderAccount = functions.https.onCall(
         await sendEmail(email, subject, text);
       } catch (mailErr) {
         console.error("Email sending failed:", mailErr);
-        // Don't fail account creation just because email failed
       }
 
-      // ✅ return providerUid so your app can use it immediately if you want
       return { ok: true, providerUid: userRecord.uid };
     } catch (err: any) {
       console.error("createProviderAccount error:", err);
 
-      // ✅ surface common Auth errors clearly
       const code = err?.code || "";
       if (code === "auth/email-already-exists") {
         throw new functionsModule.https.HttpsError(
@@ -427,116 +382,3 @@ export const createProviderAccount = functions.https.onCall(
     }
   },
 );
-
-
-// ---------------------------------------------------------------------
-// 5) Mirror provider docs into a top-level directory for fast querying
-// ---------------------------------------------------------------------
-
-// type ProviderMirror = {
-//   providerUid?: string | null;
-//   contractorId: string;
-//   providerDocId: string;
-
-//   firstName?: string;
-//   lastName?: string;
-//   email?: string;
-//   phone?: string;
-
-//   address?: {
-//     address1?: string;
-//     address2?: string;
-//     city?: string;
-//   };
-
-//   languages?: string[];
-//   categories?: string[];
-
-//   // Useful matching fields (optional / future)
-//   cancellationRate?: number; // default 0
-//   isActive?: boolean;        // default true
-//   updatedAt: FirebaseFirestore.FieldValue;
-//   createdAt?: FirebaseFirestore.FieldValue;
-// };
-
-// function mirrorDocId(contractorId: string, providerDocId: string, providerUid?: string) {
-//   // Prefer providerUid when available, so provider is unique globally.
-//   // Fallback to a stable composite id until providerUid exists.
-//   return (providerUid && providerUid.trim() !== "")
-//     ? providerUid
-//     : `${contractorId}_${providerDocId}`;
-// }
-
-// // CREATE / UPDATE mirror (runs on create + update)
-// export const mirrorProviderToDirectory = functions.firestore
-//   .document("contractors/{contractorId}/providers/{providerDocId}")
-//   .onWrite(async (change: any, context: any) => {
-//     const contractorId = String(context.params.contractorId);
-//     const providerDocId = String(context.params.providerDocId);
-
-//     // If deleted -> delete mirror too
-//     if (!change.after.exists) {
-//       // We don't know providerUid reliably at delete time unless it was stored,
-//       // so delete both possible ids safely.
-//       const before = change.before.data() || {};
-//       const providerUid = (before.providerUid as string | undefined) || "";
-//       const id1 = mirrorDocId(contractorId, providerDocId, providerUid);
-//       const id2 = `${contractorId}_${providerDocId}`;
-
-//       await admin.firestore().collection("providerDirectory").doc(id1).delete().catch(() => {});
-//       if (id2 !== id1) {
-//         await admin.firestore().collection("providerDirectory").doc(id2).delete().catch(() => {});
-//       }
-//       return null;
-//     }
-
-//     const data = change.after.data() || {};
-//     const providerUid = (data.providerUid as string | undefined) || "";
-
-//     const docId = mirrorDocId(contractorId, providerDocId, providerUid);
-
-//     const mirror: ProviderMirror = {
-//       providerUid: providerUid || null,
-//       contractorId,
-//       providerDocId,
-
-//       firstName: data.firstName || "",
-//       lastName: data.lastName || "",
-//       email: data.email || "",
-//       phone: data.phone || "",
-
-//       address: {
-//         address1: data.address1 || "",
-//         address2: data.address2 || "",
-//         city: data.city || "",
-//       },
-
-//       languages: Array.isArray(data.languages) ? data.languages : [],
-//       categories: Array.isArray(data.categories) ? data.categories : [],
-
-//       // optional matching fields
-//       cancellationRate: typeof data.cancellationRate === "number" ? data.cancellationRate : 0,
-//       isActive: typeof data.isActive === "boolean" ? data.isActive : true,
-
-//       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-//     };
-
-//     // If mirror doc was newly created, set createdAt once (best-effort)
-//     const mirrorRef = admin.firestore().collection("providerDirectory").doc(docId);
-//     const existing = await mirrorRef.get();
-//     if (!existing.exists) {
-//       mirror.createdAt = admin.firestore.FieldValue.serverTimestamp();
-//     }
-
-//     await mirrorRef.set(mirror, { merge: true });
-
-//     // If providerUid exists now, also remove the old composite mirror id (cleanup)
-//     if (providerUid) {
-//       const compositeId = `${contractorId}_${providerDocId}`;
-//       if (compositeId !== docId) {
-//         await admin.firestore().collection("providerDirectory").doc(compositeId).delete().catch(() => {});
-//       }
-//     }
-
-//     return null;
-//   });
