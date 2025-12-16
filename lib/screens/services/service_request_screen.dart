@@ -605,7 +605,6 @@ class _ServiceRequestScreenState extends State<ServiceRequestScreen> {
         .toList();
 
     const int visitationFee = 350;
-    const int platformFee = 300;
     bool isSaving = false;
 
     showModalBottomSheet(
@@ -619,6 +618,9 @@ class _ServiceRequestScreenState extends State<ServiceRequestScreen> {
               0,
               (total, item) => total + item.unitPrice * item.quantity,
             );
+            
+            final int platformFee = (serviceTotal * 0.20).round();
+            
             final int totalAmount =
                 serviceTotal + visitationFee + platformFee;
 
@@ -823,7 +825,7 @@ class _ServiceRequestScreenState extends State<ServiceRequestScreen> {
                                         child: Align(
                                           alignment: Alignment.centerRight,
                                           child: Text(
-                                            'LKR ${item.unitPrice}',
+                                            'LKR ${item.unitPrice * item.quantity}',
                                             style: valueStyle,
                                           ),
                                         ),
@@ -897,8 +899,8 @@ class _ServiceRequestScreenState extends State<ServiceRequestScreen> {
                             const SizedBox(height: 8),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: const [
-                                Text(
+                              children: [
+                                const Text(
                                   'Platform Fee',
                                   style: TextStyle(
                                     fontFamily: 'Montserrat',
@@ -907,7 +909,7 @@ class _ServiceRequestScreenState extends State<ServiceRequestScreen> {
                                   ),
                                 ),
                                 Text(
-                                  'LKR 300',
+                                  'LKR $platformFee',
                                   style: TextStyle(
                                     fontFamily: 'Montserrat',
                                     fontSize: 14,
@@ -979,14 +981,12 @@ class _ServiceRequestScreenState extends State<ServiceRequestScreen> {
                                       // but this now works for ANY category because we
                                       // pass the selected items & metadata.
                                       await _controller.createPlumbingJob(
-                                        location: locationController.text
-                                            .trim(),
+                                        location: locationController.text.trim(),
                                         isNow: _isNowOptionSelected,
                                         scheduledAt: scheduledAt,
                                         languages: languages,
                                         items: items,
                                         visitationFee: visitationFee,
-                                        platformFee: platformFee,
                                         category: widget.config.category,
                                       );
 
@@ -1113,7 +1113,7 @@ class _ServiceRequestScreenState extends State<ServiceRequestScreen> {
                           const SizedBox(width: 12),
                           Expanded(
                             child: RequestTypeButton(
-                              label: 'Other',
+                              label: 'Languages',
                               isSelected: !isRequestNowSelected,
                               onTap: _onOtherPressed,
                             ),

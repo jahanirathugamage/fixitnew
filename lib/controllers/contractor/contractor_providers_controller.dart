@@ -4,13 +4,15 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:http/http.dart' as http;
 
 class ContractorProvidersController {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseFunctions _functions = FirebaseFunctions.instance;
+
+  // ✅ Vercel base URL (NO trailing slash)
+  static const String _vercelBaseUrl = 'https://fixit-backend-pink.vercel.app';
 
   /// Get currently logged-in contractor ID
   String? getCurrentContractorId() => _auth.currentUser?.uid;
@@ -46,8 +48,6 @@ class ContractorProvidersController {
   }
 
   /// Update a provider’s data
-  ///
-  /// Returns `null` if OK, or an error message string if something failed.
   Future<String?> updateProvider({
     required String providerId,
     required Map<String, dynamic> data,
@@ -69,8 +69,6 @@ class ContractorProvidersController {
   }
 
   /// Delete a provider
-  ///
-  /// Returns `null` if OK, or an error message string.
   Future<String?> deleteProvider({
     required String contractorId,
     required String providerId,
@@ -88,12 +86,16 @@ class ContractorProvidersController {
     }
   }
 
-  /// Create a new provider:
-  ///  - Saves provider data under contractors/{contractorUid}/providers/{providerDocId}
-  ///  - Encodes profile image (if provided) as Base64
-  ///  - Calls Cloud Function `createProviderAccount` to create Auth user + send email
-  ///
-  /// Returns `null` on success, or an error message string on failure.
+  Uri _vercelUri(String path) {
+    final clean = path.startsWith('/') ? path.substring(1) : path;
+    return Uri.parse('$_vercelBaseUrl/$clean');
+  }
+
+  /// Create provider (Option A)
+  /// 1) Create contractor subdoc
+  /// 2) Call Vercel API to create Auth user + users/{providerUid} (+ optionally geocode)
+  /// 3) Save providerUid into contractor subdoc
+  /// 4) Mirror ONLY matching fields into serviceProviders/{providerUid}
   Future<String?> createProvider({
     required String firstName,
     required String lastName,
@@ -116,20 +118,52 @@ class ContractorProvidersController {
     try {
       final contractorUid = user.uid;
 
-      // Encode profile image as Base64 if present
+      // ✅ Get Firebase ID token to authorize the backend call
+      final idToken = await user.getIdToken();
+
+      // ✅ Build full address safely (avoid empty address2 messing geocoding)
+      final parts = <String>[
+        address1.trim(),
+        if (address2.trim().isNotEmpty) address2.trim(),
+        city.trim(),
+        'Sri Lanka',
+      ].where((p) => p.isNotEmpty).toList();
+      final fullAddress = parts.join(', ');
+
+      // Encode image if present
       String? profileBase64;
       if (profileImageBytes != null) {
         profileBase64 = base64Encode(profileImageBytes);
       }
 
-      // Create a new provider document reference
+      // Create provider doc under contractor
       final providerRef = _firestore
           .collection('contractors')
           .doc(contractorUid)
           .collection('providers')
           .doc();
 
-      final data = <String, dynamic>{
+      // Extract categories from skills[].name
+      final rawCategories = skills
+          .map((s) => (s['name'] ?? '').toString().trim())
+          .where((x) => x.isNotEmpty)
+          .toSet()
+          .toList();
+
+      final categoriesNormalized = rawCategories
+          .map((c) => c.trim().toLowerCase())
+          .where((c) => c.isNotEmpty)
+          .toSet()
+          .toList();
+
+      final languagesNormalized = languages
+          .map((l) => l.trim().toLowerCase())
+          .where((l) => l.isNotEmpty)
+          .toSet()
+          .toList();
+
+      // 1) Write provider profile under contractor
+      await providerRef.set({
         'firstName': firstName,
         'lastName': lastName,
         'gender': gender,
@@ -138,27 +172,97 @@ class ContractorProvidersController {
         'address1': address1,
         'address2': address2,
         'city': city,
+        'fullAddress': fullAddress,
         'profileImageBase64': profileBase64,
         'languages': languages,
         'skills': skills,
+        'categories': rawCategories,
+        'categoriesNormalized': categoriesNormalized,
         'createdAt': FieldValue.serverTimestamp(),
-      };
-
-      // 1️⃣ Save provider profile under contractor
-      await providerRef.set(data);
-
-      // 2️⃣ Call Cloud Function to create Auth user + send login details
-      final callable =
-          _functions.httpsCallable('createProviderAccount');
-      await callable.call(<String, dynamic>{
-        'firstName': firstName,
-        'lastName': lastName,
-        'email': email,
-        'password': password,
-        'providerDocId': providerRef.id,
+        'updatedAt': FieldValue.serverTimestamp(),
       });
 
-      return null; // success
+      // 2) ✅ Call Vercel API
+      final resp = await http
+          .post(
+            _vercelUri('/api/create-provider-account'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $idToken',
+            },
+            body: jsonEncode({
+              'providerDocId': providerRef.id,
+              'firstName': firstName,
+              'lastName': lastName,
+              'email': email,
+              'password': password,
+              'address': fullAddress, // ✅ send to backend for geocoding
+            }),
+          )
+          .timeout(const Duration(seconds: 25));
+
+      if (resp.statusCode != 200) {
+        return 'Backend error (${resp.statusCode}): ${resp.body}';
+      }
+
+      Map<String, dynamic> decoded;
+      try {
+        decoded = jsonDecode(resp.body) as Map<String, dynamic>;
+      } catch (_) {
+        return 'Backend returned invalid JSON: ${resp.body}';
+      }
+
+      final providerUid = (decoded['providerUid'] ?? '').toString().trim();
+      if (providerUid.isEmpty) {
+        return 'Backend did not return providerUid. Response: ${resp.body}';
+      }
+
+      // OPTIONAL: geo: { lat, lng }
+      GeoPoint? geoPoint;
+      final geo = decoded['geo'];
+      if (geo is Map) {
+        final lat = geo['lat'];
+        final lng = geo['lng'];
+        if (lat is num && lng is num) {
+          geoPoint = GeoPoint(lat.toDouble(), lng.toDouble());
+        }
+      }
+
+      // 3) Save providerUid into contractor subdoc
+      await providerRef.set(
+        {'providerUid': providerUid},
+        SetOptions(merge: true),
+      );
+
+      // 4) Mirror ONLY matching fields into top-level directory
+      await _firestore.collection('serviceProviders').doc(providerUid).set({
+        'providerUid': providerUid,
+        'providerDocId': providerRef.id,
+        'contractorId': contractorUid,
+
+        'displayName': '${firstName.trim()} ${lastName.trim()}'.trim(),
+
+        // keep address string (helps debugging / search)
+        'fullAddress': fullAddress,
+
+        // normalized matching fields
+        'languagesNormalized': languagesNormalized,
+        'categoriesNormalized': categoriesNormalized,
+
+        // include geo if available
+        if (geoPoint != null) 'geo': geoPoint,
+
+        // matching metrics
+        'cancellationRate': 0.0,
+        'isActive': true,
+
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      return null; // ✅ success
+    } on FirebaseAuthException catch (e) {
+      return e.message ?? e.toString();
     } catch (e) {
       return e.toString();
     }

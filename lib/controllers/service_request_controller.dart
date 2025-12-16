@@ -16,10 +16,9 @@ class ServiceRequestController {
     required List<String> languages,
     required List<ServiceRequestItem> items,
     required int visitationFee,
-    required int platformFee,
     required String category,
   }) {
-    // ✅ now using the injected repository instance
+    // platform fee is now calculated inside the repository
     return _repository.createJob(
       category: category,
       location: location,
@@ -28,7 +27,6 @@ class ServiceRequestController {
       languages: languages,
       items: items,
       visitationFee: visitationFee,
-      platformFee: platformFee,
     );
   }
 
