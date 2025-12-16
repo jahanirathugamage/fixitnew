@@ -23,39 +23,54 @@ class ServiceRequestRepository {
     required List<String> languages,
     required List<ServiceRequestItem> items,
     required int visitationFee,
-    required int platformFee,
+    // required int platformFee,
   }) async {
     final user = _auth.currentUser;
     if (user == null) {
-      throw StateError('No logged in user');
+      throw StateError('Not logged in user');
     }
 
-    // ✅ rename "sum" → "total" (or anything) to avoid the lint
+    // Total for all selected tasks
     final int serviceTotal = items.fold<int>(
       0,
       (total, item) => total + item.lineTotal,
     );
 
+    final int platformFee = (serviceTotal * 0.20).round();
+
     final int totalAmount = serviceTotal + visitationFee + platformFee;
 
-    final doc = await _firestore.collection('jobs').add({
-      'clientId': user.uid,
-      'category': category,
-      'location': location,
-      'createdAt': FieldValue.serverTimestamp(),
-      'status': 'pending',
-      'isNow': isNow,
-      'scheduledDate': Timestamp.fromDate(scheduledAt),
-      'languagePrefs': languages,
-      'tasks': items.map((e) => e.toMap()).toList(),
-      'pricing': {
-        'serviceTotal': serviceTotal,
-        'visitationFee': visitationFee,
-        'platformFee': platformFee,
-        'totalAmount': totalAmount,
-      },
-    });
+    // Create a doc so we can store jobId as a field as well
+    final docRef = _firestore.collection('jobRequest').doc();
 
-    return doc.id;
+    try {
+      await docRef.set({
+        'jobId': docRef.id,
+        'clientId': user.uid,
+        'category': category,
+        'location': location,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+        'status': 'pending', // or 'pending_provider_match'
+        'isNow': isNow,
+        'scheduledDate': Timestamp.fromDate(scheduledAt),
+        'languagePrefs': languages,
+        'tasks': items.map((e) => e.toMap()).toList(),
+        'pricing': {
+          'serviceTotal': serviceTotal,
+          'visitationFee': visitationFee,
+          'platformFee': platformFee,
+          'totalAmount': totalAmount,
+        },
+      });
+
+      // ignore: avoid_print
+      print('🔥 jobRequest saved with id: ${docRef.id}');
+      return docRef.id;
+    } catch (e) {
+      // ignore: avoid_print
+      print('❌ Failed to save jobRequest: $e');
+      rethrow; // let the UI show the SnackBar you already have
+    }
   }
 }

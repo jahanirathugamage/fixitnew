@@ -75,7 +75,7 @@ service cloud.firestore {
     }
 
     // ================== JOBS (created from Electrical / Carpentry screens) ==================
-    match /jobs/{jobId} {
+    match /jobRequest/{jobId} {
 
       // Clients can create jobs for themselves
       // Your code sets: 'clientId': user.uid

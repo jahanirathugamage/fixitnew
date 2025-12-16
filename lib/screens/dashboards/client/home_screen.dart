@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../controllers/client/client_home_controller.dart';
+import '../../services/service_request_screen.dart';
+import '../../services/service_request_wrapper.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -14,6 +16,114 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final _homeController = ClientHomeController();
+
+  // --------------------- HELPERS ---------------------
+
+  void _openServiceRequest(BuildContext context, String categoryKey) {
+    switch (categoryKey) {
+      case 'ac':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ServiceRequestScreen(
+              config: ServiceRequestWrapper.acConfig,
+            ),
+          ),
+        );
+        break;
+      case 'plumbing':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ServiceRequestScreen(
+              config: ServiceRequestWrapper.plumbingConfig,
+            ),
+          ),
+        );
+        break;
+      case 'electrical':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ServiceRequestScreen(
+              config: ServiceRequestWrapper.electricalConfig,
+            ),
+          ),
+        );
+        break;
+      case 'carpentry':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ServiceRequestScreen(
+              config: ServiceRequestWrapper.carpentryConfig,
+            ),
+          ),
+        );
+        break;
+      case 'cleaning':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ServiceRequestScreen(
+              config: ServiceRequestWrapper.cleaningConfig,
+            ),
+          ),
+        );
+        break;
+      case 'gardening':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ServiceRequestScreen(
+              config: ServiceRequestWrapper.gardeningConfig,
+            ),
+          ),
+        );
+        break;
+      case 'pest_control':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ServiceRequestScreen(
+              config: ServiceRequestWrapper.pestControlConfig,
+            ),
+          ),
+        );
+        break;
+      case 'appliances':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ServiceRequestScreen(
+              config: ServiceRequestWrapper.appliancesConfig,
+            ),
+          ),
+        );
+        break;
+      default:
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('No service mapped for $categoryKey')),
+        );
+    }
+  }
+
+  /// Try to map Firestore doc (name + iconKey) into our category keys
+  /// used in ServiceRequestWrapper.
+  String _categoryKeyFromDoc(String name, String iconKey) {
+    final base = (iconKey.isNotEmpty ? iconKey : name).toLowerCase().trim();
+
+    if (base.contains('electrical')) return 'electrical';
+    if (base.contains('plumb')) return 'plumbing';
+    if (base.contains('clean')) return 'cleaning';
+    if (base.contains('appliance')) return 'appliances';
+    if (base == 'ac' || base.contains('air')) return 'ac';
+    if (base.contains('pest')) return 'pest_control';
+    if (base.contains('carp')) return 'carpentry';
+    if (base.contains('garden')) return 'gardening';
+
+    return base;
+  }
 
   // --------------------- FIRESTORE BUILDERS ---------------------
 
@@ -40,6 +150,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
         final docs = snapshot.data?.docs ?? [];
         if (docs.isEmpty) {
+          // Fallback static grid
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20.0),
             child: GridView.count(
@@ -49,20 +160,53 @@ class _HomeScreenState extends State<HomeScreen> {
               mainAxisSpacing: 12,
               crossAxisSpacing: 12,
               childAspectRatio: 0.75,
-              children: const [
-                ServiceCard(icon: Icons.flash_on, label: 'Electrical'),
-                ServiceCard(icon: Icons.water_drop, label: 'Plumbing'),
-                ServiceCard(icon: Icons.cleaning_services, label: 'Cleaning'),
-                ServiceCard(icon: Icons.kitchen, label: 'Appliances'),
-                ServiceCard(icon: Icons.ac_unit, label: 'AC'),
-                ServiceCard(icon: Icons.pest_control, label: 'Pest Control'),
-                ServiceCard(icon: Icons.chair, label: 'Carpentry'),
-                ServiceCard(icon: Icons.grass, label: 'Gardening'),
+              children: [
+                ServiceCard(
+                  icon: Icons.flash_on,
+                  label: 'Electrical',
+                  onTap: () => _openServiceRequest(context, 'electrical'),
+                ),
+                ServiceCard(
+                  icon: Icons.water_drop,
+                  label: 'Plumbing',
+                  onTap: () => _openServiceRequest(context, 'plumbing'),
+                ),
+                ServiceCard(
+                  icon: Icons.cleaning_services,
+                  label: 'Cleaning',
+                  onTap: () => _openServiceRequest(context, 'cleaning'),
+                ),
+                ServiceCard(
+                  icon: Icons.kitchen,
+                  label: 'Appliances',
+                  onTap: () => _openServiceRequest(context, 'appliances'),
+                ),
+                ServiceCard(
+                  icon: Icons.ac_unit,
+                  label: 'AC',
+                  onTap: () => _openServiceRequest(context, 'ac'),
+                ),
+                ServiceCard(
+                  icon: Icons.pest_control,
+                  label: 'Pest Control',
+                  onTap: () => _openServiceRequest(context, 'pest_control'),
+                ),
+                ServiceCard(
+                  icon: Icons.chair,
+                  label: 'Carpentry',
+                  onTap: () => _openServiceRequest(context, 'carpentry'),
+                ),
+                ServiceCard(
+                  icon: Icons.grass,
+                  label: 'Gardening',
+                  onTap: () => _openServiceRequest(context, 'gardening'),
+                ),
               ],
             ),
           );
         }
 
+        // Firestore-driven grid
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20.0),
           child: GridView.builder(
@@ -79,10 +223,12 @@ class _HomeScreenState extends State<HomeScreen> {
               final data = docs[index].data() as Map<String, dynamic>;
               final name = (data['name'] ?? '') as String;
               final iconKey = (data['iconKey'] ?? '') as String;
+              final categoryKey = _categoryKeyFromDoc(name, iconKey);
 
               return ServiceCard(
                 icon: _mapServiceIcon(iconKey, fallback: Icons.build),
                 label: name,
+                onTap: () => _openServiceRequest(context, categoryKey),
               );
             },
           ),
@@ -326,11 +472,13 @@ IconData _mapServiceIcon(String key, {IconData fallback = Icons.build}) {
 class ServiceCard extends StatefulWidget {
   final IconData icon;
   final String label;
+  final VoidCallback onTap;
 
   const ServiceCard({
     super.key,
     required this.icon,
     required this.label,
+    required this.onTap,
   });
 
   @override
@@ -344,45 +492,11 @@ class _ServiceCardState extends State<ServiceCard> {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTapDown: (_) => setState(() => isPressed = true),
-      onTapUp: (_) => setState(() => isPressed = false),
-      onTapCancel: () => setState(() => isPressed = false),
-      onTap: () {
-        final normalized = widget.label.toLowerCase().trim();
-
-        switch (normalized) {
-          case 'ac':
-          case 'air conditioning':
-            Navigator.pushNamed(context, '/service/ac');
-            break;
-          case 'plumbing':
-            Navigator.pushNamed(context, '/service/plumbing');
-            break;
-          case 'electrical':
-            Navigator.pushNamed(context, '/service/electrical');
-            break;
-          case 'carpentry':
-            Navigator.pushNamed(context, '/service/carpentry');
-            break;
-          case 'cleaning':
-            Navigator.pushNamed(context, '/service/cleaning');
-            break;
-          case 'gardening':
-            Navigator.pushNamed(context, '/service/gardening');
-            break;
-          case 'pest control':
-          case 'pest_control':
-            Navigator.pushNamed(context, '/service/pest');
-            break;
-          case 'appliances':
-          case 'appliance repair':
-            Navigator.pushNamed(context, '/service/appliances');
-            break;
-          default:
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('No screen mapped for ${widget.label}')),
-            );
-        }
+      onTapUp: (_) {
+        setState(() => isPressed = false);
+        widget.onTap();
       },
+      onTapCancel: () => setState(() => isPressed = false),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
