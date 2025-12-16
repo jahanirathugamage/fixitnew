@@ -43,24 +43,33 @@ service cloud.firestore {
                     (request.auth.uid == uid || isAdmin());
     }
 
-    // PROVIDERS under contractors
+    // PROVIDERS under contractors (contractor-managed)
     match /contractors/{contractorId}/providers/{providerId} {
 
-      // contractor creates providers
-      allow create: if request.auth != null &&
-                    request.auth.uid == contractorId;
+      // Contractor creates and manages providers
+      allow create, read, update: if request.auth != null &&
+                                  request.auth.uid == contractorId;
 
-      // provider can read/update their own info
-      allow read, update: if request.auth != null &&
-                          request.auth.uid == providerId;
+      // Providers should NOT read or edit this location
+      allow read, update: if false;
 
-      // contractor can manage providers
-      allow read, update: if request.auth != null &&
-                          request.auth.uid == contractorId;
-
-      // admins can also read/update providers
+      // Admins may read/update if needed
       allow read, update: if isAdmin();
     }
+
+    // PROVIDERS top-level (provider dashboard)
+    match /providers/{providerId} {
+
+      // Provider can read their own profile
+      allow read: if request.auth != null && request.auth.uid == providerId;
+
+      // Contractor cannot modify provider dashboard doc
+      allow write: if false;
+
+      // Admins may write if necessary
+      allow read, write: if isAdmin();
+    }
+
 
     // PUBLIC SERVICE CATALOG
     match /services/{serviceId} {
