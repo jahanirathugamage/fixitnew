@@ -30,7 +30,6 @@ import 'screens/dashboards/client/update_client_profile.dart';
 // DASHBOARDS – CONTRACTOR
 import 'screens/dashboards/home_contractor.dart';
 import 'screens/dashboards/contractor/contractor_account_info.dart';
-import 'screens/dashboards/contractor/contractor_profile.dart';
 import 'screens/dashboards/contractor/contractor_jobs.dart';
 import 'screens/dashboards/contractor/contractor_service_providers.dart';
 import 'screens/dashboards/contractor/contractor_bank_details.dart';
@@ -112,8 +111,6 @@ class MyApp extends StatelessWidget {
         '/dashboards/home_contractor': (_) => const HomeContractor(),
         '/dashboards/contractor/contractor_account_info': (_) =>
             const ContractorAccountInfo(),
-        '/dashboards/contractor/contractor_profile': (_) =>
-            const ContractorProfile(),
         '/dashboards/contractor/contractor_jobs': (_) =>
             const ContractorJobs(),
         '/dashboards/contractor/contractor_service_providers': (_) =>

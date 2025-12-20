@@ -79,11 +79,6 @@ class ContractorProvidersController {
     }
   }
 
-  Uri _vercelUri(String path) {
-    final clean = path.startsWith('/') ? path.substring(1) : path;
-    return Uri.parse('$_vercelBaseUrl/$clean');
-  }
-
   /// Create provider (Option A)
   /// 1) Create contractor subdoc
   /// 2) Call Vercel API to create Auth user + users/{providerUid} + mirror serviceProviders + write GeoPoint

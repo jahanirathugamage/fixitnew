@@ -55,8 +55,11 @@ class _HomeContractorState extends State<HomeContractor> {
       backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text(
-          "Contractor Dashboard",
-          style: TextStyle(color: Colors.black),
+          "Settings",
+          style: TextStyle(
+            color: Colors.black,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         backgroundColor: Colors.white,
         elevation: 0,
@@ -183,22 +186,22 @@ class _HomeContractorState extends State<HomeContractor> {
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
             _NavItemC(
-              icon: Icons.business_center_outlined,
-              label: 'Jobs',
+              icon: Icons.receipt_long,
+              label: '',
               onTap: () =>
                   _go("/dashboards/contractor/contractor_jobs"),
             ),
             _NavItemC(
-              icon: Icons.chat_bubble_outline,
-              label: 'Service Providers',
+              icon: Icons.badge_outlined,
+              label: '',
               onTap: () => _go(
                   "/dashboards/contractor/contractor_service_providers"),
             ),
             _NavItemC(
-              icon: Icons.person_outline,
-              label: 'Profile',
+              icon: Icons.apartment,
+              label: '',
               onTap: () =>
-                  _go("/dashboards/contractor/contractor_profile"),
+                  _go("/dashboards/contractor/home_contractor"),
             ),
           ],
         ),

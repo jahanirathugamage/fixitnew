@@ -9,18 +9,29 @@ class AdminInviteController {
   AdminInviteController({AdminInviteRepository? repository})
       : _repo = repository ?? AdminInviteRepository();
 
+  /// Returns a validation error message if invalid, otherwise null.
   String? validate(String firstName, String lastName, String email) {
-    if (firstName.trim().isEmpty ||
-        lastName.trim().isEmpty ||
-        email.trim().isEmpty) {
+    final trimmedFirst = firstName.trim();
+    final trimmedLast = lastName.trim();
+    final trimmedEmail = email.trim();
+
+    if (trimmedFirst.isEmpty || trimmedLast.isEmpty || trimmedEmail.isEmpty) {
       return 'Please enter a first name, last name and email.';
     }
-    if (!email.contains('@') || !email.contains('.')) {
+
+    if (!trimmedEmail.contains('@') || !trimmedEmail.contains('.')) {
       return 'Please enter a valid email address.';
     }
+
     return null;
   }
 
+  /// Creates an admin invite via the repository.
+  ///
+  /// Throws [StateError] if:
+  /// - user is not logged in
+  /// - user is not an admin
+  /// - backend (Vercel) returns an error
   Future<void> createInvite({
     required String firstName,
     required String lastName,
@@ -32,7 +43,7 @@ class AdminInviteController {
       email: email.trim(),
     );
 
-    // Let StateError propagate so the UI can show it nicely
+    // Let StateError propagate so the UI can show it nicely in a dialog/snackbar.
     await _repo.createAdminInvite(invite);
   }
 }

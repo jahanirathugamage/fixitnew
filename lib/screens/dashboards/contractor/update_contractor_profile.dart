@@ -78,9 +78,19 @@ class _UpdateContractorProfileState extends State<UpdateContractorProfile> {
           (data['personalContact'] ?? '') as String;
 
       _company.text = (data['companyName'] ?? '') as String;
-      _address1.text = (data['companyAddress'] ?? '') as String;
-      _address2.text = (data['address2'] ?? '') as String;
-      _city.text = (data['city'] ?? '') as String;
+
+      // NOTE: use canonical keys but accept old ones too
+      _address1.text =
+          (data['companyAddressLine1'] ??
+                  data['companyAddress'] ??
+                  '') as String;
+      _address2.text =
+          (data['companyAddressLine2'] ??
+                  data['address2'] ??
+                  '') as String;
+      _city.text =
+          (data['companyCity'] ?? data['city'] ?? '') as String;
+
       _companyEmail.text =
           (data['companyEmail'] ?? '') as String;
       _companyContact.text =
@@ -88,31 +98,28 @@ class _UpdateContractorProfileState extends State<UpdateContractorProfile> {
       _businessRegNo.text =
           (data['businessRegNo'] ?? '') as String;
 
+      // ----- verification methods (fixed) -----
       final verification =
-          (data['verificationMethods'] ?? []) as List<dynamic>;
+          List<String>.from(data['verificationMethods'] ?? []);
+
+      // Set checkboxes for standard keys
       for (var k in _checks.keys) {
-        _checks[k] = verification.contains(k) ||
-            verification.any((e) =>
-                (e is String &&
-                    e.toString().startsWith('Other:') &&
-                    k == 'Other'));
+        _checks[k] = verification.contains(k);
       }
 
+      // Extract "Other: ..." entry if any
       final otherFound = verification.firstWhere(
-        (e) => e is String && e.startsWith('Other:'),
-        orElse: () => null,
+        (e) => e.startsWith('Other:'),
+        orElse: () => '',
       );
 
-      if (otherFound is String) {
+      if (otherFound.isNotEmpty) {
+        _checks['Other'] = true;
         _otherMethod.text =
             otherFound.replaceFirst('Other:', '').trim();
       }
 
-      if (otherFound != null) {
-        _otherMethod.text =
-            (otherFound as String).replaceFirst('Other:', '').trim();
-      }
-
+      // ----- certificate -----
       final certBase64 =
           data['businessCertBase64'] as String?;
       if (certBase64 != null && certBase64.isNotEmpty) {
@@ -132,7 +139,9 @@ class _UpdateContractorProfileState extends State<UpdateContractorProfile> {
   Future<void> _pickCertImage() async {
     try {
       final p = await _picker.pickImage(
-          source: ImageSource.gallery, imageQuality: 80);
+        source: ImageSource.gallery,
+        imageQuality: 80,
+      );
       if (p != null) {
         final bytes = await p.readAsBytes();
         setState(() {
@@ -146,7 +155,8 @@ class _UpdateContractorProfileState extends State<UpdateContractorProfile> {
   }
 
   Future<void> _saveContractor() async {
-    if (_first.text.trim().isEmpty || _nic.text.trim().isEmpty) {
+    if (_first.text.trim().isEmpty ||
+        _nic.text.trim().isEmpty) {
       setState(() =>
           _error = 'Please fill required fields (First name, NIC).');
       return;
@@ -180,9 +190,9 @@ class _UpdateContractorProfileState extends State<UpdateContractorProfile> {
         'nic': _nic.text.trim(),
         'personalContact': _personalContact.text.trim(),
         'companyName': _company.text.trim(),
-        'companyAddress': _address1.text.trim(),
-        'address2': _address2.text.trim(),
-        'city': _city.text.trim(),
+        'companyAddressLine1': _address1.text.trim(),
+        'companyAddressLine2': _address2.text.trim(),
+        'companyCity': _city.text.trim(),
         'companyEmail': _companyEmail.text.trim(),
         'companyContact': _companyContact.text.trim(),
         'businessRegNo': _businessRegNo.text.trim(),
@@ -198,11 +208,15 @@ class _UpdateContractorProfileState extends State<UpdateContractorProfile> {
       _uploadProgress = 1.0;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profile saved successfully')),
+        const SnackBar(
+          content: Text('Profile saved successfully'),
+        ),
       );
 
       Navigator.pushReplacementNamed(
-          context, '/contractor/home_contractor');
+        context,
+        '/dashboards/home_contractor',
+      );
     } catch (e) {
       setState(() => _error = 'Save failed: $e');
     } finally {
@@ -221,14 +235,17 @@ class _UpdateContractorProfileState extends State<UpdateContractorProfile> {
       builder: (ctx) => AlertDialog(
         title: const Text('Delete account'),
         content: const Text(
-            'Are you sure? This will remove your account and data.'),
+          'Are you sure? This will remove your account and data.',
+        ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
           TextButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Delete')),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete'),
+          ),
         ],
       ),
     );
@@ -239,13 +256,18 @@ class _UpdateContractorProfileState extends State<UpdateContractorProfile> {
       await _controller.deleteAccount();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Account deleted')));
+        const SnackBar(content: Text('Account deleted')),
+      );
       Navigator.pushNamedAndRemoveUntil(
-          context, '/login', (r) => false);
+        context,
+        '/login',
+        (r) => false,
+      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Delete failed: $e')));
+        SnackBar(content: Text('Delete failed: $e')),
+      );
     }
   }
 
@@ -270,7 +292,8 @@ class _UpdateContractorProfileState extends State<UpdateContractorProfile> {
   Widget build(BuildContext context) {
     if (_loading) {
       return const Scaffold(
-          body: Center(child: CircularProgressIndicator()));
+        body: Center(child: CircularProgressIndicator()),
+      );
     }
 
     return Scaffold(
@@ -293,9 +316,13 @@ class _UpdateContractorProfileState extends State<UpdateContractorProfile> {
             children: [
               const SizedBox(height: 18),
 
-              const Text('Contractor Details',
-                  style: TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.bold)),
+              const Text(
+                'Contractor Details',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               const SizedBox(height: 8),
               _field(_first, 'First Name'),
               const SizedBox(height: 8),
@@ -307,9 +334,13 @@ class _UpdateContractorProfileState extends State<UpdateContractorProfile> {
 
               const Divider(height: 28),
 
-              const Text('Company Details',
-                  style: TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.bold)),
+              const Text(
+                'Company Details',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               const SizedBox(height: 8),
               _field(_company, 'Company Name'),
               const SizedBox(height: 8),
@@ -363,7 +394,8 @@ class _UpdateContractorProfileState extends State<UpdateContractorProfile> {
                             Icon(Icons.upload),
                             SizedBox(height: 6),
                             Text(
-                                'Upload Business Registration Certificate'),
+                              'Upload Business Registration Certificate',
+                            ),
                           ],
                         ),
                       );
@@ -379,29 +411,31 @@ class _UpdateContractorProfileState extends State<UpdateContractorProfile> {
 
               const Divider(height: 28),
 
-              const Text('Service Provider Verification',
-                  style: TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.bold)),
+              const Text(
+                'Service Provider Verification',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               const SizedBox(height: 8),
               const Text(
                 'Select the methods you use to verify and maintain your workers\' credibility, safety and professionalism.',
-                style:
-                    TextStyle(fontSize: 12, color: Colors.grey),
+                style: TextStyle(fontSize: 12, color: Colors.grey),
               ),
               const SizedBox(height: 12),
 
               ..._checks.keys.map((k) {
                 if (k == 'Other') {
                   return Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       CheckboxListTile(
                         contentPadding: EdgeInsets.zero,
                         value: _checks[k],
                         title: Text(k),
-                        onChanged: (v) => setState(
-                            () => _checks[k] = v ?? false),
+                        onChanged: (v) =>
+                            setState(() => _checks[k] = v ?? false),
                       ),
                       if (_checks[k] == true)
                         _field(_otherMethod, 'Other method'),
@@ -420,26 +454,28 @@ class _UpdateContractorProfileState extends State<UpdateContractorProfile> {
               const SizedBox(height: 12),
 
               if (_error != null)
-                Text(_error!,
-                    style: const TextStyle(color: Colors.red)),
+                Text(
+                  _error!,
+                  style: const TextStyle(color: Colors.red),
+                ),
 
               const SizedBox(height: 8),
 
               _saving
-                  ? const Center(
-                      child: CircularProgressIndicator(),
-                    )
+                  ? const Center(child: CircularProgressIndicator())
                   : SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
                         onPressed: _saveContractor,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.black,
-                          padding: const EdgeInsets.symmetric(
-                              vertical: 14),
+                          padding:
+                              const EdgeInsets.symmetric(vertical: 14),
                         ),
-                        child: const Text('Register',
-                            style: TextStyle(fontSize: 16)),
+                        child: const Text(
+                          'Save',
+                          style: TextStyle(fontSize: 16),
+                        ),
                       ),
                     ),
 
@@ -450,11 +486,15 @@ class _UpdateContractorProfileState extends State<UpdateContractorProfile> {
                 child: OutlinedButton(
                   onPressed: _deleteAccount,
                   style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                          vertical: 14)),
-                  child: const Text('Delete Account',
-                      style: TextStyle(
-                          fontSize: 16, color: Colors.black)),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  child: const Text(
+                    'Delete Account',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.black,
+                    ),
+                  ),
                 ),
               ),
 
@@ -477,7 +517,9 @@ class _UpdateContractorProfileState extends State<UpdateContractorProfile> {
         controller: c,
         decoration: InputDecoration(
           contentPadding: const EdgeInsets.symmetric(
-              horizontal: 12, vertical: 14),
+            horizontal: 12,
+            vertical: 14,
+          ),
           hintText: hint,
           border: InputBorder.none,
         ),
