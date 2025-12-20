@@ -10,8 +10,10 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:latlong2/latlong.dart';
 
 import 'package:fixitnew/controllers/contractor/contractor_providers_controller.dart';
+import 'package:fixitnew/screens/profile/pick_location_screen.dart';
 
 class AddProviderScreen extends StatefulWidget {
   const AddProviderScreen({super.key});
@@ -31,6 +33,9 @@ class _AddProviderScreenState extends State<AddProviderScreen> {
   final TextEditingController _address1 = TextEditingController();
   final TextEditingController _address2 = TextEditingController();
   final TextEditingController _city = TextEditingController();
+
+  // Location picking (pin)
+  LatLng? _pickedLatLng;
 
   // Languages
   final Map<String, bool> _languages = {
@@ -147,6 +152,12 @@ class _AddProviderScreenState extends State<AddProviderScreen> {
       return false;
     }
 
+    // ✅ Require pin selection
+    if (_pickedLatLng == null) {
+      setState(() => _error = 'Please pick the provider location on the map.');
+      return false;
+    }
+
     return true;
   }
 
@@ -177,6 +188,10 @@ class _AddProviderScreenState extends State<AddProviderScreen> {
       final email = _email.text.trim();
       final password = _password.text.trim();
 
+      // ✅ must be non-null due to validation
+      final lat = _pickedLatLng!.latitude;
+      final lng = _pickedLatLng!.longitude;
+
       final errorMessage = await _controller.createProvider(
         firstName: firstName,
         lastName: lastName,
@@ -190,6 +205,10 @@ class _AddProviderScreenState extends State<AddProviderScreen> {
         languages: languages,
         skills: skillsForFs,
         profileImageBytes: _profileImageBytes,
+
+        // ✅ pass pin to controller/backend
+        latitude: lat,
+        longitude: lng,
       );
 
       if (!mounted) return;
@@ -239,6 +258,50 @@ class _AddProviderScreenState extends State<AddProviderScreen> {
     );
   }
 
+  // ✅ Location picker UI
+  Widget _locationPicker() {
+    final label = _pickedLatLng == null
+        ? 'Pick Provider Location on Map'
+        : 'Location Selected ✅ (${_pickedLatLng!.latitude.toStringAsFixed(5)}, ${_pickedLatLng!.longitude.toStringAsFixed(5)})';
+
+    return SizedBox(
+      width: double.infinity,
+      height: 55,
+      child: OutlinedButton(
+        onPressed: _saving
+            ? null
+            : () async {
+                final initial = _pickedLatLng ?? LatLng(6.9271, 79.8612); // Colombo
+                final result = await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => PickLocationScreen(initial: initial),
+                  ),
+                );
+
+                if (result != null && result is LatLng) {
+                  setState(() => _pickedLatLng = result);
+                }
+              },
+        style: OutlinedButton.styleFrom(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          side: const BorderSide(color: Colors.black),
+        ),
+        child: Text(
+          label,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Colors.black,
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ),
+    );
+  }
+
   void _addJobExperience(String skillName) {
     setState(() =>
         _skills[skillName]!.jobExperience.add(JobExperienceModel.empty()));
@@ -249,8 +312,7 @@ class _AddProviderScreenState extends State<AddProviderScreen> {
   }
 
   void _addEducation(String skillName) {
-    setState(() =>
-        _skills[skillName]!.education.add(EducationModel.empty()));
+    setState(() => _skills[skillName]!.education.add(EducationModel.empty()));
   }
 
   void _removeEducation(String skillName, int index) {
@@ -352,8 +414,7 @@ class _AddProviderScreenState extends State<AddProviderScreen> {
       child: Column(
         children: [
           InkWell(
-            onTap: () =>
-                setState(() => skill.isExpanded = !skill.isExpanded),
+            onTap: () => setState(() => skill.isExpanded = !skill.isExpanded),
             child: Padding(
               padding: const EdgeInsets.all(14),
               child: Row(
@@ -373,8 +434,8 @@ class _AddProviderScreenState extends State<AddProviderScreen> {
           ),
           if (skill.isExpanded)
             Padding(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 14, vertical: 8),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               child: Column(
                 children: [
                   _field(
@@ -430,8 +491,7 @@ class _AddProviderScreenState extends State<AddProviderScreen> {
                         style: TextStyle(fontWeight: FontWeight.w600),
                       ),
                       TextButton.icon(
-                        onPressed: () =>
-                            _addCertification(skill.name),
+                        onPressed: () => _addCertification(skill.name),
                         icon: const Icon(Icons.add),
                         label: const Text('Add'),
                       ),
@@ -484,8 +544,7 @@ class _AddProviderScreenState extends State<AddProviderScreen> {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: _field(
-                    model.endDateController, 'End date (optional)'),
+                child: _field(model.endDateController, 'End date (optional)'),
               ),
             ],
           ),
@@ -494,8 +553,7 @@ class _AddProviderScreenState extends State<AddProviderScreen> {
     );
   }
 
-  Widget _educationCard(
-      String skillName, EducationModel model, int index) {
+  Widget _educationCard(String skillName, EducationModel model, int index) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(10),
@@ -508,8 +566,7 @@ class _AddProviderScreenState extends State<AddProviderScreen> {
           Row(
             children: [
               Expanded(
-                child: _field(
-                    model.institutionController, 'Institution Name'),
+                child: _field(model.institutionController, 'Institution Name'),
               ),
               const SizedBox(width: 8),
               InkWell(
@@ -528,8 +585,7 @@ class _AddProviderScreenState extends State<AddProviderScreen> {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: _field(
-                    model.endDateController, 'End date (optional)'),
+                child: _field(model.endDateController, 'End date (optional)'),
               ),
             ],
           ),
@@ -538,8 +594,7 @@ class _AddProviderScreenState extends State<AddProviderScreen> {
     );
   }
 
-  Widget _certCard(
-      String skillName, CertificationModel model, int index) {
+  Widget _certCard(String skillName, CertificationModel model, int index) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(10),
@@ -552,8 +607,7 @@ class _AddProviderScreenState extends State<AddProviderScreen> {
           Row(
             children: [
               Expanded(
-                child:
-                    _field(model.nameController, 'Certification Name'),
+                child: _field(model.nameController, 'Certification Name'),
               ),
               const SizedBox(width: 8),
               InkWell(
@@ -693,6 +747,11 @@ class _AddProviderScreenState extends State<AddProviderScreen> {
                     _field(_address2, 'Address line 2 (optional)'),
                     const SizedBox(height: 10),
                     _field(_city, 'City'),
+
+                    // ✅ Pin pick UI
+                    const SizedBox(height: 12),
+                    _locationPicker(),
+
                     const SizedBox(height: 24),
                     _sectionTitle('Skill Details'),
                     const SizedBox(height: 8),
@@ -792,14 +851,10 @@ class JobExperienceModel {
     String? company,
     String? startDate,
     String? endDate,
-  })  : positionController =
-            TextEditingController(text: position ?? ''),
-        companyController =
-            TextEditingController(text: company ?? ''),
-        startDateController =
-            TextEditingController(text: startDate ?? ''),
-        endDateController =
-            TextEditingController(text: endDate ?? '');
+  })  : positionController = TextEditingController(text: position ?? ''),
+        companyController = TextEditingController(text: company ?? ''),
+        startDateController = TextEditingController(text: startDate ?? ''),
+        endDateController = TextEditingController(text: endDate ?? '');
 
   factory JobExperienceModel.empty() => JobExperienceModel();
 
@@ -831,14 +886,10 @@ class EducationModel {
     String? field,
     String? startDate,
     String? endDate,
-  })  : institutionController =
-            TextEditingController(text: institution ?? ''),
-        fieldController =
-            TextEditingController(text: field ?? ''),
-        startDateController =
-            TextEditingController(text: startDate ?? ''),
-        endDateController =
-            TextEditingController(text: endDate ?? '');
+  })  : institutionController = TextEditingController(text: institution ?? ''),
+        fieldController = TextEditingController(text: field ?? ''),
+        startDateController = TextEditingController(text: startDate ?? ''),
+        endDateController = TextEditingController(text: endDate ?? '');
 
   factory EducationModel.empty() => EducationModel();
 
@@ -869,10 +920,8 @@ class CertificationModel {
     String? institution,
     String? issuedDate,
   })  : nameController = TextEditingController(text: name ?? ''),
-        institutionController =
-            TextEditingController(text: institution ?? ''),
-        issuedDateController =
-            TextEditingController(text: issuedDate ?? '');
+        institutionController = TextEditingController(text: institution ?? ''),
+        issuedDateController = TextEditingController(text: issuedDate ?? '');
 
   factory CertificationModel.empty() => CertificationModel();
 

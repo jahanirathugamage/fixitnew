@@ -14,13 +14,9 @@ class ContractorProvidersController {
   // ✅ Vercel base URL (NO trailing slash)
   static const String _vercelBaseUrl = 'https://fixit-backend-pink.vercel.app';
 
-  /// Get currently logged-in contractor ID
   String? getCurrentContractorId() => _auth.currentUser?.uid;
-
-  /// Simple check used by views
   bool isContractorLoggedIn() => _auth.currentUser != null;
 
-  /// Stream of all providers for this contractor
   Stream<QuerySnapshot> providersStream(String contractorId) {
     return _firestore
         .collection('contractors')
@@ -29,7 +25,6 @@ class ContractorProvidersController {
         .snapshots();
   }
 
-  /// Load a single provider document for editing
   Future<Map<String, dynamic>?> fetchProvider({
     required String providerId,
   }) async {
@@ -47,7 +42,6 @@ class ContractorProvidersController {
     return doc.data();
   }
 
-  /// Update a provider’s data
   Future<String?> updateProvider({
     required String providerId,
     required Map<String, dynamic> data,
@@ -68,7 +62,6 @@ class ContractorProvidersController {
     }
   }
 
-  /// Delete a provider
   Future<String?> deleteProvider({
     required String contractorId,
     required String providerId,
@@ -93,9 +86,10 @@ class ContractorProvidersController {
 
   /// Create provider (Option A)
   /// 1) Create contractor subdoc
-  /// 2) Call Vercel API to create Auth user + users/{providerUid} (+ optionally geocode)
+  /// 2) Call Vercel API to create Auth user + users/{providerUid} + mirror serviceProviders + write GeoPoint
   /// 3) Save providerUid into contractor subdoc
-  /// 4) Mirror ONLY matching fields into serviceProviders/{providerUid}
+  ///
+  /// IMPORTANT: Do NOT write serviceProviders from client anymore.
   Future<String?> createProvider({
     required String firstName,
     required String lastName,
@@ -109,6 +103,8 @@ class ContractorProvidersController {
     required List<String> languages,
     required List<Map<String, dynamic>> skills,
     Uint8List? profileImageBytes,
+    double? latitude,
+    double? longitude,
   }) async {
     final user = _auth.currentUser;
     if (user == null) {
@@ -117,17 +113,21 @@ class ContractorProvidersController {
 
     try {
       final contractorUid = user.uid;
-
-      // ✅ Get Firebase ID token to authorize the backend call
       final idToken = await user.getIdToken();
 
-      // ✅ Build full address safely (avoid empty address2 messing geocoding)
+      // Build full address safely (avoid empty address2 messing geocoding)
       final parts = <String>[
         address1.trim(),
         if (address2.trim().isNotEmpty) address2.trim(),
         city.trim(),
-        'Sri Lanka',
       ].where((p) => p.isNotEmpty).toList();
+
+      final alreadyHasSriLanka =
+          parts.any((p) => p.toLowerCase().contains('sri lanka'));
+      if (!alreadyHasSriLanka) {
+        parts.add('Sri Lanka');
+      }
+
       final fullAddress = parts.join(', ');
 
       // Encode image if present
@@ -178,11 +178,16 @@ class ContractorProvidersController {
         'skills': skills,
         'categories': rawCategories,
         'categoriesNormalized': categoriesNormalized,
+        'languagesNormalized': languagesNormalized,
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
+
+        // store pin in contractor subdoc too (optional)
+        if (latitude != null && longitude != null)
+          'location': GeoPoint(latitude, longitude),
       });
 
-      // 2) ✅ Call Vercel API
+      // 2) Call Vercel API (send pin too!)
       final resp = await http
           .post(
             _vercelUri('/api/create-provider-account'),
@@ -196,10 +201,25 @@ class ContractorProvidersController {
               'lastName': lastName,
               'email': email,
               'password': password,
-              'address': fullAddress, // ✅ send to backend for geocoding
+              'address': fullAddress,
+
+              // ✅ important: send location pin to backend
+              if (latitude != null && longitude != null)
+                'location': {'lat': latitude, 'lng': longitude},
+
+              // optional mirror fields for backend (if you want)
+              'languages': languagesNormalized,
+              'skills': skills,
+              'categoriesNormalized': categoriesNormalized,
             }),
           )
           .timeout(const Duration(seconds: 25));
+
+      // Debug backend response (see in Debug Console)
+      // ignore: avoid_print
+      print("BACKEND STATUS: ${resp.statusCode}");
+      // ignore: avoid_print
+      print("BACKEND RESP: ${resp.body}");
 
       if (resp.statusCode != 200) {
         return 'Backend error (${resp.statusCode}): ${resp.body}';
@@ -217,50 +237,28 @@ class ContractorProvidersController {
         return 'Backend did not return providerUid. Response: ${resp.body}';
       }
 
-      // OPTIONAL: geo: { lat, lng }
-      GeoPoint? geoPoint;
-      final geo = decoded['geo'];
-      if (geo is Map) {
-        final lat = geo['lat'];
-        final lng = geo['lng'];
-        if (lat is num && lng is num) {
-          geoPoint = GeoPoint(lat.toDouble(), lng.toDouble());
-        }
-      }
-
       // 3) Save providerUid into contractor subdoc
       await providerRef.set(
         {'providerUid': providerUid},
         SetOptions(merge: true),
       );
 
-      // 4) Mirror ONLY matching fields into top-level directory
-      await _firestore.collection('serviceProviders').doc(providerUid).set({
-        'providerUid': providerUid,
-        'providerDocId': providerRef.id,
-        'contractorId': contractorUid,
+      // 4) Do NOT write serviceProviders from the client.
+      // Backend (Admin SDK) already mirrors it.
+      final spDoc =
+          await _firestore.collection('serviceProviders').doc(providerUid).get();
+      if (!spDoc.exists) {
+        // ignore: avoid_print
+        print(
+            "NOTE: serviceProviders/$providerUid not found yet (server may still be writing).");
+      } else {
+        // ignore: avoid_print
+        print("serviceProviders/$providerUid exists ✅");
+        // ignore: avoid_print
+        print("serviceProviders data: ${spDoc.data()}");
+      }
 
-        'displayName': '${firstName.trim()} ${lastName.trim()}'.trim(),
-
-        // keep address string (helps debugging / search)
-        'fullAddress': fullAddress,
-
-        // normalized matching fields
-        'languagesNormalized': languagesNormalized,
-        'categoriesNormalized': categoriesNormalized,
-
-        // include geo if available
-        if (geoPoint != null) 'geo': geoPoint,
-
-        // matching metrics
-        'cancellationRate': 0.0,
-        'isActive': true,
-
-        'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-
-      return null; // ✅ success
+      return null; // success
     } on FirebaseAuthException catch (e) {
       return e.message ?? e.toString();
     } catch (e) {
