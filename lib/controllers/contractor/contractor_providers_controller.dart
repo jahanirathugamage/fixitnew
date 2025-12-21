@@ -14,9 +14,13 @@ class ContractorProvidersController {
   // ✅ Vercel base URL (NO trailing slash)
   static const String _vercelBaseUrl = 'https://fixit-backend-pink.vercel.app';
 
+  /// Get currently logged-in contractor ID
   String? getCurrentContractorId() => _auth.currentUser?.uid;
+
+  /// Simple check used by views
   bool isContractorLoggedIn() => _auth.currentUser != null;
 
+  /// Stream of all providers for this contractor
   Stream<QuerySnapshot> providersStream(String contractorId) {
     return _firestore
         .collection('contractors')
@@ -25,6 +29,7 @@ class ContractorProvidersController {
         .snapshots();
   }
 
+  /// Load a single provider document for editing
   Future<Map<String, dynamic>?> fetchProvider({
     required String providerId,
   }) async {
@@ -42,6 +47,7 @@ class ContractorProvidersController {
     return doc.data();
   }
 
+  /// Update a provider’s data
   Future<String?> updateProvider({
     required String providerId,
     required Map<String, dynamic> data,
@@ -62,6 +68,7 @@ class ContractorProvidersController {
     }
   }
 
+  /// Delete a provider
   Future<String?> deleteProvider({
     required String contractorId,
     required String providerId,
@@ -79,12 +86,17 @@ class ContractorProvidersController {
     }
   }
 
+  // ✅ MUST exist and MUST be inside the class
+  Uri _vercelUri(String path) {
+    final clean = path.startsWith('/') ? path.substring(1) : path;
+    return Uri.parse('$_vercelBaseUrl/$clean');
+  }
+
   /// Create provider (Option A)
   /// 1) Create contractor subdoc
-  /// 2) Call Vercel API to create Auth user + users/{providerUid} + mirror serviceProviders + write GeoPoint
+  /// 2) Call Vercel API to create Auth user + users/{providerUid} (+ location)
   /// 3) Save providerUid into contractor subdoc
-  ///
-  /// IMPORTANT: Do NOT write serviceProviders from client anymore.
+  /// 4) Backend mirrors serviceProviders/{providerUid}
   Future<String?> createProvider({
     required String firstName,
     required String lastName,
@@ -108,9 +120,12 @@ class ContractorProvidersController {
 
     try {
       final contractorUid = user.uid;
+
+      // ✅ Get Firebase ID token to authorize the backend call
       final idToken = await user.getIdToken();
 
       // Build full address safely (avoid empty address2 messing geocoding)
+      // (avoid duplicates like "Sri Lanka, Sri Lanka")
       final parts = <String>[
         address1.trim(),
         if (address2.trim().isNotEmpty) address2.trim(),
@@ -151,12 +166,6 @@ class ContractorProvidersController {
           .toSet()
           .toList();
 
-      final languagesNormalized = languages
-          .map((l) => l.trim().toLowerCase())
-          .where((l) => l.isNotEmpty)
-          .toSet()
-          .toList();
-
       // 1) Write provider profile under contractor
       await providerRef.set({
         'firstName': firstName,
@@ -173,16 +182,13 @@ class ContractorProvidersController {
         'skills': skills,
         'categories': rawCategories,
         'categoriesNormalized': categoriesNormalized,
-        'languagesNormalized': languagesNormalized,
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
-
-        // store pin in contractor subdoc too (optional)
         if (latitude != null && longitude != null)
           'location': GeoPoint(latitude, longitude),
       });
 
-      // 2) Call Vercel API (send pin too!)
+      // 2) ✅ Call Vercel API
       final resp = await http
           .post(
             _vercelUri('/api/create-provider-account'),
@@ -197,20 +203,14 @@ class ContractorProvidersController {
               'email': email,
               'password': password,
               'address': fullAddress,
-
-              // ✅ important: send location pin to backend
+              // ✅ send the pinned location too (your backend supports this)
               if (latitude != null && longitude != null)
                 'location': {'lat': latitude, 'lng': longitude},
-
-              // optional mirror fields for backend (if you want)
-              'languages': languagesNormalized,
-              'skills': skills,
-              'categoriesNormalized': categoriesNormalized,
             }),
           )
           .timeout(const Duration(seconds: 25));
 
-      // Debug backend response (see in Debug Console)
+      // Debug
       // ignore: avoid_print
       print("BACKEND STATUS: ${resp.statusCode}");
       // ignore: avoid_print
@@ -238,22 +238,16 @@ class ContractorProvidersController {
         SetOptions(merge: true),
       );
 
-      // 4) Do NOT write serviceProviders from the client.
-      // Backend (Admin SDK) already mirrors it.
+      // 4) Backend mirrors serviceProviders (so client doesn't write it)
       final spDoc =
           await _firestore.collection('serviceProviders').doc(providerUid).get();
       if (!spDoc.exists) {
         // ignore: avoid_print
         print(
             "NOTE: serviceProviders/$providerUid not found yet (server may still be writing).");
-      } else {
-        // ignore: avoid_print
-        print("serviceProviders/$providerUid exists ✅");
-        // ignore: avoid_print
-        print("serviceProviders data: ${spDoc.data()}");
       }
 
-      return null; // success
+      return null; // ✅ success
     } on FirebaseAuthException catch (e) {
       return e.message ?? e.toString();
     } catch (e) {

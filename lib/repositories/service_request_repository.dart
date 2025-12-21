@@ -17,13 +17,19 @@ class ServiceRequestRepository {
 
   Future<String> createJob({
     required String category,
-    required String location,
+
+    // ✅ Keep a text location too (address / landmark)
+    required String locationText,
+
+    // ✅ NEW: pin location to store as GeoPoint
+    required double latitude,
+    required double longitude,
+
     required bool isNow,
     required DateTime scheduledAt,
     required List<String> languages,
     required List<ServiceRequestItem> items,
     required int visitationFee,
-    // required int platformFee,
   }) async {
     final user = _auth.currentUser;
     if (user == null) {
@@ -37,10 +43,8 @@ class ServiceRequestRepository {
     );
 
     final int platformFee = (serviceTotal * 0.20).round();
-
     final int totalAmount = serviceTotal + visitationFee + platformFee;
 
-    // Create a doc so we can store jobId as a field as well
     final docRef = _firestore.collection('jobRequest').doc();
 
     try {
@@ -48,10 +52,14 @@ class ServiceRequestRepository {
         'jobId': docRef.id,
         'clientId': user.uid,
         'category': category,
-        'location': location,
+
+        // ✅ Store both: text + GeoPoint
+        'locationText': locationText,
+        'location': GeoPoint(latitude, longitude),
+
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
-        'status': 'pending', // or 'pending_provider_match'
+        'status': 'pending',
         'isNow': isNow,
         'scheduledDate': Timestamp.fromDate(scheduledAt),
         'languagePrefs': languages,
@@ -70,7 +78,7 @@ class ServiceRequestRepository {
     } catch (e) {
       // ignore: avoid_print
       print('❌ Failed to save jobRequest: $e');
-      rethrow; // let the UI show the SnackBar you already have
+      rethrow;
     }
   }
 }

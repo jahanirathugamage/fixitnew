@@ -2,10 +2,12 @@
 // ignore_for_file: use_build_context_synchronously
 
 import 'package:flutter/material.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../models/service_config.dart';
 import '../../models/service_request_item.dart';
 import '../../controllers/service_request_controller.dart';
+import '../profile/pick_location_screen.dart';
 import 'matching_screen.dart';
 
 class ServiceRequestScreen extends StatefulWidget {
@@ -22,7 +24,12 @@ class _ServiceRequestScreenState extends State<ServiceRequestScreen> {
 
   // --- top bar state ---
   bool isRequestNowSelected = true;
+
+  // Location text (optional)
   final TextEditingController locationController = TextEditingController();
+
+  // ✅ Pin location (required)
+  LatLng? _pickedLatLng;
 
   // Schedule sheet state
   bool _isNowOptionSelected = true; // true = Now, false = Later
@@ -55,6 +62,49 @@ class _ServiceRequestScreenState extends State<ServiceRequestScreen> {
         }
       }
     });
+  }
+
+  // ---------- PIN PICKER ----------
+
+  Widget _locationPinPicker() {
+    final label = _pickedLatLng == null
+        ? 'Pick Job Location on Map'
+        : 'Location Selected ✅ (${_pickedLatLng!.latitude.toStringAsFixed(5)}, ${_pickedLatLng!.longitude.toStringAsFixed(5)})';
+
+    return SizedBox(
+      width: double.infinity,
+      height: 55,
+      child: OutlinedButton(
+        onPressed: () async {
+          final initial = _pickedLatLng ?? LatLng(6.9271, 79.8612); // Colombo
+          final result = await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => PickLocationScreen(initial: initial),
+            ),
+          );
+
+          if (result != null && result is LatLng) {
+            setState(() => _pickedLatLng = result);
+          }
+        },
+        style: OutlinedButton.styleFrom(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          side: const BorderSide(color: Colors.black),
+        ),
+        child: Text(
+          label,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Colors.black,
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ),
+    );
   }
 
   // ---------- REQUEST TIME SHEET ----------
@@ -157,7 +207,6 @@ class _ServiceRequestScreenState extends State<ServiceRequestScreen> {
                             bottom: 8,
                           ),
                           children: [
-                            // Now
                             GestureDetector(
                               onTap: () {
                                 setState(() {
@@ -204,9 +253,7 @@ class _ServiceRequestScreenState extends State<ServiceRequestScreen> {
                                   ),
                                   const SizedBox(width: 12),
                                   Icon(
-                                    _isNowOptionSelected
-                                        ? Icons.check_circle
-                                        : Icons.circle_outlined,
+                                    Icons.check_circle,
                                     size: 22,
                                     color: Colors.black,
                                   ),
@@ -214,7 +261,6 @@ class _ServiceRequestScreenState extends State<ServiceRequestScreen> {
                               ),
                             ),
                             const SizedBox(height: 20),
-                            // Later
                             GestureDetector(
                               onTap: () {
                                 setState(() {
@@ -261,9 +307,7 @@ class _ServiceRequestScreenState extends State<ServiceRequestScreen> {
                                   ),
                                   const SizedBox(width: 12),
                                   Icon(
-                                    !_isNowOptionSelected
-                                        ? Icons.check_circle
-                                        : Icons.circle_outlined,
+                                    Icons.circle_outlined,
                                     size: 22,
                                     color: Colors.black,
                                   ),
@@ -271,7 +315,6 @@ class _ServiceRequestScreenState extends State<ServiceRequestScreen> {
                               ),
                             ),
                             const SizedBox(height: 24),
-                            // Calendar + time
                             Container(
                               decoration: BoxDecoration(
                                 border:
@@ -576,12 +619,14 @@ class _ServiceRequestScreenState extends State<ServiceRequestScreen> {
   }
 
   void _onContinuePressed() {
-    if (locationController.text.trim().isEmpty) {
+    // ✅ Require pin (main requirement for proximity)
+    if (_pickedLatLng == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter your location.')),
+        const SnackBar(content: Text('Please pick the job location on the map.')),
       );
       return;
     }
+
     if (_selectedServices.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -590,6 +635,7 @@ class _ServiceRequestScreenState extends State<ServiceRequestScreen> {
       );
       return;
     }
+
     _openRequestSummaryBottomSheet();
   }
 
@@ -618,22 +664,17 @@ class _ServiceRequestScreenState extends State<ServiceRequestScreen> {
               0,
               (total, item) => total + item.unitPrice * item.quantity,
             );
-            
+
             final int platformFee = (serviceTotal * 0.20).round();
-            
-            final int totalAmount =
-                serviceTotal + visitationFee + platformFee;
+            final int totalAmount = serviceTotal + visitationFee + platformFee;
 
             void updateQuantity(int index, int delta) {
               modalSetState(() {
                 final item = items[index];
-
-                // Limit quantity between 1 and 3
                 if (delta > 0 && item.quantity >= 3) return;
 
                 item.quantity += delta;
 
-                // If quantity goes to 0, remove that item
                 if (item.quantity <= 0) {
                   final removedLabel = item.label;
                   items.removeAt(index);
@@ -910,7 +951,7 @@ class _ServiceRequestScreenState extends State<ServiceRequestScreen> {
                                 ),
                                 Text(
                                   'LKR $platformFee',
-                                  style: TextStyle(
+                                  style: const TextStyle(
                                     fontFamily: 'Montserrat',
                                     fontSize: 14,
                                     fontWeight: FontWeight.w500,
@@ -958,9 +999,7 @@ class _ServiceRequestScreenState extends State<ServiceRequestScreen> {
                             onPressed: isSaving
                                 ? null
                                 : () async {
-                                    modalSetState(() {
-                                      isSaving = true;
-                                    });
+                                    modalSetState(() => isSaving = true);
 
                                     final DateTime scheduledAt = DateTime(
                                       _selectedDate.year,
@@ -977,11 +1016,14 @@ class _ServiceRequestScreenState extends State<ServiceRequestScreen> {
                                     ];
 
                                     try {
-                                      // NOTE: backend name is still createPlumbingJob,
-                                      // but this now works for ANY category because we
-                                      // pass the selected items & metadata.
+                                      final lat = _pickedLatLng!.latitude;
+                                      final lng = _pickedLatLng!.longitude;
+
                                       await _controller.createPlumbingJob(
-                                        location: locationController.text.trim(),
+                                        locationText:
+                                            locationController.text.trim(),
+                                        latitude: lat,
+                                        longitude: lng,
                                         isNow: _isNowOptionSelected,
                                         scheduledAt: scheduledAt,
                                         languages: languages,
@@ -990,9 +1032,7 @@ class _ServiceRequestScreenState extends State<ServiceRequestScreen> {
                                         category: widget.config.category,
                                       );
 
-                                      modalSetState(() {
-                                        isSaving = false;
-                                      });
+                                      modalSetState(() => isSaving = false);
 
                                       if (!mounted) return;
 
@@ -1000,23 +1040,17 @@ class _ServiceRequestScreenState extends State<ServiceRequestScreen> {
                                       Navigator.push(
                                         context,
                                         MaterialPageRoute(
-                                          builder: (_) =>
-                                              const MatchingScreen(),
+                                          builder: (_) => const MatchingScreen(),
                                         ),
                                       );
                                     } catch (e) {
-                                      modalSetState(() {
-                                        isSaving = false;
-                                      });
+                                      modalSetState(() => isSaving = false);
 
                                       if (!mounted) return;
 
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
+                                      ScaffoldMessenger.of(context).showSnackBar(
                                         SnackBar(
-                                          content: Text(
-                                            'Failed to create job: $e',
-                                          ),
+                                          content: Text('Failed to create job: $e'),
                                         ),
                                       );
                                     }
@@ -1121,10 +1155,12 @@ class _ServiceRequestScreenState extends State<ServiceRequestScreen> {
                         ],
                       ),
                       const SizedBox(height: 20),
+
+                      // ✅ Optional address text field
                       TextField(
                         controller: locationController,
                         decoration: InputDecoration(
-                          hintText: 'Enter Location',
+                          hintText: 'Address / Landmark (optional)',
                           hintStyle: TextStyle(
                             fontFamily: 'Montserrat',
                             fontSize: 14,
@@ -1138,23 +1174,26 @@ class _ServiceRequestScreenState extends State<ServiceRequestScreen> {
                           ),
                           border: const OutlineInputBorder(
                             borderRadius: BorderRadius.all(Radius.circular(8)),
-                            borderSide:
-                                BorderSide(color: Colors.black, width: 1),
+                            borderSide: BorderSide(color: Colors.black, width: 1),
                           ),
                           enabledBorder: const OutlineInputBorder(
                             borderRadius: BorderRadius.all(Radius.circular(8)),
-                            borderSide:
-                                BorderSide(color: Colors.black, width: 1),
+                            borderSide: BorderSide(color: Colors.black, width: 1),
                           ),
                           focusedBorder: const OutlineInputBorder(
                             borderRadius: BorderRadius.all(Radius.circular(8)),
-                            borderSide:
-                                BorderSide(color: Colors.black, width: 2),
+                            borderSide: BorderSide(color: Colors.black, width: 2),
                           ),
                           contentPadding:
                               const EdgeInsets.symmetric(vertical: 16),
                         ),
                       ),
+
+                      const SizedBox(height: 12),
+
+                      // ✅ Required pin picker
+                      _locationPinPicker(),
+
                       const SizedBox(height: 30),
                       Center(
                         child: Column(
@@ -1197,8 +1236,7 @@ class _ServiceRequestScreenState extends State<ServiceRequestScreen> {
                           return ServiceOptionCard(
                             icon: option.icon,
                             label: option.label,
-                            isSelected:
-                                _selectedServices.contains(option.label),
+                            isSelected: _selectedServices.contains(option.label),
                             onTap: () => _onServiceTapped(option.label),
                           );
                         },
@@ -1283,7 +1321,6 @@ class _BackButtonWidgetState extends State<BackButtonWidget> {
   }
 }
 
-// new class requestTypeButton
 class RequestTypeButton extends StatelessWidget {
   final String label;
   final bool isSelected;
@@ -1312,7 +1349,7 @@ class RequestTypeButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
           ),
           child: Row(
-            mainAxisSize: MainAxisSize.min, // <- don't force full width
+            mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
@@ -1321,7 +1358,6 @@ class RequestTypeButton extends StatelessWidget {
                 color: Colors.white,
               ),
               const SizedBox(width: 6),
-              // 🔑 Flexible avoids overflow when space is tight
               Flexible(
                 child: Text(
                   label,
@@ -1349,7 +1385,6 @@ class RequestTypeButton extends StatelessWidget {
     );
   }
 }
-
 
 class ServiceOptionCard extends StatefulWidget {
   final IconData icon;
@@ -1472,4 +1507,3 @@ class _LanguageCheckboxRow extends StatelessWidget {
     );
   }
 }
-  

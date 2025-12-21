@@ -46,7 +46,7 @@ class MatchingScreen extends StatelessWidget {
                     ),
                     Center(
                       child: Text(
-                        'Matched Pros',
+                        'Matched Professionals',
                         style: TextStyle(
                           fontFamily: 'Montserrat',
                           fontSize: 16,

@@ -10,7 +10,9 @@ class ServiceRequestController {
       : _repository = repository ?? ServiceRequestRepository();
 
   Future<String> createPlumbingJob({
-    required String location,
+    required String locationText,
+    required double latitude,
+    required double longitude,
     required bool isNow,
     required DateTime scheduledAt,
     required List<String> languages,
@@ -18,10 +20,11 @@ class ServiceRequestController {
     required int visitationFee,
     required String category,
   }) {
-    // platform fee is now calculated inside the repository
     return _repository.createJob(
       category: category,
-      location: location,
+      locationText: locationText,
+      latitude: latitude,
+      longitude: longitude,
       isNow: isNow,
       scheduledAt: scheduledAt,
       languages: languages,
@@ -29,7 +32,4 @@ class ServiceRequestController {
       visitationFee: visitationFee,
     );
   }
-
-  // later you can add:
-  // Future<String> createElectricalJob(...) => _repository.createJob(category: 'electrical', ...);
 }
