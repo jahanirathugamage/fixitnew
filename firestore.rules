@@ -43,7 +43,18 @@ service cloud.firestore {
                     (request.auth.uid == uid || isAdmin());
     }
 
-    // PROVIDERS under contractors
+    // ✅ SERVICE PROVIDERS (top-level collection you actually use)
+    match /serviceProviders/{uid} {
+      allow create: if request.auth != null;
+
+      // provider can read/update their own service provider doc
+      allow read, update: if request.auth != null && request.auth.uid == uid;
+
+      // optional: admins can also read/update
+      // allow read, update: if isAdmin() || (request.auth != null && request.auth.uid == uid);
+    }
+
+    // PROVIDERS under contractors (subcollection) - kept as-is
     match /contractors/{contractorId}/providers/{providerId} {
 
       // contractor creates providers
@@ -74,11 +85,10 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // ================== JOBS (created from Electrical / Carpentry screens) ==================
+    // ================== JOBS ==================
     match /jobRequest/{jobId} {
 
       // Clients can create jobs for themselves
-      // Your code sets: 'clientId': user.uid
       allow create: if request.auth != null
                     && request.resource.data.clientId == request.auth.uid;
 

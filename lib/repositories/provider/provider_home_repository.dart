@@ -16,26 +16,35 @@ class ProviderHomeRepository {
     final user = currentUser;
     if (user == null) return null;
 
+    // ✅ Read from serviceProviders (matches your Firestore structure)
     final doc = await _firestore
-        .collection('providers')
+        .collection('serviceProviders')
         .doc(user.uid)
         .get();
 
-    final email = user.email ?? 'No email';
+    final emailFromAuth = user.email ?? 'No email';
 
     String name = 'Provider';
+    String email = emailFromAuth;
+
     if (doc.exists) {
       final data = doc.data() ?? {};
+
       final first = (data['firstName'] ?? '') as String;
-      final last = (data['lastName'] ?? '') as String;
-      final full = ('$first $last').trim();
-      if (full.isNotEmpty) {
-        name = full;
+      final last  = (data['lastName'] ?? '') as String;
+      final full  = ('$first $last').trim();
+      if (full.isNotEmpty) name = full;
+
+      // optional: prefer providerEmail if present
+      final providerEmail = data['providerEmail'];
+      if (providerEmail is String && providerEmail.isNotEmpty) {
+        email = providerEmail;
       }
     }
 
     return ProviderDashboardModel(name: name, email: email);
   }
+
 
   Future<void> signOut() async {
     await _auth.signOut();
