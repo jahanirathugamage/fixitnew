@@ -6,9 +6,6 @@ import 'package:flutter/material.dart';
 import '../../models/client/client_settings.dart';
 import '../../controllers/client/client_settings_controller.dart';
 
-// Shared bottom nav from client home screen
-import 'client/home_screen.dart' show ClientBottomNavBar;
-
 class HomeClient extends StatefulWidget {
   const HomeClient({super.key});
 
@@ -51,6 +48,8 @@ class _HomeClientState extends State<HomeClient> {
     return null;
   }
 
+  void _go(String route) => Navigator.pushReplacementNamed(context, route);
+
   @override
   Widget build(BuildContext context) {
     final profileImageProvider = _buildProfileImageProvider();
@@ -71,6 +70,7 @@ class _HomeClientState extends State<HomeClient> {
         elevation: 0,
         centerTitle: true,
       ),
+
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -94,22 +94,30 @@ class _HomeClientState extends State<HomeClient> {
                       : null,
                 ),
                 const SizedBox(width: 16),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Welcome $firstName',
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
+
+                // ✅ prevent overflow on small screens
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Welcome $firstName',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      email,
-                      style: const TextStyle(color: Colors.grey),
-                    ),
-                  ],
+                      const SizedBox(height: 4),
+                      Text(
+                        email,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: Colors.grey),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -123,7 +131,6 @@ class _HomeClientState extends State<HomeClient> {
               context,
               '/dashboards/client/update_client_profile',
             ).then((_) {
-              // reload data (and image) when coming back
               _loadClientData();
             }),
             child: const _TileC(
@@ -168,12 +175,10 @@ class _HomeClientState extends State<HomeClient> {
                   ),
                 ),
                 onPressed: () async {
-                  // Capture navigator BEFORE async gap
                   final navigator = Navigator.of(context);
-
                   await _controller.logout();
 
-                  if (!mounted) return; // still fine to keep
+                  if (!mounted) return;
 
                   navigator.pushNamedAndRemoveUntil(
                     '/login',
@@ -193,8 +198,53 @@ class _HomeClientState extends State<HomeClient> {
         ],
       ),
 
-      // ----------------------- BOTTOM NAVIGATION -----------------------
-      bottomNavigationBar: const ClientBottomNavBar(),
+      // ✅ Bottom navigation updated to match your screenshot:
+      // Home | Jobs | Settings
+      bottomNavigationBar: Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          border: Border(
+            top: BorderSide(color: Colors.black12, width: 1),
+          ),
+        ),
+        child: BottomNavigationBar(
+          type: BottomNavigationBarType.fixed,
+          backgroundColor: Colors.white,
+          elevation: 0,
+          currentIndex: 2, // Settings selected on this screen
+          selectedFontSize: 12,
+          unselectedFontSize: 12,
+          selectedItemColor: Colors.black,
+          unselectedItemColor: Colors.black,
+          onTap: (index) {
+            switch (index) {
+              case 0:
+                _go('/dashboards/client/home_screen'); // ✅ set to your client home route
+                break;
+              case 1:
+                _go('/dashboards/client/client_jobs'); // ✅ set to your client jobs route
+                break;
+              case 2:
+                // already settings screen
+                break;
+            }
+          },
+          items: const [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.home),
+              label: "Home",
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.assignment),
+              label: "Jobs",
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.settings),
+              label: "Settings",
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -218,11 +268,14 @@ class _TileC extends StatelessWidget {
         children: [
           Icon(icon, size: 28),
           const SizedBox(width: 12),
-          Text(
-            text,
-            style: const TextStyle(fontSize: 16),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(fontSize: 16),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
-          const Spacer(),
           const Icon(Icons.chevron_right),
         ],
       ),
