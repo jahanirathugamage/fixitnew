@@ -4,6 +4,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:fixitnew/controllers/contractor/contractor_providers_controller.dart';
 
+// ✅ reusable contractor bottom nav
+import 'package:fixitnew/widgets/nav/contractor_bottom_nav.dart';
+
 class ContractorServiceProviders extends StatefulWidget {
   const ContractorServiceProviders({super.key});
 
@@ -12,8 +15,7 @@ class ContractorServiceProviders extends StatefulWidget {
       _ContractorServiceProvidersState();
 }
 
-class _ContractorServiceProvidersState
-    extends State<ContractorServiceProviders> {
+class _ContractorServiceProvidersState extends State<ContractorServiceProviders> {
   final _controller = ContractorProvidersController();
 
   @override
@@ -121,8 +123,7 @@ class _ContractorServiceProvidersState
                           );
                         }
 
-                        if (!snapshot.hasData ||
-                            snapshot.data!.docs.isEmpty) {
+                        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                           return const Padding(
                             padding: EdgeInsets.all(20),
                             child: Text(
@@ -134,8 +135,7 @@ class _ContractorServiceProvidersState
 
                         return Column(
                           children: snapshot.data!.docs.map((doc) {
-                            final data =
-                                doc.data() as Map<String, dynamic>;
+                            final data = doc.data() as Map<String, dynamic>;
                             final name =
                                 "${data['firstName'] ?? ''} ${data['lastName'] ?? ''}"
                                     .trim();
@@ -150,8 +150,7 @@ class _ContractorServiceProvidersState
                               context: context,
                               contractorId: contractorId,
                               providerId: doc.id,
-                              name:
-                                  name.isEmpty ? 'Unnamed Provider' : name,
+                              name: name.isEmpty ? 'Unnamed Provider' : name,
                               imageUrl: imageUrl,
                             );
                           }).toList(),
@@ -162,43 +161,12 @@ class _ContractorServiceProvidersState
                 ),
               ),
             ),
-
-            // ------------------------------------------------------------------
-            // BOTTOM NAVIGATION BAR
-            // ------------------------------------------------------------------
-            Container(
-              decoration: BoxDecoration(
-                border: Border(
-                  top: BorderSide(color: Colors.grey[300]!, width: 1),
-                ),
-              ),
-              child: BottomNavigationBar(
-                type: BottomNavigationBarType.fixed,
-                backgroundColor: Colors.white,
-                selectedItemColor: Colors.black,
-                unselectedItemColor: Colors.black,
-                showSelectedLabels: false,
-                showUnselectedLabels: false,
-                elevation: 0,
-                items: const [
-                  BottomNavigationBarItem(
-                    icon: Icon(Icons.receipt_long, size: 28),
-                    label: '',
-                  ),
-                  BottomNavigationBarItem(
-                    icon: Icon(Icons.badge_outlined, size: 28),
-                    label: '',
-                  ),
-                  BottomNavigationBarItem(
-                    icon: Icon(Icons.apartment, size: 28),
-                    label: '',
-                  ),
-                ],
-              ),
-            ),
           ],
         ),
       ),
+
+      // ✅ Reusable nav (Providers selected)
+      bottomNavigationBar: const ContractorBottomNav(currentIndex: 1),
     );
   }
 
@@ -232,8 +200,7 @@ class _ContractorServiceProvidersState
             child: ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: imageUrl == null
-                  ? const Icon(Icons.person,
-                      size: 30, color: Colors.grey)
+                  ? const Icon(Icons.person, size: 30, color: Colors.grey)
                   : Image.network(
                       imageUrl,
                       fit: BoxFit.cover,
@@ -255,9 +222,7 @@ class _ContractorServiceProvidersState
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-
                 const SizedBox(height: 10),
-
                 Row(
                   children: [
                     // Manage Button
@@ -291,51 +256,44 @@ class _ContractorServiceProvidersState
                         ),
                       ),
                     ),
-
                     const SizedBox(width: 8),
 
                     // Delete Button
                     Expanded(
                       child: OutlinedButton(
                         onPressed: () async {
-                          final messenger =
-                              ScaffoldMessenger.of(context);
+                          final messenger = ScaffoldMessenger.of(context);
 
-                          final confirm =
-                              await showDialog<bool>(
-                                    context: context,
-                                    builder: (ctx) => AlertDialog(
-                                      title: const Text(
-                                          'Delete Provider'),
-                                      content: const Text(
-                                          'Are you sure you want to delete this provider?'),
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () =>
-                                              Navigator.of(ctx)
-                                                  .pop(false),
-                                          child: const Text('Cancel'),
-                                        ),
-                                        TextButton(
-                                          onPressed: () =>
-                                              Navigator.of(ctx)
-                                                  .pop(true),
-                                          child: const Text(
-                                            'Delete',
-                                            style: TextStyle(
-                                              color: Colors.redAccent,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
+                          final confirm = await showDialog<bool>(
+                                context: context,
+                                builder: (ctx) => AlertDialog(
+                                  title: const Text('Delete Provider'),
+                                  content: const Text(
+                                      'Are you sure you want to delete this provider?'),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () =>
+                                          Navigator.of(ctx).pop(false),
+                                      child: const Text('Cancel'),
                                     ),
-                                  ) ??
-                                  false;
+                                    TextButton(
+                                      onPressed: () =>
+                                          Navigator.of(ctx).pop(true),
+                                      child: const Text(
+                                        'Delete',
+                                        style: TextStyle(
+                                          color: Colors.redAccent,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ) ??
+                              false;
 
                           if (!confirm || !context.mounted) return;
 
-                          final errorMessage =
-                              await _controller.deleteProvider(
+                          final errorMessage = await _controller.deleteProvider(
                             contractorId: contractorId,
                             providerId: providerId,
                           );
@@ -345,8 +303,7 @@ class _ContractorServiceProvidersState
                           if (errorMessage == null) {
                             messenger.showSnackBar(
                               const SnackBar(
-                                content: Text(
-                                    "Provider deleted successfully"),
+                                content: Text("Provider deleted successfully"),
                               ),
                             );
                           } else {
@@ -359,10 +316,8 @@ class _ContractorServiceProvidersState
                         },
                         style: OutlinedButton.styleFrom(
                           foregroundColor: Colors.black,
-                          padding: const EdgeInsets.symmetric(
-                              vertical: 10),
-                          side: const BorderSide(
-                              color: Colors.black, width: 1.5),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          side: const BorderSide(color: Colors.black, width: 1.5),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(6),
                           ),

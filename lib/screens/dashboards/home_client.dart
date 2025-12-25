@@ -6,6 +6,9 @@ import 'package:flutter/material.dart';
 import '../../models/client/client_settings.dart';
 import '../../controllers/client/client_settings_controller.dart';
 
+// ✅ reusable nav
+import 'package:fixitnew/widgets/nav/client_bottom_nav.dart';
+
 class HomeClient extends StatefulWidget {
   const HomeClient({super.key});
 
@@ -47,8 +50,6 @@ class _HomeClientState extends State<HomeClient> {
 
     return null;
   }
-
-  void _go(String route) => Navigator.pushReplacementNamed(context, route);
 
   @override
   Widget build(BuildContext context) {
@@ -198,52 +199,9 @@ class _HomeClientState extends State<HomeClient> {
         ],
       ),
 
-      // ✅ Bottom navigation updated to match your screenshot:
-      // Home | Jobs | Settings
-      bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          border: Border(
-            top: BorderSide(color: Colors.black12, width: 1),
-          ),
-        ),
-        child: BottomNavigationBar(
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: Colors.white,
-          elevation: 0,
-          currentIndex: 2, // Settings selected on this screen
-          selectedFontSize: 12,
-          unselectedFontSize: 12,
-          selectedItemColor: Colors.black,
-          unselectedItemColor: Colors.black,
-          onTap: (index) {
-            switch (index) {
-              case 0:
-                _go('/dashboards/client/home_screen'); // ✅ set to your client home route
-                break;
-              case 1:
-                _go('/dashboards/client/client_jobs'); // ✅ set to your client jobs route
-                break;
-              case 2:
-                // already settings screen
-                break;
-            }
-          },
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.home),
-              label: "Home",
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.assignment),
-              label: "Jobs",
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.settings),
-              label: "Settings",
-            ),
-          ],
-        ),
+      // ✅ Re-usable bottom nav
+      bottomNavigationBar: const ClientBottomNav(
+        currentIndex: 2, // Settings selected on this screen
       ),
     );
   }

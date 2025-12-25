@@ -5,6 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:fixitnew/controllers/contractor/contractor_home_controller.dart';
 import 'package:fixitnew/models/contractor/contractor_dashboard_model.dart';
 
+// ✅ reusable nav
+import 'package:fixitnew/widgets/nav/contractor_bottom_nav.dart';
+
 class HomeContractor extends StatefulWidget {
   const HomeContractor({super.key});
 
@@ -181,56 +184,9 @@ class _HomeContractorState extends State<HomeContractor> {
               ],
             ),
 
-      // ✅ Bottom nav matches your screenshot: Jobs | Providers | Earnings | Settings
-      bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          border: Border(top: BorderSide(color: Colors.black12, width: 1)),
-        ),
-        child: BottomNavigationBar(
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: Colors.white,
-          elevation: 0,
-          currentIndex: 3, // Settings selected on this screen
-          selectedFontSize: 12,
-          unselectedFontSize: 12,
-          selectedItemColor: Colors.black,
-          unselectedItemColor: Colors.black,
-          onTap: (index) {
-            switch (index) {
-              case 0:
-                _go("/dashboards/contractor/contractor_jobs");
-                break;
-              case 1:
-                _go("/dashboards/contractor/contractor_service_providers");
-                break;
-              case 2:
-                _go("/dashboards/contractor/contractor_earnings");
-                break;
-              case 3:
-                // already here
-                break;
-            }
-          },
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.receipt_long), // clipboard-like (Jobs)
-              label: "Jobs",
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.badge_outlined), // Providers
-              label: "Providers",
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.account_balance_wallet_outlined), // Earnings
-              label: "Earnings",
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.settings), // Settings
-              label: "Settings",
-            ),
-          ],
-        ),
+      // ✅ Re-usable contractor bottom nav
+      bottomNavigationBar: const ContractorBottomNav(
+        currentIndex: 3, // Settings selected on this screen
       ),
     );
   }

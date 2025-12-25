@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../controllers/admin/admin_settings_controller.dart';
 
+// ✅ reusable nav
+import 'package:fixitnew/widgets/nav/admin_bottom_nav.dart';
+
 class AdminSettingsScreen extends StatelessWidget {
   const AdminSettingsScreen({super.key});
 
@@ -47,10 +50,6 @@ class AdminSettingsScreen extends StatelessWidget {
           const Icon(Icons.chevron_right, size: 20, color: Colors.black87),
       onTap: onTap,
     );
-  }
-
-  void _go(BuildContext context, String route) {
-    Navigator.pushReplacementNamed(context, route);
   }
 
   @override
@@ -108,11 +107,9 @@ class AdminSettingsScreen extends StatelessWidget {
                         '/admin/admin_change_password_screen',
                       ),
                     ),
-
                     const SizedBox(height: 16),
                     const Divider(thickness: 1, color: Colors.black12),
                     const SizedBox(height: 16),
-
                     _sectionTitle(
                       'Company',
                       'Contracting Companies Management',
@@ -174,46 +171,8 @@ class AdminSettingsScreen extends StatelessWidget {
               ),
             ),
 
-            // ---------------- ADMIN BOTTOM NAV ----------------
-            Container(
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                border: Border(
-                  top: BorderSide(color: Colors.black12, width: 1),
-                ),
-              ),
-              child: BottomNavigationBar(
-                type: BottomNavigationBarType.fixed,
-                backgroundColor: Colors.white,
-                elevation: 0,
-                currentIndex: 1, // Settings selected
-                selectedFontSize: 12,
-                unselectedFontSize: 12,
-                selectedItemColor: Colors.black,
-                unselectedItemColor: Colors.black,
-                onTap: (index) {
-                  switch (index) {
-                    case 0:
-                      // ✅ replace with your actual analytics route
-                      _go(context, '/admin/admin_analytics_screen');
-                      break;
-                    case 1:
-                      // already here
-                      break;
-                  }
-                },
-                items: const [
-                  BottomNavigationBarItem(
-                    icon: Icon(Icons.bar_chart),
-                    label: 'Analytics',
-                  ),
-                  BottomNavigationBarItem(
-                    icon: Icon(Icons.settings),
-                    label: 'Settings',
-                  ),
-                ],
-              ),
-            ),
+            // ✅ Re-usable bottom nav
+            const AdminBottomNav(currentIndex: 1),
           ],
         ),
       ),

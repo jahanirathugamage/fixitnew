@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+// ✅ reusable client bottom nav
+import 'package:fixitnew/widgets/nav/client_bottom_nav.dart';
+
 // Remove this for now since we're not using it:
 // import '../../../controllers/client/client_jobs_controller.dart';
 
@@ -25,6 +28,9 @@ class ClientJobs extends StatelessWidget {
           style: TextStyle(fontSize: 18),
         ),
       ),
+
+      // ✅ Reusable nav (Jobs selected)
+      bottomNavigationBar: const ClientBottomNav(currentIndex: 1),
     );
   }
 }
