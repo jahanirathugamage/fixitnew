@@ -17,14 +17,9 @@ class ServiceRequestRepository {
 
   Future<String> createJob({
     required String category,
-
-    // ✅ Keep a text location too (address / landmark)
-    required String locationText,
-
-    // ✅ NEW: pin location to store as GeoPoint
+    required String locationText, // optional text/landmark
     required double latitude,
     required double longitude,
-
     required bool isNow,
     required DateTime scheduledAt,
     required List<String> languages,
@@ -52,8 +47,9 @@ class ServiceRequestRepository {
         'jobId': docRef.id,
         'clientId': user.uid,
         'category': category,
+        'categoryNormalized': category.trim().toLowerCase(),
 
-        // ✅ Store both: text + GeoPoint
+        // ✅ store both
         'locationText': locationText,
         'location': GeoPoint(latitude, longitude),
 

@@ -203,6 +203,12 @@ class ContractorProvidersController {
               'email': email,
               'password': password,
               'address': fullAddress,
+
+              'languages': languages,
+              'skills': skills,
+              'categories': rawCategories,
+              'categoriesNormalized': categoriesNormalized,
+
               // ✅ send the pinned location too (your backend supports this)
               if (latitude != null && longitude != null)
                 'location': {'lat': latitude, 'lng': longitude},
