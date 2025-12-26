@@ -7,6 +7,9 @@ import '../../../controllers/client/client_home_controller.dart';
 import '../../services/service_request_screen.dart';
 import '../../services/service_request_wrapper.dart';
 
+// ✅ reusable client bottom nav
+import 'package:fixitnew/widgets/nav/client_bottom_nav.dart';
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -313,6 +316,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
+
       body: SafeArea(
         child: Column(
           children: [
@@ -332,6 +336,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
             ),
+
             // Body
             Expanded(
               child: SingleChildScrollView(
@@ -370,74 +375,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ),
-            // Bottom nav (NO services icon)
-            const ClientBottomNavBar(),
           ],
         ),
       ),
-    );
-  }
-}
 
-// ----------------- NAVIGATION (maintainable bottom nav) -----------------
-
-class ClientNavItem {
-  final IconData icon;
-  final String routeName;
-
-  const ClientNavItem({
-    required this.icon,
-    required this.routeName,
-  });
-}
-
-const List<ClientNavItem> _clientNavItems = [
-  ClientNavItem(
-    icon: Icons.home,
-    routeName: '/dashboards/client/home_screen',
-  ),
-  ClientNavItem(
-    icon: Icons.receipt_long,
-    routeName: '/dashboards/client/client_jobs',
-  ),
-  ClientNavItem(
-    icon: Icons.person,
-    routeName: '/dashboards/home_client',
-  ),
-];
-
-class ClientBottomNavBar extends StatelessWidget {
-  const ClientBottomNavBar({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(
-          top: BorderSide(
-            color: Colors.grey.shade300,
-            width: 1,
-          ),
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 15),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: _clientNavItems
-              .map(
-                (item) => NavIcon(
-                  icon: item.icon,
-                  onTap: () => Navigator.pushNamed(
-                    context,
-                    item.routeName,
-                  ),
-                ),
-              )
-              .toList(),
-        ),
-      ),
+      // ✅ Reusable nav (Home selected)
+      bottomNavigationBar: const ClientBottomNav(currentIndex: 0),
     );
   }
 }
@@ -541,35 +484,6 @@ class _ServiceCardState extends State<ServiceCard> {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-// ---------------------- NAV ICON ----------------------
-
-class NavIcon extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onTap;
-
-  const NavIcon({
-    super.key,
-    required this.icon,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Icon(
-          icon,
-          size: 30,
-          color: Colors.black,
-        ),
       ),
     );
   }

@@ -5,6 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:fixitnew/controllers/contractor/contractor_home_controller.dart';
 import 'package:fixitnew/models/contractor/contractor_dashboard_model.dart';
 
+// ✅ reusable nav
+import 'package:fixitnew/widgets/nav/contractor_bottom_nav.dart';
+
 class HomeContractor extends StatefulWidget {
   const HomeContractor({super.key});
 
@@ -43,8 +46,8 @@ class _HomeContractorState extends State<HomeContractor> {
     }
   }
 
-  // ------------ Navigation Helper ------------
-  void _go(String route) => Navigator.pushNamed(context, route);
+  // ✅ For tab navigation, replacement is better than stacking pages
+  void _go(String route) => Navigator.pushReplacementNamed(context, route);
 
   @override
   Widget build(BuildContext context) {
@@ -87,22 +90,30 @@ class _HomeContractorState extends State<HomeContractor> {
                         ),
                       ),
                       const SizedBox(width: 16),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            "Welcome $contractorName",
-                            style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
+
+                      // ✅ prevent overflow on small screens
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "Welcome $contractorName",
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            contractorEmail,
-                            style: const TextStyle(color: Colors.grey),
-                          ),
-                        ],
+                            const SizedBox(height: 4),
+                            Text(
+                              contractorEmail,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(color: Colors.grey),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
@@ -156,7 +167,6 @@ class _HomeContractorState extends State<HomeContractor> {
                         ),
                       ),
                       onPressed: () async {
-                        // avoid using context after await
                         final navigator = Navigator.of(context);
                         await _controller.signOut();
                         navigator.pushNamedAndRemoveUntil(
@@ -166,8 +176,7 @@ class _HomeContractorState extends State<HomeContractor> {
                       },
                       child: const Text(
                         "Logout",
-                        style:
-                            TextStyle(fontSize: 18, color: Colors.white),
+                        style: TextStyle(fontSize: 18, color: Colors.white),
                       ),
                     ),
                   ),
@@ -175,36 +184,9 @@ class _HomeContractorState extends State<HomeContractor> {
               ],
             ),
 
-      // ----------- BOTTOM NAV BAR -----------
-      bottomNavigationBar: Container(
-        height: 70,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          border: Border(top: BorderSide(color: Colors.black12, width: 1)),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            _NavItemC(
-              icon: Icons.receipt_long,
-              label: '',
-              onTap: () =>
-                  _go("/dashboards/contractor/contractor_jobs"),
-            ),
-            _NavItemC(
-              icon: Icons.badge_outlined,
-              label: '',
-              onTap: () => _go(
-                  "/dashboards/contractor/contractor_service_providers"),
-            ),
-            _NavItemC(
-              icon: Icons.apartment,
-              label: '',
-              onTap: () =>
-                  _go("/dashboards/contractor/home_contractor"),
-            ),
-          ],
-        ),
+      // ✅ Re-usable contractor bottom nav
+      bottomNavigationBar: const ContractorBottomNav(
+        currentIndex: 3, // Settings selected on this screen
       ),
     );
   }
@@ -220,41 +202,24 @@ class _TileC extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: onTap, // navigation
+      onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         child: Row(
           children: [
             Icon(icon, size: 28),
             const SizedBox(width: 12),
-            Text(text, style: const TextStyle(fontSize: 16)),
-            const Spacer(),
+            Expanded(
+              child: Text(
+                text,
+                style: const TextStyle(fontSize: 16),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
             const Icon(Icons.chevron_right),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _NavItemC extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback? onTap;
-
-  const _NavItemC({required this.icon, required this.label, this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap, // navigation
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 28),
-          const SizedBox(height: 4),
-          Text(label, style: const TextStyle(fontSize: 12)),
-        ],
       ),
     );
   }

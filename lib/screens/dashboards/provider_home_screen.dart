@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:fixitnew/controllers/provider/provider_home_controller.dart';
 import 'package:fixitnew/models/provider/provider_dashboard_model.dart';
+import 'package:fixitnew/widgets/nav/provider_bottom_nav.dart';
 
 class ProviderHomeScreen extends StatefulWidget {
   const ProviderHomeScreen({super.key});
@@ -41,7 +42,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
     }
   }
 
-  void _go(String route) => Navigator.pushNamed(context, route);
+  void _go(String route) => Navigator.pushReplacementNamed(context, route);
 
   @override
   Widget build(BuildContext context) {
@@ -50,156 +51,156 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
 
     return Scaffold(
       backgroundColor: Colors.white,
+
+      // SETTINGS HEADER
       appBar: AppBar(
-        title: const Text(
-          "Provider Dashboard",
-          style: TextStyle(color: Colors.black),
-        ),
         backgroundColor: Colors.white,
         elevation: 0,
         centerTitle: true,
+        title: const Text(
+          "Settings",
+          style: TextStyle(
+            color: Colors.black,
+            fontSize: 22,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
       ),
+
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 20),
+          : SafeArea(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: MediaQuery.of(context).size.height -
+                        kToolbarHeight -
+                        MediaQuery.of(context).padding.top -
+                        75,
+                  ),
+                  child: IntrinsicHeight(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 20),
 
-                // PROFILE HEADER
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Row(
-                    children: [
-                      const CircleAvatar(
-                        radius: 35,
-                        backgroundColor: Colors.black12,
-                        child:
-                            Icon(Icons.person, size: 40, color: Colors.black),
-                      ),
-                      const SizedBox(width: 16),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            "Welcome $providerName",
-                            style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
+                        // PROFILE HEADER
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: Row(
+                            children: [
+                              const CircleAvatar(
+                                radius: 35,
+                                backgroundColor: Colors.black12,
+                                child: Icon(Icons.person,
+                                    size: 40, color: Colors.black),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      "Welcome $providerName",
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      providerEmail,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style:
+                                          const TextStyle(color: Colors.grey),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(height: 30),
+
+                        if (_error != null)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            child: Text(
+                              _error!,
+                              style: const TextStyle(color: Colors.red),
                             ),
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            providerEmail,
-                            style: const TextStyle(color: Colors.grey),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
 
-                const SizedBox(height: 30),
-
-                if (_error != null)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Text(
-                      _error!,
-                      style: const TextStyle(color: Colors.red),
-                    ),
-                  ),
-
-                // SETTINGS LIST
-                _TileP(
-                  icon: Icons.person_outline,
-                  text: "Profile",
-                  onTap: () => _go("/provider/profile"),
-                ),
-                _TileP(
-                  icon: Icons.lock_outline,
-                  text: "Change Password",
-                  onTap: () => _go("/provider/change_password"),
-                ),
-                _TileP(
-                  icon: Icons.account_balance_wallet_outlined,
-                  text: "Bank Details",
-                  onTap: () => _go("/provider/bank_details"),
-                ),
-
-                const Spacer(),
-
-                // LOGOUT BUTTON
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 20, vertical: 20),
-                  child: SizedBox(
-                    height: 55,
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.black,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                        _TileP(
+                          icon: Icons.person_outline,
+                          text: "Profile",
+                          onTap: () => _go("/provider/profile"),
                         ),
-                      ),
-                      onPressed: () async {
-                        // Capture navigator BEFORE the await so we don't use context after
-                        final navigator = Navigator.of(context);
-                        await _controller.signOut();
-                        navigator.pushNamedAndRemoveUntil(
-                          "/login",
-                          (route) => false,
-                        );
-                      },
-                      child: const Text(
-                        "Logout",
-                        style:
-                            TextStyle(fontSize: 18, color: Colors.white),
-                      ),
+                        _TileP(
+                          icon: Icons.lock_outline,
+                          text: "Change Password",
+                          onTap: () => _go("/provider/change_password"),
+                        ),
+                        _TileP(
+                          icon: Icons.account_balance_wallet_outlined,
+                          text: "Bank Details",
+                          onTap: () => _go("/provider/bank_details"),
+                        ),
+
+                        const Spacer(),
+
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 20, vertical: 20),
+                          child: SizedBox(
+                            height: 55,
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.black,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              onPressed: () async {
+                                final navigator = Navigator.of(context);
+                                await _controller.signOut();
+                                navigator.pushNamedAndRemoveUntil(
+                                  "/login",
+                                  (route) => false,
+                                );
+                              },
+                              child: const Text(
+                                "Logout",
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
-              ],
+              ),
             ),
-      // BOTTOM NAVIGATION
-      bottomNavigationBar: Container(
-        height: 75,
-        decoration: const BoxDecoration(
-          border: Border(top: BorderSide(color: Colors.grey, width: 0.4)),
-          color: Colors.white,
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            _NavItemP(
-              icon: Icons.assignment,
-              label: "Jobs",
-              onTap: () => _go("/provider/jobs"),
-            ),
-            _NavItemP(
-              icon: Icons.list_alt,
-              label: "Tasks",
-              onTap: () => _go("/provider/tasks"),
-            ),
-            _NavItemP(
-              icon: Icons.person_pin,
-              label: "Requests",
-              onTap: () => _go("/provider/requests"),
-            ),
-            _NavItemP(
-              icon: Icons.person,
-              label: "Profile",
-              onTap: () => _go("/provider/profile"),
-            ),
-          ],
-        ),
+
+      // ✅ REUSABLE PROVIDER NAVIGATION
+      bottomNavigationBar: const ProviderBottomNav(
+        currentIndex: 3, // Settings
       ),
     );
   }
 }
 
-// REUSABLE TILE
+// TILE
 class _TileP extends StatelessWidget {
   final IconData icon;
   final String text;
@@ -221,39 +222,17 @@ class _TileP extends StatelessWidget {
           children: [
             Icon(icon, size: 28),
             const SizedBox(width: 16),
-            Text(text, style: const TextStyle(fontSize: 16)),
-            const Spacer(),
+            Expanded(
+              child: Text(
+                text,
+                style: const TextStyle(fontSize: 16),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
             const Icon(Icons.chevron_right, size: 26),
           ],
         ),
-      ),
-    );
-  }
-}
-
-// NAV BAR ITEM
-class _NavItemP extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback? onTap;
-
-  const _NavItemP({
-    required this.icon,
-    required this.label,
-    this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 28),
-          const SizedBox(height: 4),
-          Text(label, style: const TextStyle(fontSize: 11)),
-        ],
       ),
     );
   }
