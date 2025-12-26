@@ -14,11 +14,6 @@ class ContractorProvidersController {
   // ✅ Vercel base URL (NO trailing slash)
   static const String _vercelBaseUrl = 'https://fixit-backend-pink.vercel.app';
 
-  Uri _vercelUri(String path) {
-    final clean = path.startsWith('/') ? path.substring(1) : path;
-    return Uri.parse('$_vercelBaseUrl/$clean');
-  }
-
   /// Get currently logged-in contractor ID
   String? getCurrentContractorId() => _auth.currentUser?.uid;
 
@@ -91,10 +86,178 @@ class ContractorProvidersController {
     }
   }
 
+  // ✅ MUST exist and MUST be inside the class
+  Uri _vercelUri(String path) {
+    final clean = path.startsWith('/') ? path.substring(1) : path;
+    return Uri.parse('$_vercelBaseUrl/$clean');
+  }
+
   /// Create provider (Option A)
   /// 1) Create contractor subdoc
-  /// 2) Call Vercel API to create Auth user + users/{providerUid} (+ optionally geocode)
+  /// 2) Call Vercel API to create Auth user + users/{providerUid} (+ location)
   /// 3) Save providerUid into contractor subdoc
-  /// 4) Mirror ONLY matching fields into serviceProviders/{providerUid}
+  /// 4) Backend mirrors serviceProviders/{providerUid}
   Future<String?> createProvider({
-    required
+    required String firstName,
+    required String lastName,
+    required String gender,
+    required String email,
+    required String password,
+    required String phone,
+    required String address1,
+    required String address2,
+    required String city,
+    required List<String> languages,
+    required List<Map<String, dynamic>> skills,
+    Uint8List? profileImageBytes,
+    double? latitude,
+    double? longitude,
+  }) async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      return 'You must be signed in as a contractor to create a provider.';
+    }
+
+    try {
+      final contractorUid = user.uid;
+
+      // ✅ Get Firebase ID token to authorize the backend call
+      final idToken = await user.getIdToken();
+
+      // Build full address safely (avoid empty address2 messing geocoding)
+      // (avoid duplicates like "Sri Lanka, Sri Lanka")
+      final parts = <String>[
+        address1.trim(),
+        if (address2.trim().isNotEmpty) address2.trim(),
+        city.trim(),
+      ].where((p) => p.isNotEmpty).toList();
+
+      final alreadyHasSriLanka =
+          parts.any((p) => p.toLowerCase().contains('sri lanka'));
+      if (!alreadyHasSriLanka) {
+        parts.add('Sri Lanka');
+      }
+
+      final fullAddress = parts.join(', ');
+
+      // Encode image if present
+      String? profileBase64;
+      if (profileImageBytes != null) {
+        profileBase64 = base64Encode(profileImageBytes);
+      }
+
+      // Create provider doc under contractor
+      final providerRef = _firestore
+          .collection('contractors')
+          .doc(contractorUid)
+          .collection('providers')
+          .doc();
+
+      // Extract categories from skills[].name
+      final rawCategories = skills
+          .map((s) => (s['name'] ?? '').toString().trim())
+          .where((x) => x.isNotEmpty)
+          .toSet()
+          .toList();
+
+      final categoriesNormalized = rawCategories
+          .map((c) => c.trim().toLowerCase())
+          .where((c) => c.isNotEmpty)
+          .toSet()
+          .toList();
+
+      // 1) Write provider profile under contractor
+      await providerRef.set({
+        'firstName': firstName,
+        'lastName': lastName,
+        'gender': gender,
+        'email': email,
+        'phone': phone,
+        'address1': address1,
+        'address2': address2,
+        'city': city,
+        'fullAddress': fullAddress,
+        'profileImageBase64': profileBase64,
+        'languages': languages,
+        'skills': skills,
+        'categories': rawCategories,
+        'categoriesNormalized': categoriesNormalized,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+        if (latitude != null && longitude != null)
+          'location': GeoPoint(latitude, longitude),
+      });
+
+      // 2) ✅ Call Vercel API
+      final resp = await http
+          .post(
+            _vercelUri('/api/create-provider-account'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $idToken',
+            },
+            body: jsonEncode({
+              'providerDocId': providerRef.id,
+              'firstName': firstName,
+              'lastName': lastName,
+              'email': email,
+              'password': password,
+              'address': fullAddress,
+
+              'languages': languages,
+              'skills': skills,
+              'categories': rawCategories,
+              'categoriesNormalized': categoriesNormalized,
+
+              // ✅ send the pinned location too (your backend supports this)
+              if (latitude != null && longitude != null)
+                'location': {'lat': latitude, 'lng': longitude},
+            }),
+          )
+          .timeout(const Duration(seconds: 25));
+
+      // Debug
+      // ignore: avoid_print
+      print("BACKEND STATUS: ${resp.statusCode}");
+      // ignore: avoid_print
+      print("BACKEND RESP: ${resp.body}");
+
+      if (resp.statusCode != 200) {
+        return 'Backend error (${resp.statusCode}): ${resp.body}';
+      }
+
+      Map<String, dynamic> decoded;
+      try {
+        decoded = jsonDecode(resp.body) as Map<String, dynamic>;
+      } catch (_) {
+        return 'Backend returned invalid JSON: ${resp.body}';
+      }
+
+      final providerUid = (decoded['providerUid'] ?? '').toString().trim();
+      if (providerUid.isEmpty) {
+        return 'Backend did not return providerUid. Response: ${resp.body}';
+      }
+
+      // 3) Save providerUid into contractor subdoc
+      await providerRef.set(
+        {'providerUid': providerUid},
+        SetOptions(merge: true),
+      );
+
+      // 4) Backend mirrors serviceProviders (so client doesn't write it)
+      final spDoc =
+          await _firestore.collection('serviceProviders').doc(providerUid).get();
+      if (!spDoc.exists) {
+        // ignore: avoid_print
+        print(
+            "NOTE: serviceProviders/$providerUid not found yet (server may still be writing).");
+      }
+
+      return null; // ✅ success
+    } on FirebaseAuthException catch (e) {
+      return e.message ?? e.toString();
+    } catch (e) {
+      return e.toString();
+    }
+  }
+}

@@ -1,7 +1,30 @@
 import 'package:flutter/material.dart';
+import '../../controllers/matching_controller.dart';
 
-class MatchingScreen extends StatelessWidget {
-  const MatchingScreen({super.key});
+class MatchingScreen extends StatefulWidget {
+  final String jobId;
+
+  const MatchingScreen({
+    super.key,
+    required this.jobId,
+  });
+
+  @override
+  State<MatchingScreen> createState() => _MatchingScreenState();
+}
+
+class _MatchingScreenState extends State<MatchingScreen> {
+  final MatchingController _controller = MatchingController();
+
+  late Future<List<MatchedProvider>> _matchesFuture;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Start the matching process as soon as the screen opens
+    _matchesFuture = _controller.getMatchesForJob(widget.jobId);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -10,10 +33,9 @@ class MatchingScreen extends StatelessWidget {
       body: SafeArea(
         child: Column(
           children: [
-            // Same spacing from top as HomeScreen before "FixIt"
             const SizedBox(height: 60),
 
-            // "FixIt" title (same style & alignment as HomeScreen)
+            // App title
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 20.0),
               child: Align(
@@ -32,7 +54,7 @@ class MatchingScreen extends StatelessWidget {
 
             const SizedBox(height: 8),
 
-            // Row with back chevron (same as other service screens) + centered title
+            // Header row
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 20.0),
               child: SizedBox(
@@ -46,7 +68,7 @@ class MatchingScreen extends StatelessWidget {
                     ),
                     Center(
                       child: Text(
-                        'Matched Pros',
+                        'Matched Professionals',
                         style: TextStyle(
                           fontFamily: 'Montserrat',
                           fontSize: 16,
@@ -60,10 +82,141 @@ class MatchingScreen extends StatelessWidget {
               ),
             ),
 
-            // Body – currently empty, ready for your matched pros list
+            // Body
             Expanded(
-              child: Container(
-                color: Colors.white,
+              child: FutureBuilder<List<MatchedProvider>>(
+                future: _matchesFuture,
+                builder: (context, snapshot) {
+                  // --------------------------
+                  // Loading state
+                  // --------------------------
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+
+                  // --------------------------
+                  // Error state
+                  // --------------------------
+                  if (snapshot.hasError) {
+                    return Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Text(
+                        'Failed to load matches: ${snapshot.error}',
+                        style: const TextStyle(color: Colors.red),
+                      ),
+                    );
+                  }
+
+                  final matches = snapshot.data ?? [];
+
+                  // --------------------------
+                  // Empty state
+                  // --------------------------
+                  if (matches.isEmpty) {
+                    return const Center(
+                      child: Text(
+                        'No matching providers found for this category.',
+                        style: TextStyle(
+                          fontFamily: 'Montserrat',
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    );
+                  }
+
+                  // --------------------------
+                  // Success state (sorted list)
+                  // --------------------------
+                  return ListView.separated(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 12,
+                    ),
+                    itemCount: matches.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    itemBuilder: (context, index) {
+                      final p = matches[index];
+
+                      // If a provider has no location, distanceKm = infinity
+                      final distanceText = p.distanceKm.isInfinite
+                          ? 'Distance unavailable'
+                          : '${p.distanceKm.toStringAsFixed(2)} km away';
+
+                      return Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.black, width: 1),
+                          borderRadius: BorderRadius.circular(14),
+                          color: Colors.white,
+                        ),
+                        child: Row(
+                          children: [
+                            // Simple avatar
+                            Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade200,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.person, color: Colors.black),
+                            ),
+                            const SizedBox(width: 12),
+
+                            // Provider details
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    p.fullName,
+                                    style: const TextStyle(
+                                      fontFamily: 'Montserrat',
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    distanceText,
+                                    style: TextStyle(
+                                      fontFamily: 'Montserrat',
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.grey.shade700,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            // Optional action button
+                            OutlinedButton(
+                              onPressed: () {
+                                // Later: open provider profile / send request etc.
+                              },
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(color: Colors.black),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              child: const Text(
+                                'View',
+                                style: TextStyle(
+                                  fontFamily: 'Montserrat',
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.black,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  );
+                },
               ),
             ),
           ],
