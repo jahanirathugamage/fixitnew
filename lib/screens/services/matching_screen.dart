@@ -8,6 +8,9 @@ import 'package:fixitnew/backend/api_config.dart';
 import '../../controllers/matching_controller.dart';
 import 'provider_profile_screen.dart';
 
+// ✅ ADD THIS IMPORT
+import 'package:fixitnew/screens/dashboards/client/client_jobs.dart';
+
 class MatchingScreen extends StatefulWidget {
   final String jobId;
 
@@ -35,6 +38,120 @@ class _MatchingScreenState extends State<MatchingScreen> {
 
   void _reload() {
     _matchesFuture = _controller.getMatchesForJob(widget.jobId);
+  }
+
+  // ✅ Slide-up success sheet (matches your screenshot)
+  Future<void> _showRequestSentSheet() async {
+    if (!mounted) return;
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      // was: Colors.black.withOpacity(0.25)
+      barrierColor: Colors.black.withValues(alpha: 64),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(22, 18, 22, 18),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(22),
+                boxShadow: [
+                  BoxShadow(
+                    blurRadius: 18,
+                    spreadRadius: 0,
+                    // was: Colors.black.withOpacity(0.12)
+                    color: Colors.black.withValues(alpha: 31),
+                    offset: const Offset(0, -2),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(height: 10),
+
+                  // Paper-plane icon (similar to screenshot)
+                  const Icon(
+                    Icons.send_rounded,
+                    size: 64,
+                    color: Colors.black,
+                  ),
+
+                  const SizedBox(height: 14),
+
+                  const Text(
+                    "Request Sent!",
+                    style: TextStyle(
+                      fontFamily: 'Montserrat',
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.black,
+                    ),
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  const Text(
+                    "Please wait while the\nprofessional reviews the job.\nYou’ll get an alert regarding the\nrequest soon.",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: 'Montserrat',
+                      fontSize: 12.5,
+                      height: 1.35,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
+                    ),
+                  ),
+
+                  const SizedBox(height: 18),
+
+                  SizedBox(
+                    width: double.infinity,
+                    height: 46,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        // Close the sheet first
+                        Navigator.pop(ctx);
+
+                        // Then navigate to Client Jobs
+                        Navigator.pushAndRemoveUntil(
+                          context,
+                          MaterialPageRoute(builder: (_) => const ClientJobs()),
+                          (route) => false,
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.black,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text(
+                        "Okay",
+                        style: TextStyle(
+                          fontFamily: 'Montserrat',
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 6),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _pickProvider({
@@ -70,12 +187,7 @@ class _MatchingScreenState extends State<MatchingScreen> {
       );
 
       if (resp.statusCode == 200) {
-        messenger.showSnackBar(
-          const SnackBar(
-            content: Text("✅ Request sent to the provider."),
-            duration: Duration(seconds: 2),
-          ),
-        );
+        await _showRequestSentSheet();
 
         setState(() => _reload());
         return;
@@ -84,8 +196,8 @@ class _MatchingScreenState extends State<MatchingScreen> {
       if (resp.statusCode == 409) {
         messenger.showSnackBar(
           const SnackBar(
-            content: Text("❌ Provider unavailable. Pick another."),
-            duration: Duration(seconds: 2),
+            content: Text("Provider unavailable. Pick another."),
+            duration: Duration(seconds: 10),
           ),
         );
         return;
@@ -118,6 +230,27 @@ class _MatchingScreenState extends State<MatchingScreen> {
     );
   }
 
+  // ---------------- UI helpers (no logic change) ----------------
+
+  Widget _languagePill(String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEDEDED),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontFamily: 'Montserrat',
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: Colors.black,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -146,27 +279,30 @@ class _MatchingScreenState extends State<MatchingScreen> {
 
             const SizedBox(height: 8),
 
-            // Title row (back + centered title)
+            // Title row (back + centered title) — match screenshot sizing
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12.0),
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: SizedBox(
-                height: 54,
+                height: 44,
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
                     Align(
                       alignment: Alignment.centerLeft,
                       child: IconButton(
-                        icon: const Icon(Icons.chevron_left, size: 34),
+                        icon: const Icon(Icons.chevron_left, size: 28),
                         onPressed: () => Navigator.pop(context),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        splashRadius: 20,
                       ),
                     ),
                     const Center(
                       child: Text(
-                        'Matched Professionals',
+                        'Matched Pros',
                         style: TextStyle(
                           fontFamily: 'Montserrat',
-                          fontSize: 16,
+                          fontSize: 14,
                           fontWeight: FontWeight.w700,
                           color: Colors.black,
                         ),
@@ -177,7 +313,7 @@ class _MatchingScreenState extends State<MatchingScreen> {
               ),
             ),
 
-            const SizedBox(height: 6),
+            const SizedBox(height: 10),
 
             Expanded(
               child: FutureBuilder<List<MatchedProvider>>(
@@ -213,21 +349,29 @@ class _MatchingScreenState extends State<MatchingScreen> {
                   }
 
                   return ListView.separated(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
                     itemCount: matches.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    // ✅ fixed "unnecessary underscores" warning
+                    separatorBuilder: (_, _) => const Divider(
+                      height: 18,
+                      thickness: 1,
+                      color: Color(0xFFE7E7E7),
+                    ),
                     itemBuilder: (context, index) {
                       final p = matches[index];
 
-                      // Defensive: your model may or may not have these.
-                      final name = (p.fullName).trim().isEmpty ? "Service Provider" : p.fullName.trim();
+                      final name = (p.fullName).trim().isEmpty
+                          ? "Service Provider"
+                          : p.fullName.trim();
 
                       final langs = (() {
                         try {
-                          // if your MatchedProvider has languages list
                           final dynamic anyLangs = (p as dynamic).languages;
                           if (anyLangs is List) {
-                            return anyLangs.map((e) => e.toString()).where((s) => s.trim().isNotEmpty).toList();
+                            return anyLangs
+                                .map((e) => e.toString())
+                                .where((s) => s.trim().isNotEmpty)
+                                .toList();
                           }
                         } catch (_) {}
                         return <String>[];
@@ -235,7 +379,8 @@ class _MatchingScreenState extends State<MatchingScreen> {
 
                       final photoUrl = (() {
                         try {
-                          final dynamic v = (p as dynamic).photoUrl ?? (p as dynamic).profileImageUrl;
+                          final dynamic v =
+                              (p as dynamic).photoUrl ?? (p as dynamic).profileImageUrl;
                           if (v is String && v.trim().isNotEmpty) return v.trim();
                         } catch (_) {}
                         return null;
@@ -243,39 +388,34 @@ class _MatchingScreenState extends State<MatchingScreen> {
 
                       final distanceKm = p.distanceKm;
                       final hasDistance = distanceKm.isFinite && distanceKm > 0;
-                      final distanceText = hasDistance ? "${distanceKm.toStringAsFixed(0)}km away" : "Distance unavailable";
+                      final distanceText = hasDistance
+                          ? "${distanceKm.toStringAsFixed(0)}km away"
+                          : "Distance unavailable";
 
-                      final isThisRowPicking = _picking && _pickingProviderUid == p.providerUid;
+                      final isThisRowPicking =
+                          _picking && _pickingProviderUid == p.providerUid;
 
                       return InkWell(
-                        borderRadius: BorderRadius.circular(14),
                         onTap: () => _openProfile(p.providerUid),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: Colors.grey.shade300),
-                          ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 6),
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              // Avatar
                               ClipRRect(
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(10),
                                 child: Container(
-                                  width: 56,
-                                  height: 56,
+                                  width: 54,
+                                  height: 54,
                                   color: Colors.grey.shade200,
                                   child: (photoUrl != null)
                                       ? Image.network(photoUrl, fit: BoxFit.cover)
-                                      : const Icon(Icons.person, size: 30, color: Colors.black),
+                                      : const Icon(Icons.person, size: 28, color: Colors.black),
                                 ),
                               ),
 
                               const SizedBox(width: 12),
 
-                              // Middle info (Expanded prevents overflow)
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -286,54 +426,38 @@ class _MatchingScreenState extends State<MatchingScreen> {
                                       overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(
                                         fontFamily: 'Montserrat',
-                                        fontSize: 14,
+                                        fontSize: 13.5,
                                         fontWeight: FontWeight.w800,
+                                        color: Colors.black,
                                       ),
                                     ),
-                                    const SizedBox(height: 6),
+                                    const SizedBox(height: 4),
                                     Row(
                                       children: [
-                                        Icon(Icons.location_on, size: 14, color: Colors.grey.shade700),
+                                        const Icon(Icons.location_on,
+                                            size: 14, color: Colors.black54),
                                         const SizedBox(width: 4),
-                                        Expanded(
+                                        Flexible(
                                           child: Text(
                                             distanceText,
                                             maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
-                                            style: TextStyle(
+                                            style: const TextStyle(
                                               fontFamily: 'Montserrat',
-                                              fontSize: 12,
+                                              fontSize: 11.5,
                                               fontWeight: FontWeight.w600,
-                                              color: Colors.grey.shade700,
+                                              color: Colors.black54,
                                             ),
                                           ),
                                         ),
                                       ],
                                     ),
-
                                     if (langs.isNotEmpty) ...[
-                                      const SizedBox(height: 8),
+                                      const SizedBox(height: 6),
                                       Wrap(
-                                        spacing: 6,
+                                        spacing: 8,
                                         runSpacing: 6,
-                                        children: langs.take(3).map((l) {
-                                          return Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                            decoration: BoxDecoration(
-                                              color: Colors.grey.shade100,
-                                              borderRadius: BorderRadius.circular(10),
-                                              border: Border.all(color: Colors.grey.shade300),
-                                            ),
-                                            child: Text(
-                                              l,
-                                              style: const TextStyle(
-                                                fontFamily: 'Montserrat',
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.w700,
-                                              ),
-                                            ),
-                                          );
-                                        }).toList(),
+                                        children: langs.take(3).map(_languagePill).toList(),
                                       ),
                                     ],
                                   ],
@@ -342,18 +466,22 @@ class _MatchingScreenState extends State<MatchingScreen> {
 
                               const SizedBox(width: 10),
 
-                              // Pick button (fixed width so it never causes overflow)
                               SizedBox(
-                                width: 78,
-                                height: 36,
+                                width: 62,
+                                height: 32,
                                 child: ElevatedButton(
-                                  onPressed: _picking ? null : () => _pickProvider(providerUid: p.providerUid),
+                                  onPressed: _picking
+                                      ? null
+                                      : () => _pickProvider(providerUid: p.providerUid),
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.black,
-                                    disabledBackgroundColor: Colors.black.withOpacity(0.5),
+                                    // was: Colors.black.withOpacity(0.45)
+                                    disabledBackgroundColor:
+                                        Colors.black.withValues(alpha: 115),
                                     foregroundColor: Colors.white,
+                                    elevation: 0,
                                     shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(10),
+                                      borderRadius: BorderRadius.circular(8),
                                     ),
                                     padding: EdgeInsets.zero,
                                   ),

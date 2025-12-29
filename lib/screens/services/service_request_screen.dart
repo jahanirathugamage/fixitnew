@@ -69,7 +69,7 @@ class _ServiceRequestScreenState extends State<ServiceRequestScreen> {
   Widget _locationPinPicker() {
     final label = _pickedLatLng == null
         ? 'Pick Job Location on Map'
-        : 'Location Selected ✅ (${_pickedLatLng!.latitude.toStringAsFixed(5)}, ${_pickedLatLng!.longitude.toStringAsFixed(5)})';
+        : 'Location Selected: (${_pickedLatLng!.latitude.toStringAsFixed(5)}, ${_pickedLatLng!.longitude.toStringAsFixed(5)})';
 
     return SizedBox(
       width: double.infinity,
