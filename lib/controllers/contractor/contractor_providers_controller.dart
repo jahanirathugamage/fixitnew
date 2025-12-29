@@ -245,12 +245,17 @@ class ContractorProvidersController {
       );
 
       // 4) Backend mirrors serviceProviders (so client doesn't write it)
-      final spDoc =
-          await _firestore.collection('serviceProviders').doc(providerUid).get();
-      if (!spDoc.exists) {
+      // 4) Backend mirrors serviceProviders (contractor may not have permission to read it)
+      // So we only log and NEVER fail createProvider because of this.
+      try {
+        final spDoc = await _firestore.collection('serviceProviders').doc(providerUid).get();
+        if (!spDoc.exists) {
+          // ignore: avoid_print
+          print("NOTE: serviceProviders/$providerUid not found yet (server may still be writing).");
+        }
+      } catch (e) {
         // ignore: avoid_print
-        print(
-            "NOTE: serviceProviders/$providerUid not found yet (server may still be writing).");
+        print("Skipping serviceProviders read check (likely blocked by rules): $e");
       }
 
       return null; // ✅ success

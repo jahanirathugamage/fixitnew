@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:fixitnew/controllers/provider/provider_home_controller.dart';
 import 'package:fixitnew/models/provider/provider_dashboard_model.dart';
 import 'package:fixitnew/widgets/nav/provider_bottom_nav.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class ProviderHomeScreen extends StatefulWidget {
   const ProviderHomeScreen({super.key});
@@ -22,6 +23,20 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
   void initState() {
     super.initState();
     _loadProviderData();
+
+
+    // ✅ Only enable this temporarily if you are debugging tokens
+    _printIdToken();
+  }
+
+  Future<void> _printIdToken() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      debugPrint("❌ No user logged in.");
+      return;
+    }
+    final token = await user.getIdToken(true); // true = force refresh
+    debugPrint("✅ ID TOKEN: $token");
   }
 
   Future<void> _loadProviderData() async {
@@ -135,6 +150,14 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                               style: const TextStyle(color: Colors.red),
                             ),
                           ),
+
+                        // ✅ NEW: Job Requests page entry
+                        _TileP(
+                          icon: Icons.work_outline,
+                          text: "Job Requests",
+                          onTap: () =>
+                              Navigator.pushNamed(context, '/provider/job_requests'),
+                        ),
 
                         _TileP(
                           icon: Icons.person_outline,

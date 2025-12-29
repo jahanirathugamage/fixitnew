@@ -39,6 +39,8 @@ import 'screens/dashboards/contractor/update_contractor_profile.dart';
 // DASHBOARDS – PROVIDER
 import 'screens/dashboards/provider/update_provider_screen.dart';
 import 'screens/dashboards/provider_home_screen.dart';
+import 'screens/dashboards/provider/provider_job_requests.dart';
+
 
 // ADMIN SCREENS
 import 'screens/admin/create_admin_account_screen.dart';
@@ -83,34 +85,38 @@ class MyApp extends StatelessWidget {
   /// Example usage:
   /// Navigator.pushNamed(context, '/service/matching', arguments: jobId);
   Route<dynamic>? _onGenerateRoute(RouteSettings settings) {
-    switch (settings.name) {
-      case '/service/matching':
-        // MatchingScreen needs a jobId, so we read it from arguments
-        final args = settings.arguments;
+  switch (settings.name) {
+    case '/service/matching':
+      final args = settings.arguments;
 
-        // We expect jobId to be passed as a String
-        if (args is String && args.trim().isNotEmpty) {
-          return MaterialPageRoute(
-            builder: (_) => MatchingScreen(jobId: args),
-            settings: settings,
-          );
-        }
-
-        // If jobId wasn't passed correctly, show a friendly error screen
+      if (args is String && args.trim().isNotEmpty) {
         return MaterialPageRoute(
-          builder: (_) => const _RouteErrorScreen(
-            message:
-                "Missing or invalid jobId for '/service/matching'.\n\n"
-                "Fix: Navigate like:\n"
-                "Navigator.pushNamed(context, '/service/matching', arguments: jobId);",
-          ),
+          builder: (_) => MatchingScreen(jobId: args),
           settings: settings,
         );
+      }
 
-      default:
-        return null; // Let Flutter handle unknown routes (or fallback below)
-    }
+      return MaterialPageRoute(
+        builder: (_) => const _RouteErrorScreen(
+          message:
+              "Missing or invalid jobId for '/service/matching'.\n\n"
+              "Fix: Navigate like:\n"
+              "Navigator.pushNamed(context, '/service/matching', arguments: jobId);",
+        ),
+        settings: settings,
+      );
+
+    // ✅ ADD THIS CASE
+    case '/provider/job_requests':
+      return MaterialPageRoute(
+        builder: (_) => const ProviderJobRequestsScreen(),
+        settings: settings,
+      );
+
+    default:
+      return null;
   }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -166,6 +172,7 @@ class MyApp extends StatelessWidget {
         '/dashboards/home_provider_screen': (_) => const ProviderHomeScreen(),
         '/dashboards/provider/update_profile': (_) =>
             const UpdateProviderScreen(),
+        '/provider/job_requests': (_) => const ProviderJobRequestsScreen(),
 
         // ADMIN
         '/admin/create_admin_account_screen': (_) =>

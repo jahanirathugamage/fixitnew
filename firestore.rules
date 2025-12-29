@@ -2,19 +2,39 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function userRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
     // Helper: check if current user is an admin (users/{uid}.role == "admin")
     function isAdmin() {
-      return request.auth != null &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid))
-          .data.role == "admin";
+      return isSignedIn() && userRole() == "admin";
+    }
+
+    function isClient() {
+      return isSignedIn() && userRole() == "client";
+    }
+
+    function isProvider() {
+      return isSignedIn() && userRole() == "provider";
+    }
+
+    // Provider can view a jobRequest ONLY if they are in matchedProviderIds OR selectedProviderId
+    function providerCanViewJob() {
+      return isProvider() && (
+        (resource.data.matchedProviderIds is list && request.auth.uid in resource.data.matchedProviderIds) ||
+        (resource.data.selectedProviderId == request.auth.uid)
+      );
     }
 
     // USERS (role store)
     match /users/{uid} {
       allow create: if request.auth != null;
       allow read, update: if request.auth != null && request.auth.uid == uid;
-      // (optional) allow admins to read all users:
-      // allow read: if isAdmin() || (request.auth != null && request.auth.uid == uid);
     }
 
     // ADMINS — only that admin can manage own admin profile
@@ -49,9 +69,6 @@ service cloud.firestore {
 
       // provider can read/update their own service provider doc
       allow read, update: if request.auth != null && request.auth.uid == uid;
-
-      // optional: admins can also read/update
-      // allow read, update: if isAdmin() || (request.auth != null && request.auth.uid == uid);
     }
 
     // PROVIDERS under contractors (subcollection) - kept as-is
@@ -92,12 +109,19 @@ service cloud.firestore {
       allow create: if request.auth != null
                     && request.resource.data.clientId == request.auth.uid;
 
-      // Client can read/update their own jobs
-      allow read, update: if request.auth != null
-                          && resource.data.clientId == request.auth.uid;
+      // ✅ READ:
+      // - client who owns it
+      // - admin
+      // - provider ONLY if matched/selected
+      allow read: if (isClient() && resource.data.clientId == request.auth.uid)
+                  || isAdmin()
+                  || providerCanViewJob();
 
-      // Admins can read/update all jobs
-      allow read, update: if isAdmin();
+      // UPDATE:
+      // keep your original policy: only client owner + admin
+      // (later we’ll add provider update rules for hold/accept if needed)
+      allow update: if (request.auth != null && resource.data.clientId == request.auth.uid)
+                    || isAdmin();
     }
   }
 }
