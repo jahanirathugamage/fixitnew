@@ -40,6 +40,7 @@ import 'screens/dashboards/contractor/update_contractor_profile.dart';
 import 'screens/dashboards/provider/update_provider_screen.dart';
 import 'screens/dashboards/provider_home_screen.dart';
 import 'screens/dashboards/provider/provider_job_requests.dart';
+import 'screens/dashboards/provider/provider_jobs.dart';
 
 
 // ADMIN SCREENS
@@ -172,6 +173,7 @@ class MyApp extends StatelessWidget {
         '/dashboards/provider_home_screen': (_) => const ProviderHomeScreen(),
         '/dashboards/provider/update_profile': (_) => const UpdateProviderScreen(),
         '/provider/provider_job_requests': (_) => const ProviderJobRequestsScreen(),
+        '/provider/provider_jobs': (_) => const ProviderJobsScreen(),
 
         // ADMIN
         '/admin/create_admin_account_screen': (_) =>

@@ -33,7 +33,7 @@ class ProviderBottomNav extends StatelessWidget {
         onTap: (index) {
           switch (index) {
             case 0:
-              _go(context, "/provider/jobs");
+              _go(context, "/provider/provider_jobs");
               break;
             case 1:
               _go(context, "/provider/provider_job_requests");
