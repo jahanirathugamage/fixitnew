@@ -382,7 +382,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                                   ],
                                 ),
                               );
-                            }).toList(),
+                            }),
                             const SizedBox(height: 12),
                           ],
 
@@ -428,7 +428,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                                   ],
                                 ),
                               );
-                            }).toList(),
+                            }),
                             const SizedBox(height: 12),
                           ],
 
@@ -473,7 +473,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                                   ],
                                 ),
                               );
-                            }).toList(),
+                            }),
                             const SizedBox(height: 12),
                           ],
 

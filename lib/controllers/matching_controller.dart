@@ -257,7 +257,7 @@ class MatchingController {
           //  - avatarUrl
           photoUrl = (data['photoUrl'] ?? data['profileImageUrl'] ?? data['avatarUrl'])
               ?.toString();
-          if (photoUrl != null && photoUrl!.trim().isEmpty) photoUrl = null;
+          if (photoUrl != null && photoUrl.trim().isEmpty) photoUrl = null;
         }
       } catch (_) {
         // ignore, UI will show fallback values
