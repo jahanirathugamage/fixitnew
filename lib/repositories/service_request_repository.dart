@@ -17,7 +17,7 @@ class ServiceRequestRepository {
 
   Future<String> createJob({
     required String category,
-    required String locationText, // optional text/landmark
+    required String locationText,
     required double latitude,
     required double longitude,
     required bool isNow,
@@ -31,7 +31,18 @@ class ServiceRequestRepository {
       throw StateError('Not logged in user');
     }
 
-    // Total for all selected tasks
+    // 🔹 Fetch client profile ONCE
+    final clientSnap =
+        await _firestore.collection('clients').doc(user.uid).get();
+
+    final clientData = clientSnap.data() ?? {};
+    final firstName = (clientData['firstName'] ?? '').toString().trim();
+    final lastName = (clientData['lastName'] ?? '').toString().trim();
+
+    final clientName =
+        ('$firstName $lastName').trim().isEmpty ? 'Client' : ('$firstName $lastName').trim();
+
+    // 🔹 Calculate pricing
     final int serviceTotal = items.fold<int>(
       0,
       (total, item) => total + item.lineTotal,
@@ -44,28 +55,35 @@ class ServiceRequestRepository {
 
     try {
       await docRef.set({
+        // 🔹 Identity
         'jobId': docRef.id,
         'clientId': user.uid,
+        'clientName': clientName, // ✅ IMPORTANT
+
+        // 🔹 Job details
         'category': category,
         'categoryNormalized': category.trim().toLowerCase(),
 
-        // ✅ store both
         'locationText': locationText,
         'location': GeoPoint(latitude, longitude),
 
-        'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-        'status': 'pending',
         'isNow': isNow,
         'scheduledDate': Timestamp.fromDate(scheduledAt),
         'languagePrefs': languages,
         'tasks': items.map((e) => e.toMap()).toList(),
+
+        // 🔹 Pricing
         'pricing': {
           'serviceTotal': serviceTotal,
           'visitationFee': visitationFee,
           'platformFee': platformFee,
           'totalAmount': totalAmount,
         },
+
+        // 🔹 Status & timestamps
+        'status': 'pending',
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
       });
 
       // ignore: avoid_print

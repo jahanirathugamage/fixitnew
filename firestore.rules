@@ -7,8 +7,22 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // Safe role lookup (won't crash if missing users doc)
     // Safe role lookup (won't crash if /users/{uid} missing)
     function userRole() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+        : "unknown";
+    }
+
+    function isAdmin() { return isSignedIn() && userRole() == "admin"; }
+    function isClient() { return isSignedIn() && userRole() == "client"; }
+
+    // ✅ PROVIDER READ for jobRequest should NOT rely on role lookup
+    function isSelectedProvider() {
+      return isSignedIn()
+        && (resource.data.selectedProviderUid == request.auth.uid);
       return isSignedIn()
         && exists(/databases/$(database)/documents/users/$(request.auth.uid))
         ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
@@ -27,6 +41,11 @@ service cloud.firestore {
       return isSignedIn() && userRole() == "provider";
     }
 
+    // Optional matched list support (also no role check)
+    function isMatchedProvider() {
+      return isSignedIn()
+        && (resource.data.matchedProviderIds is list)
+        && (request.auth.uid in resource.data.matchedProviderIds);
     // Provider can view a jobRequest ONLY if matched/selected
     function providerCanViewJob() {
       return isProvider() && (
@@ -36,15 +55,20 @@ service cloud.firestore {
       );
     }
 
+    // USERS
     // ----------------- USERS (role store) -----------------
     match /users/{uid} {
+      allow create: if isSignedIn() && request.auth.uid == uid;
+      allow read, update: if isSignedIn() && request.auth.uid == uid;
       allow create: if isSignedIn();
       allow read, update: if isSignedIn() && request.auth.uid == uid;
       allow delete: if false;
     }
 
+    // ADMINS
     // ----------------- ADMINS -----------------
     match /admins/{uid} {
+      allow read, write: if isSignedIn() && request.auth.uid == uid;
       allow read, write: if isSignedIn() && request.auth.uid == uid;
     }
 
@@ -55,6 +79,8 @@ service cloud.firestore {
 
     // ----------------- CLIENTS -----------------
     match /clients/{uid} {
+      allow create: if isSignedIn() && request.auth.uid == uid;
+      allow read, update: if isSignedIn() && request.auth.uid == uid;
       allow create: if isSignedIn();
       allow read, update: if isSignedIn() && request.auth.uid == uid;
       allow delete: if false;
@@ -62,6 +88,9 @@ service cloud.firestore {
 
     // ----------------- CONTRACTORS -----------------
     match /contractors/{uid} {
+      allow create: if isSignedIn() && request.auth.uid == uid;
+      allow read: if isSignedIn();
+      allow update: if isSignedIn() && (request.auth.uid == uid || isAdmin());
       allow create: if isSignedIn();
 
       // (You had: any signed-in user can read contractors)
@@ -72,8 +101,12 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // SERVICE PROVIDERS
     // ----------------- SERVICE PROVIDERS (top-level) -----------------
     match /serviceProviders/{uid} {
+      allow create: if isSignedIn() && request.auth.uid == uid;
+      allow read, update: if isSignedIn() && request.auth.uid == uid;
+      allow read, update, delete: if isAdmin();
       allow create: if isSignedIn();
 
       // Provider can read/update their own provider doc
@@ -84,8 +117,13 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // CONTRACTOR -> providers subcollection
     // Providers under contractors (subcollection)
     match /contractors/{contractorId}/providers/{providerId} {
+      allow create: if isSignedIn() && request.auth.uid == contractorId;
+      allow read, update: if isSignedIn() && request.auth.uid == providerId;
+      allow read, update, delete: if isSignedIn() && request.auth.uid == contractorId;
+      allow read, update, delete: if isAdmin();
       allow create: if isSignedIn() && request.auth.uid == contractorId;
 
       // provider can read/update their own info
@@ -100,6 +138,7 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ================== JOB REQUESTS ==================
     // ----------------- PUBLIC / CATALOG DATA -----------------
     // ✅ IMPORTANT:
     // If your app loads "services" + "repairs" on the Home page,
@@ -137,18 +176,39 @@ service cloud.firestore {
     // ----------------- JOBS -----------------
     match /jobRequest/{jobId} {
 
+      allow create: if isSignedIn()
+        && request.resource.data.clientId == request.auth.uid;
       // Clients can create jobs for themselves
       allow create: if isSignedIn()
         && request.resource.data.clientId == request.auth.uid;
 
+      // ✅ READ:
+      // - client owner
       // READ:
       // - client owner
       // - admin
+      // - selected provider (by UID match)
+      // - (optional) matched provider (arrayContains)
       // - provider if matched/selected
       allow read: if (isClient() && resource.data.clientId == request.auth.uid)
         || isAdmin()
+        || isSelectedProvider()
+        || isMatchedProvider();
+        || isAdmin()
         || providerCanViewJob();
 
+      // ✅ UPDATE:
+      // - client owner
+      // - admin
+      // - selected provider can accept/decline only (safe field whitelist)
+      allow update: if (isClient() && resource.data.clientId == request.auth.uid)
+        || isAdmin()
+        || (
+          isSelectedProvider()
+          && request.resource.data.diff(resource.data).changedKeys()
+              .hasOnly(["status", "providerDecisionAt", "updatedAt"])
+          && (request.resource.data.status in ["accepted", "declined"])
+        );
       // UPDATE:
       // client owner OR admin
       allow update: if (isSignedIn() && resource.data.clientId == request.auth.uid)

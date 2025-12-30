@@ -1,6 +1,12 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <script>
+    // Firebase/Firestore web SDK expects a Node-like global in some builds
+    window.global = window;
+    window.process = { env: {} };
+  </script>
+
   <!--
     If you are serving your web app in a path other than the root, change the
     href value below to reflect the base path you are serving from.
