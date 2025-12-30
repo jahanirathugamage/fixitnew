@@ -2,7 +2,7 @@
 // import 'package:firebase_auth/firebase_auth.dart';
 // import 'package:flutter/material.dart';
 
-// class ProviderJobRequestsScreen extends StatelessWidget {
+// class ProviderJobRequestsLegacyScreen extends StatelessWidget {
 //   const ProviderJobRequestsScreen({super.key});
 
 //   @override
