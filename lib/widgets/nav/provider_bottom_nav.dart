@@ -36,7 +36,7 @@ class ProviderBottomNav extends StatelessWidget {
               _go(context, "/provider/jobs");
               break;
             case 1:
-              _go(context, "/provider/requests");
+              _go(context, "/provider/provider_job_requests");
               break;
             case 2:
               _go(context, "/provider/earnings");

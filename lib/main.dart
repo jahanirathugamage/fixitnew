@@ -169,10 +169,9 @@ class MyApp extends StatelessWidget {
             const UpdateContractorProfile(),
 
         // PROVIDER DASHBOARD
-        '/dashboards/home_provider_screen': (_) => const ProviderHomeScreen(),
-        '/dashboards/provider/update_profile': (_) =>
-            const UpdateProviderScreen(),
-        '/provider/job_requests': (_) => const ProviderJobRequestsScreen(),
+        '/dashboards/provider_home_screen': (_) => const ProviderHomeScreen(),
+        '/dashboards/provider/update_profile': (_) => const UpdateProviderScreen(),
+        '/provider/provider_job_requests': (_) => const ProviderJobRequestsScreen(),
 
         // ADMIN
         '/admin/create_admin_account_screen': (_) =>

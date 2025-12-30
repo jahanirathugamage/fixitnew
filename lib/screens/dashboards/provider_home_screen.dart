@@ -151,14 +151,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                             ),
                           ),
 
-                        // ✅ NEW: Job Requests page entry
-                        _TileP(
-                          icon: Icons.work_outline,
-                          text: "Job Requests",
-                          onTap: () =>
-                              Navigator.pushNamed(context, '/provider/job_requests'),
-                        ),
-
+                        
                         _TileP(
                           icon: Icons.person_outline,
                           text: "Profile",

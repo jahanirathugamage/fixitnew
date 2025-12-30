@@ -114,7 +114,7 @@ class _LoginScreenState extends State<LoginScreen> {
         case "provider":
           Navigator.pushReplacementNamed(
             context,
-            "/dashboards/home_provider_screen",
+            "/dashboards/provider_home_screen",
           );
           break;
 
