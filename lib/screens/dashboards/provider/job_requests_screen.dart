@@ -119,10 +119,12 @@ class ProviderJobRequestsScreen extends StatelessWidget {
           docs.sort((a, b) {
             final ad = a.data();
             final bd = b.data();
-            final ats =
-                ad['scheduledDate'] is Timestamp ? ad['scheduledDate'] as Timestamp : null;
-            final bts =
-                bd['scheduledDate'] is Timestamp ? bd['scheduledDate'] as Timestamp : null;
+            final ats = ad['scheduledDate'] is Timestamp
+                ? ad['scheduledDate'] as Timestamp
+                : null;
+            final bts = bd['scheduledDate'] is Timestamp
+                ? bd['scheduledDate'] as Timestamp
+                : null;
             final am = ats?.millisecondsSinceEpoch ?? 0;
             final bm = bts?.millisecondsSinceEpoch ?? 0;
             return bm.compareTo(am);
@@ -172,7 +174,9 @@ class ProviderJobRequestsScreen extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              name,
+                              name, // ✅ fetched from Firestore (clientName)
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
                                 fontFamily: "Montserrat",
                                 fontWeight: FontWeight.w800,
@@ -186,13 +190,17 @@ class ProviderJobRequestsScreen extends StatelessWidget {
                                 Icon(Icons.schedule,
                                     size: 14, color: Colors.grey.shade700),
                                 const SizedBox(width: 6),
-                                Text(
-                                  whenText,
-                                  style: TextStyle(
-                                    fontFamily: "Montserrat",
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.grey.shade700,
-                                    fontSize: 12,
+                                Flexible(
+                                  child: Text(
+                                    whenText,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontFamily: "Montserrat",
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.grey.shade700,
+                                      fontSize: 12,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -226,17 +234,18 @@ class ProviderJobRequestsScreen extends StatelessWidget {
 
                       // Right side buttons (stacked)
                       Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           SizedBox(
-                            width: 96,
+                            width: 100, // ✅ slightly wider to prevent wrapping
                             height: 34,
                             child: ElevatedButton(
                               onPressed: canRespond
                                   ? () => _respond(
-                                      context: context,
-                                      jobId: d.id,
-                                      status: "accepted",
-                                    )
+                                        context: context,
+                                        jobId: d.id,
+                                        status: "accepted",
+                                      )
                                   : null,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.black,
@@ -244,46 +253,58 @@ class ProviderJobRequestsScreen extends StatelessWidget {
                                     Colors.black.withOpacity(0.35),
                                 foregroundColor: Colors.white,
                                 elevation: 0,
+                                padding: EdgeInsets.zero, // ✅ keeps text centered
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                               ),
-                              child: const Text(
-                                "Accept",
-                                style: TextStyle(
-                                  fontFamily: "Montserrat",
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 12,
+                              child: const FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text(
+                                  "Accept",
+                                  maxLines: 1,
+                                  softWrap: false,
+                                  style: TextStyle(
+                                    fontFamily: "Montserrat",
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 12,
+                                  ),
                                 ),
                               ),
                             ),
                           ),
                           const SizedBox(height: 10),
                           SizedBox(
-                            width: 96,
+                            width: 100, // ✅ slightly wider to prevent "Decline" wrapping
                             height: 34,
                             child: OutlinedButton(
                               onPressed: canRespond
                                   ? () => _respond(
-                                      context: context,
-                                      jobId: d.id,
-                                      status: "declined",
-                                    )
+                                        context: context,
+                                        jobId: d.id,
+                                        status: "declined",
+                                      )
                                   : null,
                               style: OutlinedButton.styleFrom(
                                 side: const BorderSide(
                                     color: Colors.black, width: 1.2),
+                                padding: EdgeInsets.zero, // ✅ keeps text centered
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                               ),
-                              child: const Text(
-                                "Decline",
-                                style: TextStyle(
-                                  fontFamily: "Montserrat",
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 12,
-                                  color: Colors.black,
+                              child: const FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text(
+                                  "Decline",
+                                  maxLines: 1,
+                                  softWrap: false,
+                                  style: TextStyle(
+                                    fontFamily: "Montserrat",
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 12,
+                                    color: Colors.black,
+                                  ),
                                 ),
                               ),
                             ),
@@ -304,8 +325,7 @@ class ProviderJobRequestsScreen extends StatelessWidget {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) =>
-                                ProviderJobDetailsScreen(jobId: d.id),
+                            builder: (_) => ProviderJobDetailsScreen(jobId: d.id),
                           ),
                         );
                       },
@@ -328,7 +348,11 @@ class ProviderJobRequestsScreen extends StatelessWidget {
                   ),
 
                   const SizedBox(height: 12),
-                  const Divider(height: 1, thickness: 1, color: Color(0xFFE9E9E9)),
+                  const Divider(
+                    height: 1,
+                    thickness: 1,
+                    color: Color(0xFFE9E9E9),
+                  ),
                 ],
               );
             },
