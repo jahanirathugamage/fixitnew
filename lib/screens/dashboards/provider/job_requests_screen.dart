@@ -40,7 +40,7 @@ class ProviderJobRequestsScreen extends StatelessWidget {
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(status == "accepted" ? "✅ Accepted" : "❌ Declined"),
+        content: Text(status == "accepted" ? "Accepted" : "Declined"),
       ),
     );
   }
@@ -156,8 +156,19 @@ class ProviderJobRequestsScreen extends StatelessWidget {
                   : null;
               final whenText = _fmtDateTime(scheduled);
 
+              // ✅ SAME NAME LOGIC AS YOUR PROVIDER_JOBS.DART:
+              // Prefer clientName, fallback to clientDisplayName (if used),
+              // fallback to clientId, then "Client"
               final clientName = (data['clientName'] ?? '').toString().trim();
-              final name = clientName.isEmpty ? "Client" : clientName;
+              final clientDisplayName =
+                  (data['clientDisplayName'] ?? '').toString().trim();
+              final clientId = (data['clientId'] ?? '').toString().trim();
+
+              final name = clientName.isNotEmpty
+                  ? clientName
+                  : (clientDisplayName.isNotEmpty
+                      ? clientDisplayName
+                      : (clientId.isNotEmpty ? clientId : "Client"));
 
               final status =
                   (data['status'] ?? '').toString().trim().toLowerCase();
@@ -174,7 +185,7 @@ class ProviderJobRequestsScreen extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              name, // ✅ fetched from Firestore (clientName)
+                              name,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
@@ -237,7 +248,7 @@ class ProviderJobRequestsScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           SizedBox(
-                            width: 100, // ✅ slightly wider to prevent wrapping
+                            width: 100,
                             height: 34,
                             child: ElevatedButton(
                               onPressed: canRespond
@@ -253,7 +264,7 @@ class ProviderJobRequestsScreen extends StatelessWidget {
                                     Colors.black.withOpacity(0.35),
                                 foregroundColor: Colors.white,
                                 elevation: 0,
-                                padding: EdgeInsets.zero, // ✅ keeps text centered
+                                padding: EdgeInsets.zero,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(10),
                                 ),
@@ -275,7 +286,7 @@ class ProviderJobRequestsScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 10),
                           SizedBox(
-                            width: 100, // ✅ slightly wider to prevent "Decline" wrapping
+                            width: 100,
                             height: 34,
                             child: OutlinedButton(
                               onPressed: canRespond
@@ -288,7 +299,7 @@ class ProviderJobRequestsScreen extends StatelessWidget {
                               style: OutlinedButton.styleFrom(
                                 side: const BorderSide(
                                     color: Colors.black, width: 1.2),
-                                padding: EdgeInsets.zero, // ✅ keeps text centered
+                                padding: EdgeInsets.zero,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(10),
                                 ),
@@ -325,7 +336,8 @@ class ProviderJobRequestsScreen extends StatelessWidget {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => ProviderJobDetailsScreen(jobId: d.id),
+                            builder: (_) =>
+                                ProviderJobDetailsScreen(jobId: d.id),
                           ),
                         );
                       },
@@ -360,9 +372,8 @@ class ProviderJobRequestsScreen extends StatelessWidget {
         },
       ),
 
-      // ✅ REUSABLE PROVIDER NAVIGATION (same pattern as provider_jobs.dart)
       bottomNavigationBar: const ProviderBottomNav(
-        currentIndex: 1, // Requests tab (adjust if your nav order differs)
+        currentIndex: 1,
       ),
     );
   }

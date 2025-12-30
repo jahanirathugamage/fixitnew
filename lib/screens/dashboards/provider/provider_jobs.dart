@@ -3,6 +3,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:fixitnew/widgets/nav/provider_bottom_nav.dart';
 
+import 'job_details_screen.dart';
+
 // dashboards/provider/provider_jobs.dart
 // REAL DATA version — keeps your UI, replaces hardcoded list.
 
@@ -151,7 +153,7 @@ class ProviderJobsScreen extends StatelessWidget {
 
               jobs.add(
                 _JobRowModel(
-                  jobId: doc.id,
+                  jobId: doc.id, // ✅ keep doc.id for details navigation
                   job: JobCardData(
                     clientName: clientName.isEmpty ? "Client" : clientName,
                     dateText: _formatDateText(scheduledDate),
@@ -197,7 +199,6 @@ class ProviderJobsScreen extends StatelessWidget {
           },
         ),
       ),
-
       bottomNavigationBar: const ProviderBottomNav(
         currentIndex: 0,
       ),
@@ -214,11 +215,7 @@ class _JobRowModel {
     required this.job,
   });
 
-  // Used only for sorting; extract date from the already formatted text is bad,
-  // so we keep a safe numeric fallback:
   int get _scheduledDateForSort {
-    // If dateText is "—" we keep it at bottom.
-    // Sorting logic is not critical; avoids errors.
     return job.dateText == "—" ? 0 : 1;
   }
 }
@@ -278,14 +275,18 @@ class JobCard extends StatelessWidget {
         ),
         const SizedBox(height: 14),
 
-        // View Job Details button
+        // ✅ View Job Details button → open same details screen using THIS jobId
         SizedBox(
           width: double.infinity,
           height: 44,
           child: ElevatedButton(
             onPressed: () {
-              // Hook details navigation later (no assumptions here)
-              // You already have jobId available safely.
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ProviderJobDetailsScreen(jobId: jobId),
+                ),
+              );
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.black,
@@ -372,7 +373,6 @@ class RightWidget extends StatelessWidget {
         return const FixedStatusPill(text: 'Cancelled');
 
       case RightType.none:
-        // show nothing (prevents wrong UI without assumptions)
         return const SizedBox.shrink();
     }
   }
