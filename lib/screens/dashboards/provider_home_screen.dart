@@ -26,18 +26,18 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
 
 
     // ✅ Only enable this temporarily if you are debugging tokens
-    _printIdToken();
+    //_printIdToken();
   }
 
-  Future<void> _printIdToken() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      debugPrint("❌ No user logged in.");
-      return;
-    }
-    final token = await user.getIdToken(true); // true = force refresh
-    debugPrint("✅ ID TOKEN: $token");
-  }
+  // Future<void> _printIdToken() async {
+  //   final user = FirebaseAuth.instance.currentUser;
+  //   if (user == null) {
+  //     debugPrint("❌ No user logged in.");
+  //     return;
+  //   }
+  //   final token = await user.getIdToken(true); // true = force refresh
+  //   debugPrint("✅ ID TOKEN: $token");
+  // }
 
   Future<void> _loadProviderData() async {
     try {

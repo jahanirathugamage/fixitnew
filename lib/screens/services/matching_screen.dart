@@ -8,7 +8,7 @@ import 'package:fixitnew/backend/api_config.dart';
 import '../../controllers/matching_controller.dart';
 import 'provider_profile_screen.dart';
 
-// ✅ ADD THIS IMPORT
+import 'package:fixitnew/screens/dashboards/client/request_sent_screen.dart';
 import 'package:fixitnew/screens/dashboards/client/client_jobs.dart';
 
 class MatchingScreen extends StatefulWidget {
@@ -187,11 +187,21 @@ class _MatchingScreenState extends State<MatchingScreen> {
       );
 
       if (resp.statusCode == 200) {
-        await _showRequestSentSheet();
+        if (!mounted) return;
 
-        setState(() => _reload());
+        // Optional: refresh matches
+        _reload();
+
+        // Navigate to Request Sent page
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => RequestSentScreen(jobId: widget.jobId),),
+        );
+
         return;
       }
+
 
       if (resp.statusCode == 409) {
         messenger.showSnackBar(

@@ -39,8 +39,7 @@ import 'screens/dashboards/contractor/update_contractor_profile.dart';
 // DASHBOARDS – PROVIDER
 import 'screens/dashboards/provider/update_provider_screen.dart';
 import 'screens/dashboards/provider_home_screen.dart';
-import 'screens/dashboards/provider/provider_job_requests.dart';
-import 'screens/dashboards/provider/provider_jobs.dart';
+import 'screens/dashboards/provider/job_requests_screen.dart';
 
 
 // ADMIN SCREENS
