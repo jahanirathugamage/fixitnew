@@ -2,6 +2,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:fixitnew/widgets/nav/provider_bottom_nav.dart';
+import 'package:latlong2/latlong.dart';
+
+import 'navigation_screen.dart';
 
 import 'job_details_screen.dart';
 
@@ -16,8 +19,18 @@ class ProviderJobsScreen extends StatelessWidget {
     final d = ts.toDate();
 
     const months = [
-      "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
     ];
 
     final month = months[d.month - 1];
@@ -27,7 +40,7 @@ class ProviderJobsScreen extends StatelessWidget {
     final ampm = d.hour >= 12 ? "pm" : "am";
     final mm = d.minute.toString().padLeft(2, "0");
 
-    // Matches your UI format: "Nov 12 · 10:00am"
+    // "Nov 12 · 10:00am"
     return "$month $day · $hour12:$mm$ampm";
   }
 
@@ -63,9 +76,17 @@ class ProviderJobsScreen extends StatelessWidget {
       return isToday ? RightType.navigate : RightType.cancelButton;
     }
 
-    // If status is neither accepted nor cancelled_*,
-    // we don’t show Navigate or Cancel (prevents wrong UI).
+    // Not accepted/cancelled => don’t show on this page
     return RightType.none;
+  }
+
+  LatLng? _readJobLatLng(Map<String, dynamic> data) {
+    // Uses GeoPoint from Firestore (no risky casting).
+    final v = data['location'];
+    if (v is GeoPoint) {
+      return LatLng(v.latitude, v.longitude);
+    }
+    return null; // If missing/not GeoPoint, we skip this job (no crash).
   }
 
   @override
@@ -125,8 +146,8 @@ class ProviderJobsScreen extends StatelessWidget {
 
             final docs = snap.data?.docs ?? [];
 
-            // Build JobCardData safely from Firestore docs
-            final jobs = <_JobRowModel>[];
+            // Build rows safely from Firestore docs
+            final rows = <_JobRowModel>[];
 
             for (final doc in docs) {
               final data = doc.data();
@@ -140,38 +161,47 @@ class ProviderJobsScreen extends StatelessWidget {
                       ? data['scheduledDate'] as Timestamp
                       : null;
 
+              // Only show accepted or cancelled jobs here (no assumptions)
+              final showInThisPage = _isAccepted(status) || _isCancelled(status);
+              if (!showInThisPage) continue;
+
+              // Job location (required for navigation). If missing, skip to avoid errors.
+              final jobLatLng = _readJobLatLng(data);
+              if (jobLatLng == null) {
+                // ignore: avoid_print
+                print(
+                  "Skipping job ${doc.id}: missing/invalid 'location' GeoPoint.",
+                );
+                continue;
+              }
+
               final rightType = _computeRightType(
                 status: status,
                 scheduledDate: scheduledDate,
                 now: now,
               );
 
-              // If it’s not accepted or cancelled_by_*, don’t show it here
-              // (prevents showing wrong items without assumptions)
-              final showInThisPage = _isAccepted(status) || _isCancelled(status);
-              if (!showInThisPage) continue;
-
-              jobs.add(
+              rows.add(
                 _JobRowModel(
+                  jobId: doc.id,
+                  scheduledMillis:
+                      scheduledDate?.millisecondsSinceEpoch ?? 0,
                   jobId: doc.id, // ✅ keep doc.id for details navigation
                   job: JobCardData(
                     clientName: clientName.isEmpty ? "Client" : clientName,
                     dateText: _formatDateText(scheduledDate),
                     category: category.isEmpty ? "—" : category,
                     rightType: rightType,
+                    jobLatLng: jobLatLng,
                   ),
                 ),
               );
             }
 
-            // Optional sort by scheduledDate (latest first), safely
-            jobs.sort((a, b) {
-              final aTs = a._scheduledDateForSort;
-              final bTs = b._scheduledDateForSort;
-              return bTs.compareTo(aTs);
-            });
+            // Sort by scheduledDate ascending (soonest first). If missing, goes top (0).
+            rows.sort((a, b) => a.scheduledMillis.compareTo(b.scheduledMillis));
 
-            if (jobs.isEmpty) {
+            if (rows.isEmpty) {
               return const Center(
                 child: Text(
                   "No scheduled jobs.",
@@ -186,10 +216,10 @@ class ProviderJobsScreen extends StatelessWidget {
 
             return ListView.separated(
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-              itemCount: jobs.length,
+              itemCount: rows.length,
               separatorBuilder: (_, __) => const SizedBox(height: 18),
               itemBuilder: (context, index) {
-                final row = jobs[index];
+                final row = rows[index];
                 return JobCard(
                   job: row.job,
                   jobId: row.jobId,
@@ -208,10 +238,12 @@ class ProviderJobsScreen extends StatelessWidget {
 
 class _JobRowModel {
   final String jobId;
+  final int scheduledMillis;
   final JobCardData job;
 
   _JobRowModel({
     required this.jobId,
+    required this.scheduledMillis,
     required this.job,
   });
 
@@ -265,10 +297,17 @@ class JobCard extends StatelessWidget {
             RightWidget(
               type: job.rightType,
               onNavigate: () {
-                // Hook navigation later (no assumptions here)
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ProviderNavigationScreen(
+                      jobLatLng: job.jobLatLng,
+                    ),
+                  ),
+                );
               },
               onCancel: () {
-                // Hook cancellation later (no assumptions here)
+                // Later: cancel logic (kept empty to avoid assumptions)
               },
             ),
           ],
@@ -281,6 +320,7 @@ class JobCard extends StatelessWidget {
           height: 44,
           child: ElevatedButton(
             onPressed: () {
+              // You already have jobId available here for navigation later.
               Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -358,16 +398,10 @@ class RightWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     switch (type) {
       case RightType.navigate:
-        return FilledPillButton(
-          text: 'Navigate',
-          onPressed: onNavigate,
-        );
+        return FilledPillButton(text: 'Navigate', onPressed: onNavigate);
 
       case RightType.cancelButton:
-        return OutlinedPillButton(
-          text: 'Cancel',
-          onPressed: onCancel,
-        );
+        return OutlinedPillButton(text: 'Cancel', onPressed: onCancel);
 
       case RightType.cancelledTag:
         return const FixedStatusPill(text: 'Cancelled');
@@ -379,7 +413,11 @@ class RightWidget extends StatelessWidget {
 }
 
 class FilledPillButton extends StatelessWidget {
-  const FilledPillButton({super.key, required this.text, required this.onPressed});
+  const FilledPillButton({
+    super.key,
+    required this.text,
+    required this.onPressed,
+  });
 
   final String text;
   final VoidCallback onPressed;
@@ -411,7 +449,11 @@ class FilledPillButton extends StatelessWidget {
 }
 
 class OutlinedPillButton extends StatelessWidget {
-  const OutlinedPillButton({super.key, required this.text, required this.onPressed});
+  const OutlinedPillButton({
+    super.key,
+    required this.text,
+    required this.onPressed,
+  });
 
   final String text;
   final VoidCallback onPressed;
@@ -441,7 +483,6 @@ class OutlinedPillButton extends StatelessWidget {
   }
 }
 
-/// Fixed UI chip (NOT a button)
 class FixedStatusPill extends StatelessWidget {
   const FixedStatusPill({super.key, required this.text});
 
@@ -473,11 +514,13 @@ class JobCardData {
   final String dateText;
   final String category;
   final RightType rightType;
+  final LatLng jobLatLng;
 
   const JobCardData({
     required this.clientName,
     required this.dateText,
     required this.category,
     required this.rightType,
+    required this.jobLatLng,
   });
 }
