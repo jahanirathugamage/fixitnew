@@ -24,9 +24,17 @@ class ProviderJobDetailsScreen extends StatelessWidget {
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black),
+          onPressed: () => Navigator.pop(context), // ✅ go back to previous page
+        ),
+        centerTitle: true,
         title: const Text(
           "Job Details",
-          style: TextStyle(fontFamily: "Montserrat", fontWeight: FontWeight.w800),
+          style: TextStyle(
+            fontFamily: "Montserrat",
+            fontWeight: FontWeight.w800,
+          ),
         ),
       ),
       body: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
@@ -41,153 +49,208 @@ class ProviderJobDetailsScreen extends StatelessWidget {
 
           final data = snap.data!.data() ?? {};
           final clientId = (data['clientId'] ?? '').toString();
-          final scheduled = data['scheduledDate'] is Timestamp ? data['scheduledDate'] as Timestamp : null;
+          final scheduled = data['scheduledDate'] is Timestamp
+              ? data['scheduledDate'] as Timestamp
+              : null;
           final whenText = _fmtDateTime(scheduled);
 
-          final tasks = (data['tasks'] is List) ? (data['tasks'] as List) : const [];
+          final tasks =
+              (data['tasks'] is List) ? (data['tasks'] as List) : const [];
 
           return SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // client (simple header)
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: Colors.grey.shade300),
-                  ),
-                  child: Row(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: Container(
-                          width: 56,
-                          height: 56,
-                          color: Colors.grey.shade200,
-                          child: const Icon(Icons.person, color: Colors.black),
-                        ),
+                // ---------------- TOP HEADER (Avatar + Name + View Profile) ----------------
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        width: 60,
+                        height: 60,
+                        color: Colors.grey.shade200,
+                        child: const Icon(Icons.person, color: Colors.black),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          clientId.isEmpty ? "Client" : clientId, // replace with client name if you want
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontFamily: "Montserrat",
-                            fontWeight: FontWeight.w800,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      SizedBox(
-                        height: 34,
-                        child: ElevatedButton(
-                          onPressed: () {
-                            // optional: open client profile if you have one
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.black,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          ),
-                          child: const Text("View Profile",
-                            style: TextStyle(fontFamily: "Montserrat", fontWeight: FontWeight.w800, fontSize: 12),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 14),
-
-                // date & time
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text("Date & Time",
-                        style: TextStyle(fontFamily: "Montserrat", fontWeight: FontWeight.w800),
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(Icons.schedule, size: 18),
-                          const SizedBox(width: 8),
                           Text(
-                            whenText,
-                            style: const TextStyle(fontFamily: "Montserrat", fontWeight: FontWeight.w700),
+                            clientId.isEmpty ? "Client" : clientId,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontFamily: "Montserrat",
+                              fontWeight: FontWeight.w800,
+                              fontSize: 16,
+                              color: Colors.black,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            width: double.infinity,
+                            height: 40,
+                            child: ElevatedButton(
+                              onPressed: () {
+                                // optional: open client profile if you have one
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.black,
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              child: const Text(
+                                "View Profile",
+                                style: TextStyle(
+                                  fontFamily: "Montserrat",
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
                           ),
                         ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
 
-                const SizedBox(height: 16),
+                const SizedBox(height: 22),
 
-                // task details table
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: const Text("Task Details",
-                    style: TextStyle(fontFamily: "Montserrat", fontWeight: FontWeight.w800),
+                // ---------------- DATE & TIME ----------------
+                const Text(
+                  "Date & Time",
+                  style: TextStyle(
+                    fontFamily: "Montserrat",
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
+                    color: Colors.black,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    const Icon(Icons.schedule, size: 20, color: Colors.black),
+                    const SizedBox(width: 10),
+                    Text(
+                      whenText,
+                      style: const TextStyle(
+                        fontFamily: "Montserrat",
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                        color: Colors.black,
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 22),
+
+                // ---------------- TASK DETAILS ----------------
+                const Text(
+                  "Task Details",
+                  style: TextStyle(
+                    fontFamily: "Montserrat",
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
+                    color: Colors.black,
                   ),
                 ),
                 const SizedBox(height: 10),
 
+                // Table container
                 Container(
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade300),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.grey.shade300, width: 1),
                   ),
                   child: Column(
                     children: [
+                      // Header row (black)
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: Colors.black,
-                          borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 10),
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF3A3A3A),
+                          borderRadius: BorderRadius.vertical(
+                            top: Radius.circular(10),
+                          ),
                         ),
                         child: const Row(
                           children: [
                             Expanded(
-                              child: Text("Service Task",
-                                style: TextStyle(color: Colors.white, fontFamily: "Montserrat", fontWeight: FontWeight.w800),
+                              child: Text(
+                                "Service Task",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontFamily: "Montserrat",
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 12,
+                                ),
                               ),
                             ),
-                            SizedBox(width: 40),
-                            Text("Qty",
-                              style: TextStyle(color: Colors.white, fontFamily: "Montserrat", fontWeight: FontWeight.w800),
+                            SizedBox(width: 10),
+                            Text(
+                              "Qty",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontFamily: "Montserrat",
+                                fontWeight: FontWeight.w800,
+                                fontSize: 12,
+                              ),
                             ),
                           ],
                         ),
                       ),
+
+                      // Body rows
                       ...tasks.map((t) {
                         final m = (t is Map) ? t : {};
-                        final label = (m['label'] ?? m['taskName'] ?? '').toString();
+                        final label =
+                            (m['label'] ?? m['taskName'] ?? '').toString();
                         final qty = (m['quantity'] ?? 1).toString();
 
                         return Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 12),
                           decoration: BoxDecoration(
-                            border: Border(top: BorderSide(color: Colors.grey.shade200)),
+                            border: Border(
+                              top: BorderSide(
+                                color: Colors.grey.shade200,
+                                width: 1,
+                              ),
+                            ),
                           ),
                           child: Row(
                             children: [
                               Expanded(
                                 child: Text(
                                   label.isEmpty ? "Task" : label,
-                                  style: const TextStyle(fontFamily: "Montserrat", fontWeight: FontWeight.w700),
+                                  style: const TextStyle(
+                                    fontFamily: "Montserrat",
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 13,
+                                    color: Colors.black,
+                                  ),
                                 ),
                               ),
-                              const SizedBox(width: 40),
+                              const SizedBox(width: 10),
                               Text(
                                 qty,
-                                style: const TextStyle(fontFamily: "Montserrat", fontWeight: FontWeight.w800),
+                                style: const TextStyle(
+                                  fontFamily: "Montserrat",
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 13,
+                                  color: Colors.black,
+                                ),
                               ),
                             ],
                           ),

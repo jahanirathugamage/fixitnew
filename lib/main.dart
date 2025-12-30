@@ -39,6 +39,7 @@ import 'screens/dashboards/contractor/update_contractor_profile.dart';
 // DASHBOARDS – PROVIDER
 import 'screens/dashboards/provider/update_provider_screen.dart';
 import 'screens/dashboards/provider_home_screen.dart';
+import 'screens/dashboards/provider/provider_jobs.dart';
 import 'screens/dashboards/provider/job_requests_screen.dart';
 
 
@@ -171,7 +172,7 @@ class MyApp extends StatelessWidget {
         // PROVIDER DASHBOARD
         '/dashboards/provider_home_screen': (_) => const ProviderHomeScreen(),
         '/dashboards/provider/update_profile': (_) => const UpdateProviderScreen(),
-        '/provider/provider_job_requests': (_) => const ProviderJobRequestsScreen(),
+        '/provider/provider_jobs': (_) => const ProviderJobsScreen(),
         '/provider/job_requests_screen': (_) => const ProviderJobRequestsScreen(),
 
         // ADMIN
