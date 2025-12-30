@@ -172,7 +172,7 @@ class MyApp extends StatelessWidget {
         '/dashboards/provider_home_screen': (_) => const ProviderHomeScreen(),
         '/dashboards/provider/update_profile': (_) => const UpdateProviderScreen(),
         '/provider/provider_job_requests': (_) => const ProviderJobRequestsScreen(),
-        '/provider/provider_jobs': (_) => const ProviderJobsScreen(),
+        '/provider/job_requests_screen': (_) => const ProviderJobRequestsScreen(),
 
         // ADMIN
         '/admin/create_admin_account_screen': (_) =>
