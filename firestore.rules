@@ -6,8 +6,12 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // ✅ FIX: safe role lookup (prevents permission-denied when /users/{uid} missing)
     function userRole() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+        : "unknown";
     }
 
     // Helper: check if current user is an admin (users/{uid}.role == "admin")
