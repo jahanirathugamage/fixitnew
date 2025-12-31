@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:fixitnew/controllers/provider/provider_home_controller.dart';
 import 'package:fixitnew/models/provider/provider_dashboard_model.dart';
 import 'package:fixitnew/widgets/nav/provider_bottom_nav.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 
 class ProviderHomeScreen extends StatefulWidget {
   const ProviderHomeScreen({super.key});

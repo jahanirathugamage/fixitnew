@@ -37,6 +37,7 @@ class _ProviderNavigationScreenState extends State<ProviderNavigationScreen> {
   Future<void> _init() async {
     try {
       final provider = await _getCurrentLocationLatLng();
+      if (!mounted) return;
       setState(() {
         _providerLatLng = provider;
       });
@@ -46,6 +47,7 @@ class _ProviderNavigationScreenState extends State<ProviderNavigationScreen> {
         to: widget.jobLatLng,
       );
 
+      if (!mounted) return;
       setState(() {
         _routePoints = route.isNotEmpty ? route : [provider, widget.jobLatLng];
         _loading = false;
@@ -53,6 +55,7 @@ class _ProviderNavigationScreenState extends State<ProviderNavigationScreen> {
 
       _fitBounds();
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _error = e.toString();
         _loading = false;
@@ -82,9 +85,11 @@ class _ProviderNavigationScreenState extends State<ProviderNavigationScreen> {
           "Location permission permanently denied. Enable it in settings.");
     }
 
-    // Keep your existing call style (works), no assumptions.
+    // ✅ Replace deprecated desiredAccuracy with locationSettings (same intent: high accuracy)
     final pos = await Geolocator.getCurrentPosition(
-      desiredAccuracy: LocationAccuracy.high,
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+      ),
     );
 
     return LatLng(pos.latitude, pos.longitude);

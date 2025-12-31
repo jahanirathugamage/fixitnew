@@ -261,7 +261,7 @@ class ProviderJobDetailsScreen extends StatelessWidget {
                             ],
                           ),
                         );
-                      }).toList(),
+                      }),
                     ],
                   ),
                 ),

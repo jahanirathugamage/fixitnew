@@ -30,6 +30,7 @@ class _RequestSentScreenState extends State<RequestSentScreen> {
   bool _cancelling = false;
 
   void _goHome() {
+    if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(
         builder: (_) => const HomeScreen(),
@@ -42,10 +43,13 @@ class _RequestSentScreenState extends State<RequestSentScreen> {
   void initState() {
     super.initState();
 
-    final ref = FirebaseFirestore.instance.collection('jobRequest').doc(widget.jobId);
+    final ref =
+        FirebaseFirestore.instance.collection('jobRequest').doc(widget.jobId);
 
     _sub = ref.snapshots().listen((snap) {
+      if (!mounted) return;
       if (!snap.exists) return;
+
       final data = snap.data() ?? {};
 
       // countdown
@@ -63,9 +67,13 @@ class _RequestSentScreenState extends State<RequestSentScreen> {
       if (!_handledTerminal && (status == 'confirmed' || status == 'accepted')) {
         _handledTerminal = true;
         _timer?.cancel();
+
+        if (!mounted) return;
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => JobTrackingScreen(jobId: widget.jobId)),
+          MaterialPageRoute(
+            builder: (_) => JobTrackingScreen(jobId: widget.jobId),
+          ),
         );
         return;
       }
@@ -73,11 +81,13 @@ class _RequestSentScreenState extends State<RequestSentScreen> {
       // REJECTED / CANCELLED / EXPIRED
       if (!_handledTerminal &&
           (status == 'rejected' ||
-           status == 'expired' ||
-           status == 'cancelled_by_client' ||
-           status == 'cancelled')) {
+              status == 'expired' ||
+              status == 'cancelled_by_client' ||
+              status == 'cancelled')) {
         _handledTerminal = true;
         _timer?.cancel();
+
+        if (!mounted) return;
         Navigator.pop(context); // back to matches
         return;
       }
@@ -100,6 +110,8 @@ class _RequestSentScreenState extends State<RequestSentScreen> {
     if (!_handledTerminal && diff.isNegative) {
       _handledTerminal = true;
       _timer?.cancel();
+
+      if (!mounted) return;
       Navigator.pop(context);
     }
   }
@@ -115,7 +127,6 @@ class _RequestSentScreenState extends State<RequestSentScreen> {
     if (_cancelling) return;
 
     setState(() => _cancelling = true);
-    final messenger = ScaffoldMessenger.of(context);
 
     try {
       final user = FirebaseAuth.instance.currentUser;
@@ -134,6 +145,10 @@ class _RequestSentScreenState extends State<RequestSentScreen> {
         body: jsonEncode({"jobId": widget.jobId}),
       );
 
+      if (!mounted) return; // ✅ guard before using context/messenger
+
+      final messenger = ScaffoldMessenger.of(context);
+
       if (resp.statusCode == 200) {
         messenger.showSnackBar(
           const SnackBar(content: Text("✅ Request cancelled.")),
@@ -144,7 +159,10 @@ class _RequestSentScreenState extends State<RequestSentScreen> {
 
       throw Exception("Cancel failed (${resp.statusCode}): ${resp.body}");
     } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text("Cancel error: $e")));
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Cancel error: $e")),
+      );
     } finally {
       if (mounted) setState(() => _cancelling = false);
     }
@@ -193,7 +211,8 @@ class _RequestSentScreenState extends State<RequestSentScreen> {
                           color: Colors.grey.shade200,
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.check, size: 44, color: Colors.black),
+                        child: const Icon(Icons.check,
+                            size: 44, color: Colors.black),
                       ),
                       const SizedBox(height: 18),
                       const Text(
@@ -217,7 +236,8 @@ class _RequestSentScreenState extends State<RequestSentScreen> {
                       ),
                       const SizedBox(height: 16),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 10),
                         decoration: BoxDecoration(
                           border: Border.all(color: Colors.grey.shade300),
                           borderRadius: BorderRadius.circular(14),
@@ -281,7 +301,6 @@ class _RequestSentScreenState extends State<RequestSentScreen> {
                   ),
                 ),
               ),
-
             ],
           ),
         ),

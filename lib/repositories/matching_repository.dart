@@ -12,7 +12,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
 
-
 class MatchingRepository {
   final FirebaseFirestore _firestore;
   final FirebaseAuth _auth;
@@ -22,7 +21,7 @@ class MatchingRepository {
   /// - For Chrome / Desktop use: http://localhost:3000
   ///
   /// If you're calling your DEPLOYED Vercel backend, use:
-  ///   https://<your-vercel-domain>
+  ///   `https://<your-vercel-domain>`
   final String baseUrl;
 
   MatchingRepository({

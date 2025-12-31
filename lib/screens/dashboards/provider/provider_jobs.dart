@@ -5,7 +5,6 @@ import 'package:fixitnew/widgets/nav/provider_bottom_nav.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'navigation_screen.dart';
-
 import 'job_details_screen.dart';
 
 // dashboards/provider/provider_jobs.dart
@@ -183,10 +182,8 @@ class ProviderJobsScreen extends StatelessWidget {
 
               rows.add(
                 _JobRowModel(
-                  jobId: doc.id,
-                  scheduledMillis:
-                      scheduledDate?.millisecondsSinceEpoch ?? 0,
-                  jobId: doc.id, // ✅ keep doc.id for details navigation
+                  jobId: doc.id, // ✅ only ONCE
+                  scheduledMillis: scheduledDate?.millisecondsSinceEpoch ?? 0,
                   job: JobCardData(
                     clientName: clientName.isEmpty ? "Client" : clientName,
                     dateText: _formatDateText(scheduledDate),
@@ -217,7 +214,7 @@ class ProviderJobsScreen extends StatelessWidget {
             return ListView.separated(
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
               itemCount: rows.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 18),
+              separatorBuilder: (_, _) => const SizedBox(height: 18), // ✅ fixed
               itemBuilder: (context, index) {
                 final row = rows[index];
                 return JobCard(
@@ -246,10 +243,6 @@ class _JobRowModel {
     required this.scheduledMillis,
     required this.job,
   });
-
-  int get _scheduledDateForSort {
-    return job.dateText == "—" ? 0 : 1;
-  }
 }
 
 class JobCard extends StatelessWidget {
@@ -320,7 +313,6 @@ class JobCard extends StatelessWidget {
           height: 44,
           child: ElevatedButton(
             onPressed: () {
-              // You already have jobId available here for navigation later.
               Navigator.push(
                 context,
                 MaterialPageRoute(

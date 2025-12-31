@@ -2,6 +2,11 @@
 
 import 'package:flutter/material.dart';
 
+// remove later
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+// remove later
+
 // MVC
 import '../../models/client/client_settings.dart';
 import '../../controllers/client/client_settings_controller.dart';
@@ -23,6 +28,19 @@ class _HomeClientState extends State<HomeClient> {
   @override
   void initState() {
     super.initState();
+
+    // ✅ DEBUG (remove later)
+    final user = FirebaseAuth.instance.currentUser;
+    debugPrint("HomeClient currentUser UID: ${user?.uid}");
+    debugPrint("Firebase projectId: ${Firebase.app().options.projectId}");
+
+    user?.getIdToken(true).then((token) {
+      debugPrint("Has ID token: ${token != null}");
+    }).catchError((e) {
+      debugPrint("Token error: $e");
+    });
+    // ✅ DEBUG END
+
     _loadClientData();
   }
 
@@ -71,7 +89,6 @@ class _HomeClientState extends State<HomeClient> {
         elevation: 0,
         centerTitle: true,
       ),
-
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

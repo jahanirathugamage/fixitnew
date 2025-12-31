@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
 import 'package:firebase_core/firebase_core.dart';
 
 import 'package:fixitnew/widgets/nav/provider_bottom_nav.dart';
@@ -145,7 +144,8 @@ class ProviderJobRequestsScreen extends StatelessWidget {
           return ListView.separated(
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
             itemCount: docs.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 18),
+            // ✅ fix unnecessary underscores
+            separatorBuilder: (_, _) => const SizedBox(height: 18),
             itemBuilder: (context, i) {
               final d = docs[i];
               final data = d.data();
@@ -260,8 +260,9 @@ class ProviderJobRequestsScreen extends StatelessWidget {
                                   : null,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.black,
+                                // ✅ replace deprecated withOpacity(0.35)
                                 disabledBackgroundColor:
-                                    Colors.black.withOpacity(0.35),
+                                    Colors.black.withValues(alpha: 89),
                                 foregroundColor: Colors.white,
                                 elevation: 0,
                                 padding: EdgeInsets.zero,
@@ -371,7 +372,6 @@ class ProviderJobRequestsScreen extends StatelessWidget {
           );
         },
       ),
-
       bottomNavigationBar: const ProviderBottomNav(
         currentIndex: 1,
       ),
