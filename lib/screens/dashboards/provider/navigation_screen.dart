@@ -1,161 +1,79 @@
-// navigation_screen.dart
-
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 
+import '../../../controllers/provider/provider_navigation_controller.dart';
+import '../../../models/provider/provider_navigation_state.dart';
+import 'job_details_screen.dart';
+
 class ProviderNavigationScreen extends StatefulWidget {
+  final String jobId;
   final LatLng jobLatLng;
 
   const ProviderNavigationScreen({
     super.key,
+    required this.jobId,
     required this.jobLatLng,
   });
 
   @override
-  State<ProviderNavigationScreen> createState() =>
-      _ProviderNavigationScreenState();
+  State<ProviderNavigationScreen> createState() => _ProviderNavigationScreenState();
 }
 
 class _ProviderNavigationScreenState extends State<ProviderNavigationScreen> {
   final MapController _mapController = MapController();
+  final ProviderNavigationController _controller = ProviderNavigationController();
 
-  LatLng? _providerLatLng;
-  List<LatLng> _routePoints = [];
-  String? _error;
-  bool _loading = true;
+  ProviderNavigationState _state = ProviderNavigationState.loading(
+    jobId: "",
+    jobLatLng: const LatLng(0, 0),
+  );
+
+  bool _mapRenderedOnce = false;
 
   @override
   void initState() {
     super.initState();
+    _state = ProviderNavigationState.loading(jobId: widget.jobId, jobLatLng: widget.jobLatLng);
     _init();
   }
 
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
   Future<void> _init() async {
-    try {
-      final provider = await _getCurrentLocationLatLng();
-      if (!mounted) return;
-      setState(() {
-        _providerLatLng = provider;
-      });
+    await _controller.load(
+      jobId: widget.jobId,
+      jobLatLng: widget.jobLatLng,
+      onState: (s) {
+        if (!mounted) return;
+        setState(() => _state = s);
 
-      final route = await _fetchOsrmRoute(
-        from: provider,
-        to: widget.jobLatLng,
-      );
-
-      if (!mounted) return;
-      setState(() {
-        _routePoints = route.isNotEmpty ? route : [provider, widget.jobLatLng];
-        _loading = false;
-      });
-
-      _fitBounds();
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _error = e.toString();
-        _loading = false;
-        if (_providerLatLng != null) {
-          _routePoints = [_providerLatLng!, widget.jobLatLng];
+        // Fit bounds only after FlutterMap has rendered once.
+        final provider = s.providerLatLng;
+        if (provider != null && _mapRenderedOnce) {
+          _fitBounds(provider: provider, job: widget.jobLatLng, routePoints: s.routePoints);
         }
-      });
-      if (_providerLatLng != null) _fitBounds();
-    }
-  }
-
-  Future<LatLng> _getCurrentLocationLatLng() async {
-    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      throw Exception("Location services are disabled.");
-    }
-
-    var permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-    }
-    if (permission == LocationPermission.denied) {
-      throw Exception("Location permission denied.");
-    }
-    if (permission == LocationPermission.deniedForever) {
-      throw Exception(
-          "Location permission permanently denied. Enable it in settings.");
-    }
-
-    // ✅ Replace deprecated desiredAccuracy with locationSettings (same intent: high accuracy)
-    final pos = await Geolocator.getCurrentPosition(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.high,
-      ),
+      },
     );
 
-    return LatLng(pos.latitude, pos.longitude);
-  }
+    // first render hook
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _mapRenderedOnce = true;
 
-  Future<List<LatLng>> _fetchOsrmRoute({
-    required LatLng from,
-    required LatLng to,
-  }) async {
-    final url = Uri.parse(
-      "https://router.project-osrm.org/route/v1/driving/"
-      "${from.longitude},${from.latitude};${to.longitude},${to.latitude}"
-      "?overview=full&geometries=polyline",
-    );
-
-    final resp = await http.get(url);
-    if (resp.statusCode != 200) {
-      throw Exception("Route API failed: ${resp.statusCode}");
-    }
-
-    final jsonBody = jsonDecode(resp.body) as Map<String, dynamic>;
-    final routes = (jsonBody["routes"] as List?) ?? [];
-    if (routes.isEmpty) return [];
-
-    final geometry = routes.first["geometry"];
-    if (geometry is! String || geometry.isEmpty) return [];
-
-    return _decodePolyline(geometry);
-  }
-
-  List<LatLng> _decodePolyline(String encoded) {
-    final List<LatLng> points = [];
-    int index = 0;
-    int lat = 0;
-    int lng = 0;
-
-    while (index < encoded.length) {
-      int result = 0;
-      int shift = 0;
-      int b;
-
-      do {
-        b = encoded.codeUnitAt(index++) - 63;
-        result |= (b & 0x1f) << shift;
-        shift += 5;
-      } while (b >= 0x20);
-
-      final dlat = ((result & 1) != 0) ? ~(result >> 1) : (result >> 1);
-      lat += dlat;
-
-      result = 0;
-      shift = 0;
-
-      do {
-        b = encoded.codeUnitAt(index++) - 63;
-        result |= (b & 0x1f) << shift;
-        shift += 5;
-      } while (b >= 0x20);
-
-      final dlng = ((result & 1) != 0) ? ~(result >> 1) : (result >> 1);
-      lng += dlng;
-
-      points.add(LatLng(lat / 1e5, lng / 1e5));
-    }
-
-    return points;
+      final provider = _state.providerLatLng;
+      if (provider != null) {
+        _fitBounds(
+          provider: provider,
+          job: widget.jobLatLng,
+          routePoints: _state.routePoints,
+        );
+      }
+    });
   }
 
   LatLngBounds _boundsFromPoints(List<LatLng> pts) {
@@ -171,35 +89,56 @@ class _ProviderNavigationScreenState extends State<ProviderNavigationScreen> {
       if (p.longitude > maxLng) maxLng = p.longitude;
     }
 
-    // LatLngBounds requires 2 points in your version
     return LatLngBounds(
-      LatLng(minLat, minLng), // southWest
-      LatLng(maxLat, maxLng), // northEast
+      LatLng(minLat, minLng),
+      LatLng(maxLat, maxLng),
     );
   }
 
-  void _fitBounds() {
-    final provider = _providerLatLng;
-    if (provider == null) return;
-
-    // Prefer route points (best fit), otherwise just provider + job.
-    final pts = _routePoints.length >= 2
-        ? _routePoints
-        : <LatLng>[provider, widget.jobLatLng];
-
+  void _fitBounds({
+    required LatLng provider,
+    required LatLng job,
+    required List<LatLng> routePoints,
+  }) {
+    final pts = routePoints.length >= 2 ? routePoints : <LatLng>[provider, job];
     final bounds = _boundsFromPoints(pts);
 
     _mapController.fitCamera(
       CameraFit.bounds(
         bounds: bounds,
-        padding: const EdgeInsets.all(60),
+        padding: const EdgeInsets.all(70),
       ),
     );
   }
 
+  String _fmtTime(DateTime? dt) {
+    if (dt == null) return "—";
+    final h = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
+    final ampm = dt.hour >= 12 ? "PM" : "AM";
+    final m = dt.minute.toString().padLeft(2, "0");
+    return "$h:$m $ampm";
+  }
+
+  String _fmtEta(int? seconds) {
+    if (seconds == null) return "—";
+    final mins = (seconds / 60).round();
+    return "$mins min away";
+  }
+
+  String _gateText(NavigationGate gate) {
+    switch (gate) {
+      case NavigationGate.tooEarly:
+        return "Too early to start navigation.";
+      case NavigationGate.reasonRequired:
+        return "Early navigation (reason required).";
+      case NavigationGate.authorized:
+        return "Navigation authorized.";
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final provider = _providerLatLng;
+    final provider = _state.providerLatLng;
     final job = widget.jobLatLng;
 
     return Scaffold(
@@ -209,8 +148,12 @@ class _ProviderNavigationScreenState extends State<ProviderNavigationScreen> {
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black),
+          onPressed: () => Navigator.pop(context), // ✅ back to jobs page
+        ),
       ),
-      body: _loading
+      body: _state.loading
           ? const Center(child: CircularProgressIndicator())
           : Stack(
               children: [
@@ -222,15 +165,14 @@ class _ProviderNavigationScreenState extends State<ProviderNavigationScreen> {
                   ),
                   children: [
                     TileLayer(
-                      urlTemplate:
-                          "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+                      urlTemplate: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
                       userAgentPackageName: "com.fixitnew.app",
                     ),
-                    if (_routePoints.length >= 2)
+                    if (_state.routePoints.length >= 2)
                       PolylineLayer(
                         polylines: [
                           Polyline(
-                            points: _routePoints,
+                            points: _state.routePoints,
                             strokeWidth: 5,
                           ),
                         ],
@@ -254,11 +196,228 @@ class _ProviderNavigationScreenState extends State<ProviderNavigationScreen> {
                     ),
                   ],
                 ),
-                if (_error != null)
+
+                // ✅ TOP ETA CARD (like screenshot)
+                Positioned(
+                  top: 14,
+                  left: 14,
+                  right: 14,
+                  child: SafeArea(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            blurRadius: 18,
+                            spreadRadius: 0,
+                            offset: const Offset(0, 6),
+                            color: Colors.black.withOpacity(0.12),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _fmtEta(_state.durationSeconds),
+                                  style: const TextStyle(
+                                    fontFamily: "Montserrat",
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  "Arrival time · ${_fmtTime(_state.arrivalTime)}",
+                                  style: const TextStyle(
+                                    fontFamily: "Montserrat",
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.black54,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  _gateText(_state.gate),
+                                  style: TextStyle(
+                                    fontFamily: "Montserrat",
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: _state.gate == NavigationGate.authorized
+                                        ? Colors.green
+                                        : Colors.orange,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
+                // ✅ BOTTOM SLIDE-UP CLIENT PANEL
+                DraggableScrollableSheet(
+                  initialChildSize: 0.22,
+                  minChildSize: 0.18,
+                  maxChildSize: 0.48,
+                  builder: (context, scrollController) {
+                    return Container(
+                      padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                        boxShadow: [
+                          BoxShadow(
+                            blurRadius: 18,
+                            offset: const Offset(0, -6),
+                            color: Colors.black.withOpacity(0.10),
+                          ),
+                        ],
+                      ),
+                      child: ListView(
+                        controller: scrollController,
+                        children: [
+                          Center(
+                            child: Container(
+                              width: 44,
+                              height: 5,
+                              margin: const EdgeInsets.only(bottom: 14),
+                              decoration: BoxDecoration(
+                                color: Colors.black12,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                          ),
+
+                          Row(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: Container(
+                                  width: 54,
+                                  height: 54,
+                                  color: Colors.grey.shade200,
+                                  child: (_state.clientPhotoUrl != null)
+                                      ? Image.network(
+                                          _state.clientPhotoUrl!,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (_, __, ___) =>
+                                              const Icon(Icons.person, color: Colors.black),
+                                        )
+                                      : const Icon(Icons.person, color: Colors.black),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      _state.clientName,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontFamily: "Montserrat",
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      _state.clientAddress.isNotEmpty
+                                          ? _state.clientAddress
+                                          : "Address not available",
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontFamily: "Montserrat",
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.black54,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+
+                          const SizedBox(height: 14),
+
+                          SizedBox(
+                            height: 48,
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: () {
+                                // ✅ no-op as requested
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.black,
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: const Text(
+                                "Arrived",
+                                style: TextStyle(
+                                  fontFamily: "Montserrat",
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
+                          ),
+
+                          const SizedBox(height: 10),
+
+                          SizedBox(
+                            height: 48,
+                            width: double.infinity,
+                            child: OutlinedButton(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => ProviderJobDetailsScreen(jobId: widget.jobId),
+                                  ),
+                                );
+                              },
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(color: Colors.black, width: 1.5),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: const Text(
+                                "View Job Details",
+                                style: TextStyle(
+                                  fontFamily: "Montserrat",
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.black,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+
+                // ✅ route warning (optional)
+                if (_state.error != null)
                   Positioned(
                     left: 12,
                     right: 12,
-                    bottom: 12,
+                    bottom: 12 + MediaQuery.of(context).size.height * 0.22,
                     child: Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
@@ -267,7 +426,7 @@ class _ProviderNavigationScreenState extends State<ProviderNavigationScreen> {
                         border: Border.all(color: Colors.black12),
                       ),
                       child: Text(
-                        "Route warning: $_error",
+                        "Route warning: ${_state.error}",
                         style: const TextStyle(fontSize: 12),
                       ),
                     ),

@@ -42,7 +42,7 @@ class ProviderBottomNav extends StatelessWidget {
               _go(context, "/provider/earnings");
               break;
             case 3:
-              _go(context, "/provider/home"); // Settings
+              _go(context, "/dashboards/provider_home_screen"); // Settings
               break;
           }
         },

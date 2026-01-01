@@ -1,9 +1,10 @@
 // ignore_for_file: use_build_context_synchronously
 
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart'; // ✅ ADDED for kDebugMode + debugPrint
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // ✅ ADDED for UID debug
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 
 import '../../../controllers/client/client_home_controller.dart';
 import '../../services/service_request_screen.dart';
@@ -21,6 +22,69 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final _homeController = ClientHomeController();
+
+  // ✅ DEBUG (remove later)
+  Future<void> _debugFirebaseWiring() async {
+    if (!kDebugMode) return;
+
+    final user = FirebaseAuth.instance.currentUser;
+    debugPrint("HomeScreen currentUser UID: ${user?.uid}");
+
+    debugPrint("Firebase.apps count: ${Firebase.apps.length}");
+    for (final app in Firebase.apps) {
+      debugPrint(
+        "Firebase app: name=${app.name}, projectId=${app.options.projectId}",
+      );
+    }
+
+    debugPrint(
+      "Auth app: name=${FirebaseAuth.instance.app.name}, projectId=${FirebaseAuth.instance.app.options.projectId}",
+    );
+    debugPrint(
+      "Firestore app: name=${FirebaseFirestore.instance.app.name}, projectId=${FirebaseFirestore.instance.app.options.projectId}",
+    );
+
+    try {
+      final token = await user?.getIdToken(true);
+      debugPrint("Has ID token: ${token != null}");
+    } catch (e) {
+      debugPrint("Token error: $e");
+    }
+  }
+  // ✅ DEBUG END
+
+  // ✅ PROBE (remove later)
+  Future<void> _probeHomeCollections() async {
+    if (!kDebugMode) return;
+
+    try {
+      final servicesSnap = await FirebaseFirestore.instance
+          .collection('services')
+          .limit(1)
+          .get();
+      debugPrint("PROBE /services ok. docs=${servicesSnap.docs.length}");
+    } catch (e) {
+      debugPrint("PROBE /services FAILED: $e");
+    }
+
+    try {
+      final repairsSnap = await FirebaseFirestore.instance
+          .collection('repairs')
+          .limit(1)
+          .get();
+      debugPrint("PROBE /repairs ok. docs=${repairsSnap.docs.length}");
+    } catch (e) {
+      debugPrint("PROBE /repairs FAILED: $e");
+    }
+  }
+  // ✅ PROBE END
+
+  @override
+  void initState() {
+    super.initState();
+    _debugFirebaseWiring(); // debug only
+    _probeHomeCollections(); // probe only
+  }
 
   // --------------------- HELPERS ---------------------
 
@@ -113,8 +177,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  /// Try to map Firestore doc (name + iconKey) into our category keys
-  /// used in ServiceRequestWrapper.
   String _categoryKeyFromDoc(String name, String iconKey) {
     final base = (iconKey.isNotEmpty ? iconKey : name).toLowerCase().trim();
 
@@ -144,7 +206,6 @@ class _HomeScreenState extends State<HomeScreen> {
         }
 
         if (snapshot.hasError) {
-          // ✅ ADDED: show the real Firestore error for debugging
           final errText = snapshot.error.toString();
           debugPrint("servicesStream error: $errText");
 
@@ -161,7 +222,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
         final docs = snapshot.data?.docs ?? [];
         if (docs.isEmpty) {
-          // Fallback static grid
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20.0),
             child: GridView.count(
@@ -217,7 +277,6 @@ class _HomeScreenState extends State<HomeScreen> {
           );
         }
 
-        // Firestore-driven grid
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20.0),
           child: GridView.builder(
@@ -260,7 +319,6 @@ class _HomeScreenState extends State<HomeScreen> {
         }
 
         if (snapshot.hasError) {
-          // ✅ ADDED: show the real Firestore error for debugging
           final errText = snapshot.error.toString();
           debugPrint("repairsStream error: $errText");
 
@@ -328,78 +386,87 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // ✅ ADDED: log the UID so we can confirm if user is signed in
-    if (kDebugMode) {
-      final uid = FirebaseAuth.instance.currentUser?.uid;
-      debugPrint("HomeScreen currentUser UID: $uid");
-    }
-
     return Scaffold(
       backgroundColor: Colors.white,
-
       body: SafeArea(
-        child: Column(
-          children: [
-            // Header
-            Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Row(
-                children: const [
-                  Text(
-                    'FixIt',
-                    style: TextStyle(
-                      fontFamily: 'Montserrat',
-                      fontSize: 32,
-                      fontWeight: FontWeight.w800,
+        child: StreamBuilder<User?>(
+          // ✅ KEY FIX: don't start Firestore streams until auth is confirmed
+          stream: FirebaseAuth.instance.authStateChanges(),
+          builder: (context, authSnap) {
+            if (authSnap.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            final user = authSnap.data;
+            if (user == null) {
+              return const Center(
+                child: Text(
+                  'Not signed in.',
+                  style: TextStyle(color: Colors.red),
+                ),
+              );
+            }
+
+            // ✅ ORIGINAL UI (unchanged)
+            return Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Row(
+                    children: const [
+                      Text(
+                        'FixIt',
+                        style: TextStyle(
+                          fontFamily: 'Montserrat',
+                          fontSize: 32,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 20.0),
+                          child: Text(
+                            'Services',
+                            style: TextStyle(
+                              fontFamily: 'Montserrat',
+                              fontSize: 20,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        _buildServicesGrid(),
+                        const SizedBox(height: 40),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 20.0),
+                          child: Text(
+                            'Repairs Made Simple',
+                            style: TextStyle(
+                              fontFamily: 'Montserrat',
+                              fontSize: 20,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        _buildRepairsCarousel(),
+                        const SizedBox(height: 20),
+                      ],
                     ),
                   ),
-                ],
-              ),
-            ),
-
-            // Body
-            Expanded(
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 20.0),
-                      child: Text(
-                        'Services',
-                        style: TextStyle(
-                          fontFamily: 'Montserrat',
-                          fontSize: 20,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    _buildServicesGrid(),
-                    const SizedBox(height: 40),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 20.0),
-                      child: Text(
-                        'Repairs Made Simple',
-                        style: TextStyle(
-                          fontFamily: 'Montserrat',
-                          fontSize: 20,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    _buildRepairsCarousel(),
-                    const SizedBox(height: 20),
-                  ],
                 ),
-              ),
-            ),
-          ],
+              ],
+            );
+          },
         ),
       ),
-
-      // ✅ Reusable nav (Home selected)
       bottomNavigationBar: const ClientBottomNav(currentIndex: 0),
     );
   }
@@ -474,10 +541,7 @@ class _ServiceCardState extends State<ServiceCard> {
                   child: Container(
                     decoration: BoxDecoration(
                       color: isPressed ? Colors.black : Colors.white,
-                      border: Border.all(
-                        color: Colors.black,
-                        width: 1,
-                      ),
+                      border: Border.all(color: Colors.black, width: 1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Center(

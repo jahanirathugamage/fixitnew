@@ -1,6 +1,7 @@
 // lib/screens/dashboards/home_client.dart
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart'; // ✅ for debugPrint / kDebugMode
 
 // remove later
 import 'package:firebase_core/firebase_core.dart';
@@ -25,20 +26,42 @@ class _HomeClientState extends State<HomeClient> {
   final _controller = ClientSettingsController();
   ClientSettings? _settings;
 
+  // ✅ DEBUG helper (remove later)
+  Future<void> _debugFirebaseWiring() async {
+    if (!kDebugMode) return;
+
+    final user = FirebaseAuth.instance.currentUser;
+    debugPrint("HomeClient currentUser UID: ${user?.uid}");
+
+    // Print all initialized Firebase apps (detects “multi app” problems)
+    debugPrint("Firebase.apps count: ${Firebase.apps.length}");
+    for (final app in Firebase.apps) {
+      debugPrint(
+        "Firebase app: name=${app.name}, projectId=${app.options.projectId}",
+      );
+    }
+
+    // Print which app Firestore is using (important for permission issues)
+    // (No Firestore import here because this screen doesn't use Firestore.
+    // We'll only print Firebase apps + Auth + token, as you already started.)
+    debugPrint("Auth app name: ${FirebaseAuth.instance.app.name}");
+    debugPrint("Auth projectId: ${FirebaseAuth.instance.app.options.projectId}");
+
+    try {
+      final token = await user?.getIdToken(true);
+      debugPrint("Has ID token: ${token != null}");
+    } catch (e) {
+      debugPrint("Token error: $e");
+    }
+  }
+  // ✅ DEBUG END
+
   @override
   void initState() {
     super.initState();
 
     // ✅ DEBUG (remove later)
-    final user = FirebaseAuth.instance.currentUser;
-    debugPrint("HomeClient currentUser UID: ${user?.uid}");
-    debugPrint("Firebase projectId: ${Firebase.app().options.projectId}");
-
-    user?.getIdToken(true).then((token) {
-      debugPrint("Has ID token: ${token != null}");
-    }).catchError((e) {
-      debugPrint("Token error: $e");
-    });
+    _debugFirebaseWiring();
     // ✅ DEBUG END
 
     _loadClientData();
@@ -89,6 +112,7 @@ class _HomeClientState extends State<HomeClient> {
         elevation: 0,
         centerTitle: true,
       ),
+
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

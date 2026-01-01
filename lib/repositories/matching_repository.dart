@@ -6,6 +6,7 @@
 //    (backend also writes matchedProviderIds into jobRequest/{jobId})
 
 import 'dart:convert';
+
 import '../backend/api_config.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -19,9 +20,7 @@ class MatchingRepository {
   /// IMPORTANT:
   /// - For Android Emulator use: http://10.0.2.2:3000
   /// - For Chrome / Desktop use: http://localhost:3000
-  ///
-  /// If you're calling your DEPLOYED Vercel backend, use:
-  ///   `https://<your-vercel-domain>`
+  /// - For REAL PHONE / APK, you MUST use a reachable backend URL (e.g. Vercel):
   final String baseUrl;
 
   MatchingRepository({
@@ -30,7 +29,39 @@ class MatchingRepository {
     String? baseUrl,
   })  : _firestore = firestore ?? FirebaseFirestore.instance,
         _auth = auth ?? FirebaseAuth.instance,
-        baseUrl = baseUrl ?? ApiConfig.baseUrl;
+        baseUrl = _resolveBaseUrl(baseUrl ?? ApiConfig.baseUrl);
+
+  static String _resolveBaseUrl(String raw) {
+    final url = raw.trim();
+
+    bool isLocalhost(String u) {
+      final lower = u.toLowerCase();
+      return lower.contains('127.0.0.1') ||
+          lower.contains('localhost') ||
+          lower.contains('10.0.2.2');
+    }
+
+    // ✅ If this is a RELEASE build (APK you install), block localhost URLs.
+    // Because on a real phone, 127.0.0.1 points to the phone itself.
+    if (kReleaseMode && isLocalhost(url)) {
+      throw StateError(
+        "Invalid ApiConfig.baseUrl for RELEASE/APK: '$url'\n"
+        "For APK on a real phone you MUST use a reachable backend URL (e.g. your Vercel domain).\n"
+        "Fix: Set ApiConfig.baseUrl to something like:\n"
+        "  https://<your-vercel-domain>\n",
+      );
+    }
+
+    // Debug warning (won't crash in debug/profile)
+    if (!kReleaseMode && isLocalhost(url) && !kIsWeb) {
+      debugPrint(
+        "⚠️ MatchingRepository baseUrl is local: $url\n"
+        "This will FAIL on a real phone. Works only for emulator (10.0.2.2) or web (localhost).\n",
+      );
+    }
+
+    return url;
+  }
 
   /// Reads the job request and returns its data.
   Future<Map<String, dynamic>> fetchJobById(String jobId) async {
@@ -55,7 +86,6 @@ class MatchingRepository {
   /// - providerUid
   /// - firstName
   /// - lastName
-  /// - location (GeoPoint-like data in JSON? Usually null/ignored by backend)
   Future<List<Map<String, dynamic>>> fetchAvailableProvidersFromApi({
     required String jobId,
   }) async {
@@ -67,7 +97,11 @@ class MatchingRepository {
     final idToken = await user.getIdToken(true);
 
     final uri = Uri.parse('$baseUrl/api/match-providers');
-    debugPrint("MATCH API URL => $baseUrl/api/match-providers");
+
+    if (kDebugMode) {
+      debugPrint("MATCH API URL => $uri");
+    }
+
     final resp = await http.post(
       uri,
       headers: {

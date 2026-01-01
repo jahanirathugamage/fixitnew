@@ -294,6 +294,7 @@ class JobCard extends StatelessWidget {
                   context,
                   MaterialPageRoute(
                     builder: (_) => ProviderNavigationScreen(
+                      jobId: jobId,           // ✅ ADD
                       jobLatLng: job.jobLatLng,
                     ),
                   ),
