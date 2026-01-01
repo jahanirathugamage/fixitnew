@@ -1,7 +1,8 @@
-// lib/screens/admin/admin_settings_screen.dart
-
 import 'package:flutter/material.dart';
 import '../../controllers/admin/admin_settings_controller.dart';
+
+// ✅ reusable nav
+import 'package:fixitnew/widgets/nav/admin_bottom_nav.dart';
 
 class AdminSettingsScreen extends StatelessWidget {
   const AdminSettingsScreen({super.key});
@@ -55,14 +56,12 @@ class AdminSettingsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
+
+      // ---------------- APP BAR ----------------
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
-        ),
         title: const Text(
           'Settings',
           style: TextStyle(
@@ -71,6 +70,8 @@ class AdminSettingsScreen extends StatelessWidget {
           ),
         ),
       ),
+
+      // ---------------- BODY ----------------
       body: SafeArea(
         child: Column(
           children: [
@@ -101,12 +102,10 @@ class AdminSettingsScreen extends StatelessWidget {
                     _settingsItem(
                       title: 'Change Password',
                       icon: Icons.lock_outline,
-                      onTap: () {
-                        Navigator.pushNamed(
-                          context,
-                          '/admin/admin_change_password_screen',
-                        );
-                      },
+                      onTap: () => Navigator.pushNamed(
+                        context,
+                        '/admin/admin_change_password_screen',
+                      ),
                     ),
                     const SizedBox(height: 16),
                     const Divider(thickness: 1, color: Colors.black12),
@@ -118,12 +117,10 @@ class AdminSettingsScreen extends StatelessWidget {
                     _settingsItem(
                       title: 'Contracting Firms Information',
                       icon: Icons.info_outline,
-                      onTap: () {
-                        Navigator.pushNamed(
-                          context,
-                          '/admin/contracting_firms_information_screen',
-                        );
-                      },
+                      onTap: () => Navigator.pushNamed(
+                        context,
+                        '/admin/contracting_firms_information_screen',
+                      ),
                     ),
                     _settingsItem(
                       title: 'Registration Approvals',
@@ -138,7 +135,7 @@ class AdminSettingsScreen extends StatelessWidget {
               ),
             ),
 
-            // Logout button
+            // ---------------- LOGOUT ----------------
             Padding(
               padding:
                   const EdgeInsets.symmetric(horizontal: 24.0, vertical: 10),
@@ -174,70 +171,10 @@ class AdminSettingsScreen extends StatelessWidget {
               ),
             ),
 
-            // Bottom admin navigation bar
-            Container(
-              height: 64,
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                border: Border(
-                  top: BorderSide(color: Colors.black12, width: 1),
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _AdminNavIcon(
-                    icon: Icons.view_list_rounded,
-                    isActive: false,
-                    onTap: () {
-                      // TODO: navigate to admin manage services
-                    },
-                  ),
-                  _AdminNavIcon(
-                    icon: Icons.bar_chart,
-                    isActive: false,
-                    onTap: () {
-                      // TODO: navigate to admin analytics
-                    },
-                  ),
-                  _AdminNavIcon(
-                    icon: Icons.settings,
-                    isActive: true,
-                    onTap: () {
-                      // already here
-                    },
-                  ),
-                ],
-              ),
-            ),
+            // ✅ Re-usable bottom nav
+            const AdminBottomNav(currentIndex: 1),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _AdminNavIcon extends StatelessWidget {
-  final IconData icon;
-  final bool isActive;
-  final VoidCallback onTap;
-
-  const _AdminNavIcon({
-    required this.icon,
-    required this.isActive,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final color = isActive ? Colors.black : Colors.black54;
-
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Icon(icon, size: 28, color: color),
       ),
     );
   }

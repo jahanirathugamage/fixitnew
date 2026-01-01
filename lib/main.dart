@@ -39,6 +39,9 @@ import 'screens/dashboards/contractor/update_contractor_profile.dart';
 // DASHBOARDS – PROVIDER
 import 'screens/dashboards/provider/update_provider_screen.dart';
 import 'screens/dashboards/provider_home_screen.dart';
+import 'screens/dashboards/provider/provider_jobs.dart';
+import 'screens/dashboards/provider/job_requests_screen.dart';
+
 
 // ADMIN SCREENS
 import 'screens/admin/create_admin_account_screen.dart';
@@ -49,7 +52,7 @@ import 'screens/admin/admin_account_info_screen.dart';
 import 'screens/admin/contracting_firms_information_screen.dart';
 import 'screens/admin/admin_change_password_screen.dart';
 
-// MATCHING (kept as a separate screen)
+// MATCHING
 import 'screens/services/matching_screen.dart';
 
 // NEW GENERIC SERVICE REQUEST FLOW
@@ -57,6 +60,7 @@ import 'screens/services/service_request_screen.dart';
 import 'screens/services/service_request_wrapper.dart';
 
 /// *********** ENTRYPOINT ***********
+/// Initializes Firebase and runs the app.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -64,15 +68,56 @@ Future<void> main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // Ensure Functions is initialised (region can stay like this)
+  // Ensure Functions is initialized (kept as you had it)
   FirebaseFunctions.instanceFor(region: 'us-central1');
 
   runApp(const MyApp());
 }
 
 /// *********** ROOT APP WIDGET ***********
+/// Contains:
+/// - Named routes for screens that do NOT require runtime arguments
+/// - onGenerateRoute for screens that DO require arguments (ex: MatchingScreen(jobId))
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
+
+  /// Handles routes that require runtime data (arguments).
+  ///
+  /// Example usage:
+  /// Navigator.pushNamed(context, '/service/matching', arguments: jobId);
+  Route<dynamic>? _onGenerateRoute(RouteSettings settings) {
+  switch (settings.name) {
+    case '/service/matching':
+      final args = settings.arguments;
+
+      if (args is String && args.trim().isNotEmpty) {
+        return MaterialPageRoute(
+          builder: (_) => MatchingScreen(jobId: args),
+          settings: settings,
+        );
+      }
+
+      return MaterialPageRoute(
+        builder: (_) => const _RouteErrorScreen(
+          message:
+              "Missing or invalid jobId for '/service/matching'.\n\n"
+              "Fix: Navigate like:\n"
+              "Navigator.pushNamed(context, '/service/matching', arguments: jobId);",
+        ),
+        settings: settings,
+      );
+
+    // ✅ ADD THIS CASE
+    case '/provider/job_requests':
+      return MaterialPageRoute(
+        builder: (_) => const ProviderJobRequestsScreen(),
+        settings: settings,
+      );
+
+    default:
+      return null;
+  }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -83,7 +128,11 @@ class MyApp extends StatelessWidget {
         fontFamily: 'Montserrat',
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.black),
       ),
+
+      // Home uses your AuthWrapper logic
       home: const AuthWrapper(),
+
+      // Routes WITHOUT required runtime arguments
       routes: {
         // AUTH
         '/welcome': (_) => const WelcomeScreen(),
@@ -94,8 +143,7 @@ class MyApp extends StatelessWidget {
 
         // PROFILE
         '/profile_client': (_) => const ProfileClientScreen(),
-        '/profile_contractor_full': (_) =>
-            const ProfileContractorFullScreen(),
+        '/profile_contractor_full': (_) => const ProfileContractorFullScreen(),
         '/profile/add_provider_screen': (_) => const AddProviderScreen(),
 
         // CLIENT DASHBOARD
@@ -111,8 +159,7 @@ class MyApp extends StatelessWidget {
         '/dashboards/home_contractor': (_) => const HomeContractor(),
         '/dashboards/contractor/contractor_account_info': (_) =>
             const ContractorAccountInfo(),
-        '/dashboards/contractor/contractor_jobs': (_) =>
-            const ContractorJobs(),
+        '/dashboards/contractor/contractor_jobs': (_) => const ContractorJobs(),
         '/dashboards/contractor/contractor_service_providers': (_) =>
             const ContractorServiceProviders(),
         '/dashboards/contractor/contractor_bank_details': (_) =>
@@ -123,16 +170,15 @@ class MyApp extends StatelessWidget {
             const UpdateContractorProfile(),
 
         // PROVIDER DASHBOARD
-        '/dashboards/home_provider_screen': (_) =>
-            const ProviderHomeScreen(),
-        '/dashboards/provider/update_profile': (_) =>
-            const UpdateProviderScreen(),
+        '/dashboards/provider_home_screen': (_) => const ProviderHomeScreen(),
+        '/dashboards/provider/update_profile': (_) => const UpdateProviderScreen(),
+        '/provider/provider_jobs': (_) => const ProviderJobsScreen(),
+        '/provider/job_requests_screen': (_) => const ProviderJobRequestsScreen(),
 
         // ADMIN
         '/admin/create_admin_account_screen': (_) =>
             const CreateAdminAccountScreen(),
-        '/admin/admin_settings_screen': (_) =>
-            const AdminSettingsScreen(),
+        '/admin/admin_settings_screen': (_) => const AdminSettingsScreen(),
         '/admin/contractor_approval_screen': (_) =>
             const ContractorApprovalScreen(),
         '/admin/contractor_approval_detail_screen': (_) =>
@@ -155,21 +201,34 @@ class MyApp extends StatelessWidget {
             ServiceRequestScreen(config: ServiceRequestWrapper.carpentryConfig),
         '/service/gardening': (_) =>
             ServiceRequestScreen(config: ServiceRequestWrapper.gardeningConfig),
-        '/service/pest': (_) =>
-            ServiceRequestScreen(config: ServiceRequestWrapper.pestControlConfig),
+        '/service/pest': (_) => ServiceRequestScreen(
+            config: ServiceRequestWrapper.pestControlConfig),
         '/service/appliances': (_) =>
             ServiceRequestScreen(config: ServiceRequestWrapper.appliancesConfig),
         '/service/cleaning': (_) =>
             ServiceRequestScreen(config: ServiceRequestWrapper.cleaningConfig),
 
-        // Matching screen
-        '/service/matching': (_) => const MatchingScreen(),
+        // ❌ DO NOT put MatchingScreen here because it requires jobId at runtime
+        // '/service/matching': (_) => const MatchingScreen(),  <-- removed
+      },
+
+      // ✅ Handles routes that need arguments (ex: MatchingScreen(jobId))
+      onGenerateRoute: _onGenerateRoute,
+
+      // Optional: fallback for unknown routes
+      onUnknownRoute: (settings) {
+        return MaterialPageRoute(
+          builder: (_) => _RouteErrorScreen(
+            message: "Unknown route: ${settings.name}",
+          ),
+        );
       },
     );
   }
 }
 
 /// *********** AUTH WRAPPER ***********
+/// Decides which home screen to show based on auth + role.
 class AuthWrapper extends StatelessWidget {
   const AuthWrapper({super.key});
 
@@ -236,15 +295,16 @@ class VerifyEmailScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.black,
-        title:
-            const Text('Verify Email', style: TextStyle(color: Colors.white)),
+        title: const Text(
+          'Verify Email',
+          style: TextStyle(color: Colors.white),
+        ),
       ),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.email_outlined,
-                size: 80, color: Colors.orange),
+            const Icon(Icons.email_outlined, size: 80, color: Colors.orange),
             const SizedBox(height: 20),
             const Text('Please verify your email to continue.'),
             const SizedBox(height: 30),
@@ -265,6 +325,40 @@ class VerifyEmailScreen extends StatelessWidget {
               child: const Text('Logout'),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A small helper screen used to show route errors clearly during development.
+/// This prevents cryptic crashes when a required argument isn't passed.
+class _RouteErrorScreen extends StatelessWidget {
+  final String message;
+
+  const _RouteErrorScreen({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        title: const Text(
+          'Navigation Error',
+          style: TextStyle(color: Colors.white),
+        ),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Text(
+          message,
+          style: const TextStyle(
+            fontFamily: 'Montserrat',
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Colors.red,
+          ),
         ),
       ),
     );

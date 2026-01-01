@@ -62,12 +62,23 @@ class ProviderRepository {
     try {
       if (contractorId == null) return "Not authenticated";
 
-      await _firestore
+      final batch = _firestore.batch();
+
+      final subDocRef = _firestore
           .collection("contractors")
           .doc(contractorId)
           .collection("providers")
-          .doc(providerId)
-          .delete();
+          .doc(providerId);
+
+      final mirrorRef = _firestore
+          .collection("serviceProviders")
+          .doc(providerId);
+
+      // Delete mirror + subcollection doc together
+      batch.delete(mirrorRef);
+      batch.delete(subDocRef);
+
+      await batch.commit();
 
       return null;
     } catch (e) {

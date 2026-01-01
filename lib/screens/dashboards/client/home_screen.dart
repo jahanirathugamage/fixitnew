@@ -1,11 +1,16 @@
 // ignore_for_file: use_build_context_synchronously
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart'; // ✅ ADDED for kDebugMode + debugPrint
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart'; // ✅ ADDED for UID debug
 
 import '../../../controllers/client/client_home_controller.dart';
 import '../../services/service_request_screen.dart';
 import '../../services/service_request_wrapper.dart';
+
+// ✅ reusable client bottom nav
+import 'package:fixitnew/widgets/nav/client_bottom_nav.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -139,11 +144,17 @@ class _HomeScreenState extends State<HomeScreen> {
         }
 
         if (snapshot.hasError) {
-          return const Padding(
-            padding: EdgeInsets.all(20.0),
+          // ✅ ADDED: show the real Firestore error for debugging
+          final errText = snapshot.error.toString();
+          debugPrint("servicesStream error: $errText");
+
+          return Padding(
+            padding: const EdgeInsets.all(20.0),
             child: Text(
-              'Failed to load services.',
-              style: TextStyle(color: Colors.red),
+              kDebugMode
+                  ? 'Failed to load services.\n$errText'
+                  : 'Failed to load services.',
+              style: const TextStyle(color: Colors.red),
             ),
           );
         }
@@ -249,11 +260,17 @@ class _HomeScreenState extends State<HomeScreen> {
         }
 
         if (snapshot.hasError) {
-          return const Padding(
-            padding: EdgeInsets.only(left: 20.0, right: 20.0),
+          // ✅ ADDED: show the real Firestore error for debugging
+          final errText = snapshot.error.toString();
+          debugPrint("repairsStream error: $errText");
+
+          return Padding(
+            padding: const EdgeInsets.only(left: 20.0, right: 20.0),
             child: Text(
-              'Failed to load repair suggestions.',
-              style: TextStyle(color: Colors.red),
+              kDebugMode
+                  ? 'Failed to load repair suggestions.\n$errText'
+                  : 'Failed to load repair suggestions.',
+              style: const TextStyle(color: Colors.red),
             ),
           );
         }
@@ -311,8 +328,15 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // ✅ ADDED: log the UID so we can confirm if user is signed in
+    if (kDebugMode) {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      debugPrint("HomeScreen currentUser UID: $uid");
+    }
+
     return Scaffold(
       backgroundColor: Colors.white,
+
       body: SafeArea(
         child: Column(
           children: [
@@ -332,6 +356,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
             ),
+
             // Body
             Expanded(
               child: SingleChildScrollView(
@@ -370,74 +395,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ),
-            // Bottom nav (NO services icon)
-            const ClientBottomNavBar(),
           ],
         ),
       ),
-    );
-  }
-}
 
-// ----------------- NAVIGATION (maintainable bottom nav) -----------------
-
-class ClientNavItem {
-  final IconData icon;
-  final String routeName;
-
-  const ClientNavItem({
-    required this.icon,
-    required this.routeName,
-  });
-}
-
-const List<ClientNavItem> _clientNavItems = [
-  ClientNavItem(
-    icon: Icons.home,
-    routeName: '/dashboards/client/home_screen',
-  ),
-  ClientNavItem(
-    icon: Icons.receipt_long,
-    routeName: '/dashboards/client/client_jobs',
-  ),
-  ClientNavItem(
-    icon: Icons.person,
-    routeName: '/dashboards/home_client',
-  ),
-];
-
-class ClientBottomNavBar extends StatelessWidget {
-  const ClientBottomNavBar({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(
-          top: BorderSide(
-            color: Colors.grey.shade300,
-            width: 1,
-          ),
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 15),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: _clientNavItems
-              .map(
-                (item) => NavIcon(
-                  icon: item.icon,
-                  onTap: () => Navigator.pushNamed(
-                    context,
-                    item.routeName,
-                  ),
-                ),
-              )
-              .toList(),
-        ),
-      ),
+      // ✅ Reusable nav (Home selected)
+      bottomNavigationBar: const ClientBottomNav(currentIndex: 0),
     );
   }
 }
@@ -541,35 +504,6 @@ class _ServiceCardState extends State<ServiceCard> {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-// ---------------------- NAV ICON ----------------------
-
-class NavIcon extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onTap;
-
-  const NavIcon({
-    super.key,
-    required this.icon,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Icon(
-          icon,
-          size: 30,
-          color: Colors.black,
-        ),
       ),
     );
   }

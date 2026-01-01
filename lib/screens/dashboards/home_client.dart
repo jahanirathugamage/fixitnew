@@ -2,12 +2,17 @@
 
 import 'package:flutter/material.dart';
 
+// remove later
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+// remove later
+
 // MVC
 import '../../models/client/client_settings.dart';
 import '../../controllers/client/client_settings_controller.dart';
 
-// Shared bottom nav from client home screen
-import 'client/home_screen.dart' show ClientBottomNavBar;
+// ✅ reusable nav
+import 'package:fixitnew/widgets/nav/client_bottom_nav.dart';
 
 class HomeClient extends StatefulWidget {
   const HomeClient({super.key});
@@ -23,6 +28,19 @@ class _HomeClientState extends State<HomeClient> {
   @override
   void initState() {
     super.initState();
+
+    // ✅ DEBUG (remove later)
+    final user = FirebaseAuth.instance.currentUser;
+    debugPrint("HomeClient currentUser UID: ${user?.uid}");
+    debugPrint("Firebase projectId: ${Firebase.app().options.projectId}");
+
+    user?.getIdToken(true).then((token) {
+      debugPrint("Has ID token: ${token != null}");
+    }).catchError((e) {
+      debugPrint("Token error: $e");
+    });
+    // ✅ DEBUG END
+
     _loadClientData();
   }
 
@@ -94,22 +112,30 @@ class _HomeClientState extends State<HomeClient> {
                       : null,
                 ),
                 const SizedBox(width: 16),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Welcome $firstName',
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
+
+                // ✅ prevent overflow on small screens
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Welcome $firstName',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      email,
-                      style: const TextStyle(color: Colors.grey),
-                    ),
-                  ],
+                      const SizedBox(height: 4),
+                      Text(
+                        email,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: Colors.grey),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -123,7 +149,6 @@ class _HomeClientState extends State<HomeClient> {
               context,
               '/dashboards/client/update_client_profile',
             ).then((_) {
-              // reload data (and image) when coming back
               _loadClientData();
             }),
             child: const _TileC(
@@ -168,12 +193,10 @@ class _HomeClientState extends State<HomeClient> {
                   ),
                 ),
                 onPressed: () async {
-                  // Capture navigator BEFORE async gap
                   final navigator = Navigator.of(context);
-
                   await _controller.logout();
 
-                  if (!mounted) return; // still fine to keep
+                  if (!mounted) return;
 
                   navigator.pushNamedAndRemoveUntil(
                     '/login',
@@ -193,8 +216,10 @@ class _HomeClientState extends State<HomeClient> {
         ],
       ),
 
-      // ----------------------- BOTTOM NAVIGATION -----------------------
-      bottomNavigationBar: const ClientBottomNavBar(),
+      // ✅ Re-usable bottom nav
+      bottomNavigationBar: const ClientBottomNav(
+        currentIndex: 2, // Settings selected on this screen
+      ),
     );
   }
 }
@@ -218,11 +243,14 @@ class _TileC extends StatelessWidget {
         children: [
           Icon(icon, size: 28),
           const SizedBox(width: 12),
-          Text(
-            text,
-            style: const TextStyle(fontSize: 16),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(fontSize: 16),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
-          const Spacer(),
           const Icon(Icons.chevron_right),
         ],
       ),

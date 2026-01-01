@@ -2,92 +2,181 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper: check if current user is an admin (users/{uid}.role == "admin")
+    // ----------------- HELPERS -----------------
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // ✅ Safe role lookup (won't crash if users doc missing)
+    function userRole() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+        : "unknown";
+    }
+
     function isAdmin() {
-      return request.auth != null &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid))
-          .data.role == "admin";
+      return isSignedIn() && userRole() == "admin";
     }
 
-    // USERS (role store)
+    function isClient() {
+      return isSignedIn() && userRole() == "client";
+    }
+
+    function isProvider() {
+      return isSignedIn() && userRole() == "provider";
+    }
+
+    // ✅ Provider access should NOT rely on role lookup
+    function isSelectedProvider() {
+      return isSignedIn()
+        && resource.data.selectedProviderUid == request.auth.uid;
+    }
+
+    // Optional matched list support (no role check)
+    function isMatchedProvider() {
+      return isSignedIn()
+        && (resource.data.matchedProviderIds is list)
+        && (request.auth.uid in resource.data.matchedProviderIds);
+    }
+
+    // ✅ Provider can accept/decline only on selected jobs (field whitelist)
+    function providerCanRespondToJob() {
+      return isSignedIn()
+        && resource.data.selectedProviderUid == request.auth.uid
+        && request.resource.data.diff(resource.data).changedKeys()
+            .hasOnly(["status", "providerDecisionAt", "updatedAt"])
+        && (request.resource.data.status in ["accepted", "declined"]);
+    }
+
+    // ----------------- USERS (role store) -----------------
     match /users/{uid} {
-      allow create: if request.auth != null;
-      allow read, update: if request.auth != null && request.auth.uid == uid;
-      // (optional) allow admins to read all users:
-      // allow read: if isAdmin() || (request.auth != null && request.auth.uid == uid);
+      allow create: if isSignedIn() && request.auth.uid == uid;
+      allow read, update: if isSignedIn() && request.auth.uid == uid;
+      allow delete: if false;
     }
 
-    // ADMINS — only that admin can manage own admin profile
+    // ----------------- ADMINS -----------------
     match /admins/{uid} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read, write: if isSignedIn() && request.auth.uid == uid;
+      allow delete: if false;
     }
 
-    // ADMIN INVITATIONS (only Cloud Functions via Admin SDK)
+    // Admin invitations (Admin SDK only)
     match /adminInvites/{inviteId} {
       allow read, write: if false;
     }
 
-    // CLIENTS
+    // ----------------- CLIENTS -----------------
     match /clients/{uid} {
-      allow create: if request.auth != null;
-      allow read, update: if request.auth != null && request.auth.uid == uid;
+      allow create: if isSignedIn() && request.auth.uid == uid;
+      allow read, update: if isSignedIn() && request.auth.uid == uid;
+      allow delete: if false;
     }
 
-    // CONTRACTORS
+    // ----------------- CONTRACTORS -----------------
     match /contractors/{uid} {
-      allow create: if request.auth != null;
-      allow read:   if request.auth != null;
+      allow create: if isSignedIn() && request.auth.uid == uid;
 
-      // Contractor themself OR any admin can update
-      allow update: if request.auth != null &&
-                    (request.auth.uid == uid || isAdmin());
+      // (kept as you had) any signed-in user can read contractors
+      allow read: if isSignedIn();
+
+      // contractor self OR admin can update
+      allow update: if isSignedIn() && (request.auth.uid == uid || isAdmin());
+
+      allow delete: if false;
     }
 
-    // PROVIDERS under contractors
-    match /contractors/{contractorId}/providers/{providerId} {
+    // ----------------- SERVICE PROVIDERS (top-level) -----------------
+    match /serviceProviders/{uid} {
+      allow create: if isSignedIn() && request.auth.uid == uid;
 
-      // contractor creates providers
-      allow create: if request.auth != null &&
-                    request.auth.uid == contractorId;
+      // provider can read/update their own provider doc
+      allow read, update: if isSignedIn() && request.auth.uid == uid;
+
+      // admin access
+      allow read, update: if isAdmin();
+
+      allow delete: if false;
+    }
+
+    // ----------------- CONTRACTOR -> providers subcollection -----------------
+    match /contractors/{contractorId}/providers/{providerId} {
+      // contractor creates provider docs
+      allow create: if isSignedIn() && request.auth.uid == contractorId;
 
       // provider can read/update their own info
-      allow read, update: if request.auth != null &&
-                          request.auth.uid == providerId;
+      allow read, update: if isSignedIn() && request.auth.uid == providerId;
 
-      // contractor can manage providers
-      allow read, update: if request.auth != null &&
-                          request.auth.uid == contractorId;
+      // contractor can read/update providers under them
+      allow read, update: if isSignedIn() && request.auth.uid == contractorId;
 
-      // admins can also read/update providers
+      // admins can also read/update
       allow read, update: if isAdmin();
+
+      allow delete: if false;
     }
 
-    // PUBLIC SERVICE CATALOG
+    // ----------------- PUBLIC / CATALOG DATA -----------------
+    // Your UI loads these lists; allow read without auth issues.
     match /services/{serviceId} {
-      allow read: if request.auth != null;
+      allow read: if true;
       allow write: if false;
     }
 
-    // PUBLIC REPAIRS LIST
     match /repairs/{repairId} {
-      allow read: if request.auth != null;
+      allow read: if true;
       allow write: if false;
     }
 
-    // ================== JOBS (created from Electrical / Carpentry screens) ==================
+    // ✅ You have this collection in your DB list
+    match /serviceTasks/{taskId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // optional aliases (keep if your teammate uses these names)
+    match /serviceCategories/{id} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /repairSuggestions/{id} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /repair_suggestions/{id} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // ----------------- JOB REQUESTS -----------------
     match /jobRequest/{jobId} {
 
       // Clients can create jobs for themselves
-      // Your code sets: 'clientId': user.uid
-      allow create: if request.auth != null
-                    && request.resource.data.clientId == request.auth.uid;
+      allow create: if isSignedIn()
+        && request.resource.data.clientId == request.auth.uid;
 
-      // Client can read/update their own jobs
-      allow read, update: if request.auth != null
-                          && resource.data.clientId == request.auth.uid;
+      // READ:
+      // - client owner
+      // - admin
+      // - selected provider
+      // - matched provider
+      allow read: if (isClient() && resource.data.clientId == request.auth.uid)
+        || isAdmin()
+        || isSelectedProvider()
+        || isMatchedProvider();
 
-      // Admins can read/update all jobs
-      allow read, update: if isAdmin();
+      // UPDATE:
+      // - client owner
+      // - admin
+      // - selected provider accept/decline only
+      allow update: if (isClient() && resource.data.clientId == request.auth.uid)
+        || isAdmin()
+        || providerCanRespondToJob();
+
+      allow delete: if false;
     }
   }
 }
