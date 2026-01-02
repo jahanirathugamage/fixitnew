@@ -1,3 +1,4 @@
+// lib\screens\dashboards\provider\provider_jobs.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -15,7 +16,7 @@ class ProviderJobsScreen extends StatelessWidget {
 
   String _formatDateText(Timestamp? ts) {
     if (ts == null) return "—";
-    final d = ts.toDate();
+    final d = ts.toDate().toLocal();
 
     const months = [
       "Jan",
@@ -47,6 +48,18 @@ class ProviderJobsScreen extends StatelessWidget {
     return a.year == b.year && a.month == b.month && a.day == b.day;
   }
 
+  /// ✅ Only allow jobs for today (any time) and future dates.
+  /// If scheduledDate is missing, we skip (no assumptions).
+  bool _isTodayOrFuture(Timestamp? scheduledDate, DateTime nowLocal) {
+    if (scheduledDate == null) return false;
+
+    final jobLocal = scheduledDate.toDate().toLocal();
+    final startOfTodayLocal = DateTime(nowLocal.year, nowLocal.month, nowLocal.day);
+
+    // Include anything scheduled from 00:00 today onwards.
+    return !jobLocal.isBefore(startOfTodayLocal);
+  }
+
   String _norm(String v) => v.trim().toLowerCase();
 
   bool _isAccepted(String status) => _norm(status) == "accepted";
@@ -66,7 +79,7 @@ class ProviderJobsScreen extends StatelessWidget {
 
     // For accepted jobs:
     if (_isAccepted(status)) {
-      final jobDate = scheduledDate?.toDate();
+      final jobDate = scheduledDate?.toDate().toLocal();
       final isToday = jobDate != null && _isSameLocalDay(jobDate, now);
 
       // ✅ Requirement:
@@ -100,7 +113,7 @@ class ProviderJobsScreen extends StatelessWidget {
     }
 
     final uid = user.uid;
-    final now = DateTime.now();
+    final now = DateTime.now().toLocal();
 
     final query = FirebaseFirestore.instance
         .collection('jobRequest')
@@ -159,6 +172,9 @@ class ProviderJobsScreen extends StatelessWidget {
                   (data['scheduledDate'] is Timestamp)
                       ? data['scheduledDate'] as Timestamp
                       : null;
+
+              // ✅ Filter: ONLY current date + future jobs
+              if (!_isTodayOrFuture(scheduledDate, now)) continue;
 
               // Only show accepted or cancelled jobs here (no assumptions)
               final showInThisPage = _isAccepted(status) || _isCancelled(status);
@@ -294,7 +310,7 @@ class JobCard extends StatelessWidget {
                   context,
                   MaterialPageRoute(
                     builder: (_) => ProviderNavigationScreen(
-                      jobId: jobId,           // ✅ ADD
+                      jobId: jobId, // ✅ ADD
                       jobLatLng: job.jobLatLng,
                     ),
                   ),

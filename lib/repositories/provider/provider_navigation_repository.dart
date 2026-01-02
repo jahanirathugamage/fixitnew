@@ -1,14 +1,23 @@
+import 'dart:async'; // ✅ needed for TimeoutException
 import 'dart:convert';
+import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:latlong2/latlong.dart';
 import 'package:http/http.dart' as http;
+import 'package:latlong2/latlong.dart';
 
 class ProviderNavigationRepository {
   final FirebaseFirestore _db;
+  final http.Client _client;
 
-  ProviderNavigationRepository({FirebaseFirestore? firestore})
-      : _db = firestore ?? FirebaseFirestore.instance;
+  ProviderNavigationRepository({
+    FirebaseFirestore? firestore,
+    http.Client? client,
+  })  : _db = firestore ?? FirebaseFirestore.instance,
+        _client = client ?? http.Client();
+
+  // -------------------- FIRESTORE --------------------
 
   Future<Map<String, dynamic>> fetchJob(String jobId) async {
     final snap = await _db.collection('jobRequest').doc(jobId).get();
@@ -18,6 +27,9 @@ class ProviderNavigationRepository {
     return snap.data() ?? <String, dynamic>{};
   }
 
+  // -------------------- LOCATION --------------------
+
+  /// Main method (kept from your existing repository)
   Future<LatLng> getCurrentLatLng() async {
     final enabled = await Geolocator.isLocationServiceEnabled();
     if (!enabled) throw Exception("Location services are disabled.");
@@ -30,15 +42,22 @@ class ProviderNavigationRepository {
       throw Exception("Location permission denied.");
     }
     if (permission == LocationPermission.deniedForever) {
-      throw Exception("Location permission permanently denied. Enable in settings.");
+      throw Exception(
+        "Location permission permanently denied. Enable in settings.",
+      );
     }
 
     final pos = await Geolocator.getCurrentPosition(
-      locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+      ),
     );
 
     return LatLng(pos.latitude, pos.longitude);
   }
+
+  /// ✅ Backwards-compatible alias (so old code calling this still works)
+  Future<LatLng> getCurrentLocationLatLng() => getCurrentLatLng();
 
   Stream<Position> positionStream() {
     return Geolocator.getPositionStream(
@@ -49,7 +68,10 @@ class ProviderNavigationRepository {
     );
   }
 
-  /// OSRM gives duration (seconds) and geometry polyline.
+  // -------------------- OSRM ROUTE --------------------
+
+  /// ✅ Superset route method:
+  /// returns both route polyline points + durationSeconds from OSRM.
   Future<({List<LatLng> points, int? durationSeconds})> fetchOsrmRoute({
     required LatLng from,
     required LatLng to,
@@ -60,16 +82,48 @@ class ProviderNavigationRepository {
       "?overview=full&geometries=polyline",
     );
 
-    final resp = await http.get(url);
+    Future<http.Response> doRequest() {
+      return _client
+          .get(
+            url,
+            headers: const {
+              "Accept": "application/json",
+              "User-Agent": "fixitnew-app/1.0",
+            },
+          )
+          .timeout(const Duration(seconds: 15));
+    }
+
+    http.Response resp;
+
+    try {
+      resp = await doRequest();
+    } on TimeoutException {
+      // retry once
+      resp = await doRequest();
+    } on SocketException {
+      // retry once
+      resp = await doRequest();
+    } catch (e) {
+      // anything else -> propagate (same intent as before)
+      rethrow;
+    }
+
     if (resp.statusCode != 200) {
-      throw Exception("Route API failed: ${resp.statusCode}");
+      final body = resp.body;
+      final snippet = body.length > 300 ? body.substring(0, 300) : body;
+      throw Exception("Route API failed: ${resp.statusCode} -> $snippet");
     }
 
     final jsonBody = jsonDecode(resp.body) as Map<String, dynamic>;
     final routes = (jsonBody["routes"] as List?) ?? [];
     if (routes.isEmpty) return (points: <LatLng>[], durationSeconds: null);
 
-    final first = routes.first as Map<String, dynamic>;
+    final first = routes.first;
+    if (first is! Map<String, dynamic>) {
+      return (points: <LatLng>[], durationSeconds: null);
+    }
+
     final geometry = first["geometry"];
     final duration = first["duration"];
 
@@ -81,6 +135,17 @@ class ProviderNavigationRepository {
 
     return (points: pts, durationSeconds: durSeconds);
   }
+
+  /// ✅ Compatibility helper: if any old code expects ONLY points List&lt;LatLng&gt;
+  Future<List<LatLng>> fetchOsrmRoutePointsOnly({
+    required LatLng from,
+    required LatLng to,
+  }) async {
+    final r = await fetchOsrmRoute(from: from, to: to);
+    return r.points;
+  }
+
+  // -------------------- POLYLINE DECODE --------------------
 
   List<LatLng> _decodePolyline(String encoded) {
     final List<LatLng> points = [];
@@ -114,5 +179,9 @@ class ProviderNavigationRepository {
     }
 
     return points;
+  }
+
+  void dispose() {
+    _client.close();
   }
 }

@@ -10,6 +10,7 @@ class ProviderNavigationState {
   final bool loading;
   final String? error;
 
+  // Map state
   final LatLng? providerLatLng;
   final List<LatLng> routePoints;
 

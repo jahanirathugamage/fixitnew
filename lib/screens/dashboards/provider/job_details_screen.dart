@@ -48,13 +48,7 @@ class ProviderJobDetailsScreen extends StatelessWidget {
           }
 
           final data = snap.data!.data() ?? {};
-
-          // ✅ Prefer clientName (what you want), fallback to clientId, then "Client"
-          final clientName = (data['clientName'] ?? '').toString().trim();
-          final clientId = (data['clientId'] ?? '').toString().trim();
-          final displayName =
-              clientName.isNotEmpty ? clientName : (clientId.isNotEmpty ? clientId : "Client");
-
+          final clientId = (data['clientId'] ?? '').toString();
           final scheduled = data['scheduledDate'] is Timestamp
               ? data['scheduledDate'] as Timestamp
               : null;
@@ -87,7 +81,7 @@ class ProviderJobDetailsScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            displayName,
+                            clientId.isEmpty ? "Client" : clientId,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(

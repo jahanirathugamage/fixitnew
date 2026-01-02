@@ -17,7 +17,8 @@ class ProviderNavigationScreen extends StatefulWidget {
   });
 
   @override
-  State<ProviderNavigationScreen> createState() => _ProviderNavigationScreenState();
+  State<ProviderNavigationScreen> createState() =>
+      _ProviderNavigationScreenState();
 }
 
 class _ProviderNavigationScreenState extends State<ProviderNavigationScreen> {
@@ -34,7 +35,10 @@ class _ProviderNavigationScreenState extends State<ProviderNavigationScreen> {
   @override
   void initState() {
     super.initState();
-    _state = ProviderNavigationState.loading(jobId: widget.jobId, jobLatLng: widget.jobLatLng);
+    _state = ProviderNavigationState.loading(
+      jobId: widget.jobId,
+      jobLatLng: widget.jobLatLng,
+    );
     _init();
   }
 
@@ -55,7 +59,11 @@ class _ProviderNavigationScreenState extends State<ProviderNavigationScreen> {
         // Fit bounds only after FlutterMap has rendered once.
         final provider = s.providerLatLng;
         if (provider != null && _mapRenderedOnce) {
-          _fitBounds(provider: provider, job: widget.jobLatLng, routePoints: s.routePoints);
+          _fitBounds(
+            provider: provider,
+            job: widget.jobLatLng,
+            routePoints: s.routePoints,
+          );
         }
       },
     );
@@ -165,7 +173,8 @@ class _ProviderNavigationScreenState extends State<ProviderNavigationScreen> {
                   ),
                   children: [
                     TileLayer(
-                      urlTemplate: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+                      urlTemplate:
+                          "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
                       userAgentPackageName: "com.fixitnew.app",
                     ),
                     if (_state.routePoints.length >= 2)
@@ -204,7 +213,10 @@ class _ProviderNavigationScreenState extends State<ProviderNavigationScreen> {
                   right: 14,
                   child: SafeArea(
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(16),
@@ -213,7 +225,8 @@ class _ProviderNavigationScreenState extends State<ProviderNavigationScreen> {
                             blurRadius: 18,
                             spreadRadius: 0,
                             offset: const Offset(0, 6),
-                            color: Colors.black.withOpacity(0.12),
+                            // ✅ withOpacity -> withValues(alpha:)
+                            color: Colors.black.withValues(alpha: 0.12),
                           ),
                         ],
                       ),
@@ -248,7 +261,8 @@ class _ProviderNavigationScreenState extends State<ProviderNavigationScreen> {
                                     fontFamily: "Montserrat",
                                     fontSize: 12,
                                     fontWeight: FontWeight.w700,
-                                    color: _state.gate == NavigationGate.authorized
+                                    color: _state.gate ==
+                                            NavigationGate.authorized
                                         ? Colors.green
                                         : Colors.orange,
                                   ),
@@ -272,12 +286,15 @@ class _ProviderNavigationScreenState extends State<ProviderNavigationScreen> {
                       padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(20),
+                        ),
                         boxShadow: [
                           BoxShadow(
                             blurRadius: 18,
                             offset: const Offset(0, -6),
-                            color: Colors.black.withOpacity(0.10),
+                            // ✅ withOpacity -> withValues(alpha:)
+                            color: Colors.black.withValues(alpha: 0.10),
                           ),
                         ],
                       ),
@@ -295,7 +312,6 @@ class _ProviderNavigationScreenState extends State<ProviderNavigationScreen> {
                               ),
                             ),
                           ),
-
                           Row(
                             children: [
                               ClipRRect(
@@ -308,10 +324,18 @@ class _ProviderNavigationScreenState extends State<ProviderNavigationScreen> {
                                       ? Image.network(
                                           _state.clientPhotoUrl!,
                                           fit: BoxFit.cover,
-                                          errorBuilder: (_, __, ___) =>
-                                              const Icon(Icons.person, color: Colors.black),
+                                          // ✅ Fix underscores warning
+                                          errorBuilder: (context, error,
+                                                  stackTrace) =>
+                                              const Icon(
+                                            Icons.person,
+                                            color: Colors.black,
+                                          ),
                                         )
-                                      : const Icon(Icons.person, color: Colors.black),
+                                      : const Icon(
+                                          Icons.person,
+                                          color: Colors.black,
+                                        ),
                                 ),
                               ),
                               const SizedBox(width: 12),
@@ -348,9 +372,7 @@ class _ProviderNavigationScreenState extends State<ProviderNavigationScreen> {
                               ),
                             ],
                           ),
-
                           const SizedBox(height: 14),
-
                           SizedBox(
                             height: 48,
                             width: double.infinity,
@@ -375,9 +397,7 @@ class _ProviderNavigationScreenState extends State<ProviderNavigationScreen> {
                               ),
                             ),
                           ),
-
                           const SizedBox(height: 10),
-
                           SizedBox(
                             height: 48,
                             width: double.infinity,
@@ -386,12 +406,18 @@ class _ProviderNavigationScreenState extends State<ProviderNavigationScreen> {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (_) => ProviderJobDetailsScreen(jobId: widget.jobId),
+                                    builder: (context) =>
+                                        ProviderJobDetailsScreen(
+                                      jobId: widget.jobId,
+                                    ),
                                   ),
                                 );
                               },
                               style: OutlinedButton.styleFrom(
-                                side: const BorderSide(color: Colors.black, width: 1.5),
+                                side: const BorderSide(
+                                  color: Colors.black,
+                                  width: 1.5,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),

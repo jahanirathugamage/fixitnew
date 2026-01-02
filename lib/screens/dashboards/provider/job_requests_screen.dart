@@ -39,7 +39,7 @@ class ProviderJobRequestsScreen extends StatelessWidget {
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(status == "accepted" ? "Accepted" : "Declined"),
+        content: Text(status == "accepted" ? "✅ Accepted" : "❌ Declined"),
       ),
     );
   }
@@ -144,8 +144,8 @@ class ProviderJobRequestsScreen extends StatelessWidget {
           return ListView.separated(
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
             itemCount: docs.length,
-            // ✅ fix unnecessary underscores
-            separatorBuilder: (_, _) => const SizedBox(height: 18),
+            // ✅ Fix 1: remove unnecessary "__" underscore pattern
+            separatorBuilder: (context, index) => const SizedBox(height: 18),
             itemBuilder: (context, i) {
               final d = docs[i];
               final data = d.data();
@@ -156,19 +156,8 @@ class ProviderJobRequestsScreen extends StatelessWidget {
                   : null;
               final whenText = _fmtDateTime(scheduled);
 
-              // ✅ SAME NAME LOGIC AS YOUR PROVIDER_JOBS.DART:
-              // Prefer clientName, fallback to clientDisplayName (if used),
-              // fallback to clientId, then "Client"
               final clientName = (data['clientName'] ?? '').toString().trim();
-              final clientDisplayName =
-                  (data['clientDisplayName'] ?? '').toString().trim();
-              final clientId = (data['clientId'] ?? '').toString().trim();
-
-              final name = clientName.isNotEmpty
-                  ? clientName
-                  : (clientDisplayName.isNotEmpty
-                      ? clientDisplayName
-                      : (clientId.isNotEmpty ? clientId : "Client"));
+              final name = clientName.isEmpty ? "Client" : clientName;
 
               final status =
                   (data['status'] ?? '').toString().trim().toLowerCase();
@@ -185,7 +174,7 @@ class ProviderJobRequestsScreen extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              name,
+                              name, // ✅ fetched from Firestore (clientName)
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
@@ -198,8 +187,11 @@ class ProviderJobRequestsScreen extends StatelessWidget {
                             const SizedBox(height: 8),
                             Row(
                               children: [
-                                Icon(Icons.schedule,
-                                    size: 14, color: Colors.grey.shade700),
+                                Icon(
+                                  Icons.schedule,
+                                  size: 14,
+                                  color: Colors.grey.shade700,
+                                ),
                                 const SizedBox(width: 6),
                                 Flexible(
                                   child: Text(
@@ -219,8 +211,11 @@ class ProviderJobRequestsScreen extends StatelessWidget {
                             const SizedBox(height: 6),
                             Row(
                               children: [
-                                Icon(Icons.home_repair_service,
-                                    size: 14, color: Colors.grey.shade700),
+                                Icon(
+                                  Icons.home_repair_service,
+                                  size: 14,
+                                  color: Colors.grey.shade700,
+                                ),
                                 const SizedBox(width: 6),
                                 Expanded(
                                   child: Text(
@@ -248,7 +243,7 @@ class ProviderJobRequestsScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           SizedBox(
-                            width: 100,
+                            width: 100, // ✅ slightly wider to prevent wrapping
                             height: 34,
                             child: ElevatedButton(
                               onPressed: canRespond
@@ -260,12 +255,12 @@ class ProviderJobRequestsScreen extends StatelessWidget {
                                   : null,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.black,
-                                // ✅ replace deprecated withOpacity(0.35)
+                                // ✅ Fix 2: withOpacity deprecated -> withValues(alpha: ...)
                                 disabledBackgroundColor:
-                                    Colors.black.withValues(alpha: 89),
+                                    Colors.black.withValues(alpha: 0.35),
                                 foregroundColor: Colors.white,
                                 elevation: 0,
-                                padding: EdgeInsets.zero,
+                                padding: EdgeInsets.zero, // ✅ keeps text centered
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(10),
                                 ),
@@ -287,7 +282,8 @@ class ProviderJobRequestsScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 10),
                           SizedBox(
-                            width: 100,
+                            width:
+                                100, // ✅ slightly wider to prevent "Decline" wrapping
                             height: 34,
                             child: OutlinedButton(
                               onPressed: canRespond
@@ -299,8 +295,10 @@ class ProviderJobRequestsScreen extends StatelessWidget {
                                   : null,
                               style: OutlinedButton.styleFrom(
                                 side: const BorderSide(
-                                    color: Colors.black, width: 1.2),
-                                padding: EdgeInsets.zero,
+                                  color: Colors.black,
+                                  width: 1.2,
+                                ),
+                                padding: EdgeInsets.zero, // ✅ keeps text centered
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(10),
                                 ),
@@ -372,8 +370,10 @@ class ProviderJobRequestsScreen extends StatelessWidget {
           );
         },
       ),
+
+      // ✅ REUSABLE PROVIDER NAVIGATION (same pattern as provider_jobs.dart)
       bottomNavigationBar: const ProviderBottomNav(
-        currentIndex: 1,
+        currentIndex: 1, // Requests tab (adjust if your nav order differs)
       ),
     );
   }

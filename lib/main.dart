@@ -149,7 +149,7 @@ class MyApp extends StatelessWidget {
         // CLIENT DASHBOARD
         '/dashboards/home_client': (_) => const HomeClient(),
         '/dashboards/client/home_screen': (_) => const HomeScreen(),
-        '/dashboards/client/client_jobs': (_) => ClientJobs(),
+        '/dashboards/client/client_jobs': (_) => const ClientJobsScreen(),
         '/dashboards/client/update_client_profile': (_) =>
             const UpdateClientProfile(),
         '/dashboards/client/change_client_password': (_) =>

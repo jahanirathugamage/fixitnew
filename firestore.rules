@@ -178,5 +178,19 @@ service cloud.firestore {
 
       allow delete: if false;
     }
+
+    // ----------------- JOBS -----------------
+    // ✅ Needed because your ClientJobs screen reads from /jobs
+    match /jobs/{jobId} {
+
+      // READ:
+      // - client owner (based on clientId on the job doc)
+      // - admin
+      allow read: if (isClient() && resource.data.clientId == request.auth.uid)
+        || isAdmin();
+
+      // Keep writes locked (since you didn't specify any write logic here)
+      allow create, update, delete: if false;
+    }
   }
 }
