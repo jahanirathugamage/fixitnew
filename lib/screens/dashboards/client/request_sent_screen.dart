@@ -183,20 +183,36 @@ class _RequestSentScreenState extends State<RequestSentScreen> {
       backgroundColor: Colors.white,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 10),
-              const Text(
-                "FixIt",
-                style: TextStyle(
-                  fontFamily: "Montserrat",
-                  fontSize: 32,
-                  fontWeight: FontWeight.w800,
-                ),
+
+              // ✅ Header row exactly like screenshot (FixIt + back arrow)
+              Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(
+                      Icons.arrow_back_ios_new,
+                      color: Colors.black,
+                      size: 18,
+                    ),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                  const SizedBox(width: 4),
+                  const Text(
+                    "FixIt",
+                    style: TextStyle(
+                      fontFamily: "Montserrat",
+                      fontSize: 32,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 24),
+
+              const SizedBox(height: 28),
 
               // Center content
               Expanded(
@@ -204,23 +220,31 @@ class _RequestSentScreenState extends State<RequestSentScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      // ✅ white circle with black border + check (like screenshot)
                       Container(
-                        width: 94,
-                        height: 94,
+                        width: 96,
+                        height: 96,
                         decoration: BoxDecoration(
-                          color: Colors.grey.shade200,
+                          color: Colors.white,
                           shape: BoxShape.circle,
+                          border: Border.all(color: Colors.black, width: 2),
                         ),
-                        child: const Icon(Icons.check,
-                            size: 44, color: Colors.black),
+                        child: const Center(
+                          child: Icon(
+                            Icons.check,
+                            size: 36,
+                            color: Colors.black,
+                          ),
+                        ),
                       ),
                       const SizedBox(height: 18),
                       const Text(
-                        "Request Sent",
+                        "Request Sent!",
                         style: TextStyle(
                           fontFamily: "Montserrat",
                           fontWeight: FontWeight.w800,
                           fontSize: 18,
+                          color: Colors.black,
                         ),
                       ),
                       const SizedBox(height: 10),
@@ -234,21 +258,16 @@ class _RequestSentScreenState extends State<RequestSentScreen> {
                           fontSize: 13,
                         ),
                       ),
-                      const SizedBox(height: 16),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 10),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey.shade300),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: Text(
-                          "Hold expires in $countdown",
-                          style: const TextStyle(
-                            fontFamily: "Montserrat",
-                            fontWeight: FontWeight.w800,
-                            fontSize: 13,
-                          ),
+                      const SizedBox(height: 30),
+
+                      // ✅ Plain text line (no box) like screenshot
+                      Text(
+                        "Hold expires in $countdown",
+                        style: const TextStyle(
+                          fontFamily: "Montserrat",
+                          fontWeight: FontWeight.w800,
+                          fontSize: 14,
+                          color: Colors.black,
                         ),
                       ),
                     ],
@@ -256,36 +275,16 @@ class _RequestSentScreenState extends State<RequestSentScreen> {
                 ),
               ),
 
-              // Cancel button
+              // ✅ Primary button: Back to Home (black filled)
               SizedBox(
                 width: double.infinity,
-                height: 46,
-                child: OutlinedButton(
-                  onPressed: _cancelling ? null : _cancelRequest,
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Colors.black),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: Text(
-                    _cancelling ? "Cancelling..." : "Cancel request",
-                    style: const TextStyle(
-                      fontFamily: "Montserrat",
-                      fontWeight: FontWeight.w800,
-                      color: Colors.black,
-                    ),
-                  ),
-                ),
-              ),
-
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: OutlinedButton(
+                height: 50,
+                child: ElevatedButton(
                   onPressed: _goHome,
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Colors.black),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.black,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -296,11 +295,38 @@ class _RequestSentScreenState extends State<RequestSentScreen> {
                       fontFamily: "Montserrat",
                       fontWeight: FontWeight.w800,
                       fontSize: 14,
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              // ✅ Secondary button: Cancel Request (outlined)
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: OutlinedButton(
+                  onPressed: _cancelling ? null : _cancelRequest,
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Colors.black, width: 1.3),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Text(
+                    _cancelling ? "Cancelling..." : "Cancel Request",
+                    style: const TextStyle(
+                      fontFamily: "Montserrat",
+                      fontWeight: FontWeight.w800,
+                      fontSize: 14,
                       color: Colors.black,
                     ),
                   ),
                 ),
               ),
+
+              const SizedBox(height: 6),
             ],
           ),
         ),
