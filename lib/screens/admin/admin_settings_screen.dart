@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../controllers/admin/admin_settings_controller.dart';
 
 // ✅ reusable nav
@@ -7,17 +8,42 @@ import 'package:fixitnew/widgets/nav/admin_bottom_nav.dart';
 class AdminSettingsScreen extends StatelessWidget {
   const AdminSettingsScreen({super.key});
 
+  String _capitalize(String s) {
+    final t = s.trim();
+    if (t.isEmpty) return t;
+    return t[0].toUpperCase() + t.substring(1);
+  }
+
+  // Minimal + safe: use FirebaseAuth displayName if available, else infer from email.
+  String _getAdminFirstName({required String? displayName, required String? email}) {
+    final dn = (displayName ?? '').trim();
+    if (dn.isNotEmpty) {
+      final parts = dn.split(RegExp(r'\s+')).where((p) => p.trim().isNotEmpty).toList();
+      if (parts.isNotEmpty) return _capitalize(parts.first);
+    }
+
+    final em = (email ?? '').trim();
+    if (em.isEmpty) return 'Admin';
+
+    final local = em.split('@').first;
+    if (local.contains('.')) {
+      return _capitalize(local.split('.').first);
+    }
+    return _capitalize(local);
+  }
+
   Widget _sectionTitle(String title, String subtitle) {
     return Padding(
-      padding: const EdgeInsets.only(top: 12.0, bottom: 8),
+      padding: const EdgeInsets.only(top: 14.0, bottom: 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             title,
             style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
+              fontFamily: 'Montserrat',
+              fontSize: 14.5,
+              fontWeight: FontWeight.w800,
               color: Colors.black,
             ),
           ),
@@ -25,8 +51,10 @@ class AdminSettingsScreen extends StatelessWidget {
           Text(
             subtitle,
             style: const TextStyle(
-              fontSize: 12,
-              color: Colors.black54,
+              fontFamily: 'Montserrat',
+              fontSize: 11.5,
+              color: Color(0xFF8A8A8A),
+              fontWeight: FontWeight.w500,
             ),
           ),
         ],
@@ -39,21 +67,45 @@ class AdminSettingsScreen extends StatelessWidget {
     required IconData icon,
     required VoidCallback onTap,
   }) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: Icon(icon, color: Colors.black87),
-      title: Text(
-        title,
-        style: const TextStyle(fontSize: 16, color: Colors.black87),
-      ),
-      trailing:
-          const Icon(Icons.chevron_right, size: 20, color: Colors.black87),
+    return InkWell(
       onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8.5),
+        child: Row(
+          children: [
+            Icon(icon, color: Colors.black, size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontFamily: 'Montserrat',
+                  fontSize: 12.8,
+                  color: Colors.black,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const Icon(
+              Icons.chevron_right,
+              size: 22,
+              color: Colors.black,
+            ),
+          ],
+        ),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+    final email = user?.email ?? '';
+    final firstName = _getAdminFirstName(
+      displayName: user?.displayName,
+      email: user?.email,
+    );
+
     return Scaffold(
       backgroundColor: Colors.white,
 
@@ -65,8 +117,10 @@ class AdminSettingsScreen extends StatelessWidget {
         title: const Text(
           'Settings',
           style: TextStyle(
+            fontFamily: 'Montserrat',
             color: Colors.black,
-            fontWeight: FontWeight.w700,
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
           ),
         ),
       ),
@@ -77,11 +131,59 @@ class AdminSettingsScreen extends StatelessWidget {
           children: [
             Expanded(
               child: SingleChildScrollView(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 6),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // ---------------- PROFILE HEADER (matches image) ----------------
+                    Row(
+                      children: [
+                        Container(
+                          width: 46,
+                          height: 46,
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Color(0xFFE6E6E6),
+                          ),
+                          child: const Icon(
+                            Icons.person_outline,
+                            color: Colors.black,
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Hello $firstName!',
+                                style: const TextStyle(
+                                  fontFamily: 'Montserrat',
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.black,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                email,
+                                style: const TextStyle(
+                                  fontFamily: 'Montserrat',
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                  color: Color(0xFF8A8A8A),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 14),
+
+                    // ---------------- ACCOUNT SECTION ----------------
                     _sectionTitle('Account', 'Account Management'),
                     _settingsItem(
                       title: 'Account Information',
@@ -107,13 +209,13 @@ class AdminSettingsScreen extends StatelessWidget {
                         '/admin/admin_change_password_screen',
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    const Divider(thickness: 1, color: Colors.black12),
-                    const SizedBox(height: 16),
-                    _sectionTitle(
-                      'Company',
-                      'Contracting Companies Management',
-                    ),
+
+                    const SizedBox(height: 14),
+                    const Divider(thickness: 1, color: Color(0xFFDDDDDD)),
+                    const SizedBox(height: 6),
+
+                    // ---------------- COMPANY SECTION ----------------
+                    _sectionTitle('Company', 'Contracting Companies Management'),
                     _settingsItem(
                       title: 'Contracting Firms Information',
                       icon: Icons.info_outline,
@@ -130,15 +232,16 @@ class AdminSettingsScreen extends StatelessWidget {
                         '/admin/contractor_approval_screen',
                       ),
                     ),
+
+                    const SizedBox(height: 18),
                   ],
                 ),
               ),
             ),
 
-            // ---------------- LOGOUT ----------------
+            // ---------------- LOGOUT (matches image) ----------------
             Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 24.0, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 10),
               child: SizedBox(
                 height: 52,
                 width: double.infinity,
@@ -158,14 +261,18 @@ class AdminSettingsScreen extends StatelessWidget {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.black,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
                     elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                   child: const Text(
                     'Logout',
-                    style: TextStyle(fontSize: 18),
+                    style: TextStyle(
+                      fontFamily: 'Montserrat',
+                      fontSize: 15.5,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ),

@@ -21,6 +21,9 @@ class _RegisterSelectScreenState extends State<RegisterSelectScreen> {
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
 
+  // ✅ UI-only: hover state (for web/desktop) to match the “hover/click” look
+  String? _hoverRole;
+
   final _email = TextEditingController();
   final _password = TextEditingController();
   final _confirmPassword = TextEditingController();
@@ -112,259 +115,343 @@ class _RegisterSelectScreenState extends State<RegisterSelectScreen> {
   }
 
   // --------------------------
-  // UI (UNCHANGED)
+  // UI (CENTERED H + V)
   // --------------------------
   @override
   Widget build(BuildContext context) {
+    const borderGrey = Color(0xFFBDBDBD);
+    const hintGrey = Color(0xFF6B6B6B);
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0),
-          child: Column(
-            children: [
-              const SizedBox(height: 40),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              // allows scrolling on small screens but keeps content centered when it fits
+              physics: const BouncingScrollPhysics(),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 26.0),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        const SizedBox(height: 8),
 
-              const Text(
-                "Create an\naccount",
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 44,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
-                  height: 1.1,
-                  fontFamily: "Montserrat",
-                ),
-              ),
-
-              const SizedBox(height: 24),
-              const SizedBox(height: 20),
-
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _buildRoleButton(
-                    label: "Client",
-                    icon: Icons.person,
-                    selected: _selectedRole == "client",
-                    onTap: () => setState(() => _selectedRole = "client"),
-                  ),
-                  const SizedBox(width: 20),
-                  _buildRoleButton(
-                    label: "Contractor",
-                    icon: Icons.build,
-                    selected: _selectedRole == "contractor",
-                    onTap: () => setState(() => _selectedRole = "contractor"),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 28),
-
-              if (_error != null)
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    _error!,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: Color(0xFFDC143C),
-                      fontFamily: "Montserrat",
-                    ),
-                  ),
-                ),
-
-              _field(hint: "Email", controller: _email),
-              const SizedBox(height: 20),
-
-              _field(
-                hint: "Password",
-                controller: _password,
-                obscure: _obscurePassword,
-                toggle: () => setState(() {
-                  _obscurePassword = !_obscurePassword;
-                }),
-              ),
-
-              const SizedBox(height: 20),
-
-              _field(
-                hint: "Confirm Password",
-                controller: _confirmPassword,
-                obscure: _obscureConfirmPassword,
-                toggle: () => setState(() {
-                  _obscureConfirmPassword = !_obscureConfirmPassword;
-                }),
-              ),
-
-              const SizedBox(height: 28),
-
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _loading ? null : _register,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.black,
-                    padding: const EdgeInsets.symmetric(vertical: 18),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: _loading
-                      ? const SizedBox(
-                          height: 24,
-                          width: 24,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2,
-                          ),
-                        )
-                      : const Text(
-                          "Continue",
+                        const Text(
+                          "Create an\naccount",
+                          textAlign: TextAlign.center,
                           style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w500,
+                            fontSize: 32,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.black,
+                            height: 1.08,
                             fontFamily: "Montserrat",
-                            color: Colors.white,
                           ),
                         ),
+
+                        const SizedBox(height: 26),
+
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            _buildRoleButton(
+                              roleKey: "client",
+                              label: "Client",
+                              icon: Icons.person,
+                              selected: _selectedRole == "client",
+                              borderGrey: borderGrey,
+                              labelGrey: hintGrey,
+                              onTap: () =>
+                                  setState(() => _selectedRole = "client"),
+                            ),
+                            const SizedBox(width: 22),
+                            _buildRoleButton(
+                              roleKey: "contractor",
+                              label: "Contractor",
+                              icon: Icons.build,
+                              selected: _selectedRole == "contractor",
+                              borderGrey: borderGrey,
+                              labelGrey: hintGrey,
+                              onTap: () =>
+                                  setState(() => _selectedRole = "contractor"),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 28),
+
+                        if (_error != null)
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: Text(
+                                _error!,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: Color(0xFFDC143C),
+                                  fontFamily: "Montserrat",
+                                ),
+                              ),
+                            ),
+                          ),
+
+                        SizedBox(
+                          width: double.infinity,
+                          child: _field(
+                            hint: "Email",
+                            controller: _email,
+                            borderColor: borderGrey,
+                            hintColor: hintGrey,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        SizedBox(
+                          width: double.infinity,
+                          child: _field(
+                            hint: "Password",
+                            controller: _password,
+                            borderColor: borderGrey,
+                            hintColor: hintGrey,
+                            obscure: _obscurePassword,
+                            toggle: () => setState(() {
+                              _obscurePassword = !_obscurePassword;
+                            }),
+                          ),
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        SizedBox(
+                          width: double.infinity,
+                          child: _field(
+                            hint: "Confirm Password",
+                            controller: _confirmPassword,
+                            borderColor: borderGrey,
+                            hintColor: hintGrey,
+                            obscure: _obscureConfirmPassword,
+                            toggle: () => setState(() {
+                              _obscureConfirmPassword = !_obscureConfirmPassword;
+                            }),
+                          ),
+                        ),
+
+                        const SizedBox(height: 18),
+
+                        SizedBox(
+                          width: double.infinity,
+                          height: 52,
+                          child: ElevatedButton(
+                            onPressed: _loading ? null : _register,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.black,
+                              disabledBackgroundColor: Colors.black,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: _loading
+                                ? const SizedBox(
+                                    height: 24,
+                                    width: 24,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Text(
+                                    "Continue",
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w500,
+                                      fontFamily: "Montserrat",
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 18),
+
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 6),
+                          child: RichText(
+                            textAlign: TextAlign.center,
+                            text: const TextSpan(
+                              style: TextStyle(
+                                color: Color(0xFF7A7A7A),
+                                fontSize: 12.5,
+                                height: 1.35,
+                                fontFamily: "Montserrat",
+                              ),
+                              children: [
+                                TextSpan(text: "Signing up means you agree to the "),
+                                TextSpan(
+                                  text: "Privacy\nPolicy",
+                                  style: TextStyle(
+                                    color: Colors.black,
+                                    decoration: TextDecoration.underline,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                TextSpan(text: " and "),
+                                TextSpan(
+                                  text: "Terms of Service",
+                                  style: TextStyle(
+                                    color: Colors.black,
+                                    decoration: TextDecoration.underline,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 14),
+
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Text(
+                              "Have an account? ",
+                              style: TextStyle(
+                                fontSize: 13.5,
+                                color: Color(0xFF7A7A7A),
+                                fontFamily: "Montserrat",
+                              ),
+                            ),
+                            GestureDetector(
+                              onTap: () => Navigator.pushNamed(context, "/login"),
+                              child: const Text(
+                                "Login",
+                                style: TextStyle(
+                                  fontSize: 13.5,
+                                  color: Colors.black,
+                                  fontWeight: FontWeight.w700,
+                                  fontFamily: "Montserrat",
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 8),
+                      ],
+                    ),
+                  ),
                 ),
               ),
-
-              const SizedBox(height: 20),
-
-              RichText(
-                textAlign: TextAlign.center,
-                text: const TextSpan(
-                  style: TextStyle(
-                    color: Colors.black,
-                    fontSize: 14,
-                    fontFamily: "Montserrat",
-                  ),
-                  children: [
-                    TextSpan(text: "Signing up means you agree to the "),
-                    TextSpan(
-                      text: "Privacy\nPolicy",
-                      style: TextStyle(
-                        decoration: TextDecoration.underline,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    TextSpan(text: " and "),
-                    TextSpan(
-                      text: "Terms of Service",
-                      style: TextStyle(
-                        decoration: TextDecoration.underline,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 24),
-
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text(
-                    "Have an account? ",
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontFamily: "Montserrat",
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: () => Navigator.pushNamed(context, "/login"),
-                    child: const Text(
-                      "Login",
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.black,
-                        fontWeight: FontWeight.bold,
-                        fontFamily: "Montserrat",
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 40),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );
   }
 
-  // ROLE SELECT BUTTON
+  // ROLE SELECT BUTTON (matches image + hover/click state)
   Widget _buildRoleButton({
+    required String roleKey,
     required String label,
     required IconData icon,
     required bool selected,
+    required Color borderGrey,
+    required Color labelGrey,
     required VoidCallback onTap,
   }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        children: [
-          Container(
-            width: 90,
-            height: 90,
-            decoration: BoxDecoration(
-              border: Border.all(
-                color: Colors.black,
-                width: selected ? 2.5 : 1.5,
+    final hovered = _hoverRole == roleKey;
+    final active = selected || hovered;
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hoverRole = roleKey),
+      onExit: (_) => setState(() => _hoverRole = null),
+      child: GestureDetector(
+        onTap: onTap,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 120),
+              curve: Curves.easeOut,
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                color: active ? Colors.black : Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: active ? Colors.black : borderGrey,
+                  width: 1.5,
+                ),
               ),
-              borderRadius: BorderRadius.circular(12),
-              color: selected ? Colors.grey[100] : Colors.white,
+              child: Icon(
+                icon,
+                size: 34,
+                color: active ? Colors.white : Colors.black,
+              ),
             ),
-            child: Icon(icon, size: 40, color: Colors.black),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 16,
-              fontFamily: "Montserrat",
-              fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+            const SizedBox(height: 8),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13.5,
+                fontFamily: "Montserrat",
+                color: active ? Colors.black : labelGrey,
+                fontWeight: active ? FontWeight.w600 : FontWeight.w400,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  // FIELD WIDGET
+  // FIELD WIDGET (matches image)
   Widget _field({
     required String hint,
     required TextEditingController controller,
+    required Color borderColor,
+    required Color hintColor,
     bool obscure = false,
     VoidCallback? toggle,
   }) {
     return Container(
-      margin: const EdgeInsets.only(top: 8),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.black, width: 1.5),
-        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: borderColor, width: 1.4),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: TextField(
         controller: controller,
         obscureText: obscure,
-        style: const TextStyle(fontSize: 18, fontFamily: "Montserrat"),
+        style: const TextStyle(
+          fontSize: 15.5,
+          fontFamily: "Montserrat",
+          color: Colors.black,
+        ),
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle: const TextStyle(fontSize: 18, fontFamily: "Montserrat"),
+          hintStyle: TextStyle(
+            fontSize: 15.5,
+            fontFamily: "Montserrat",
+            color: hintColor,
+          ),
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(
-            horizontal: 20,
-            vertical: 18,
+            horizontal: 16,
+            vertical: 14,
           ),
           suffixIcon: toggle != null
               ? IconButton(
                   icon: Icon(
                     obscure ? Icons.visibility : Icons.visibility_off,
                     color: Colors.black,
+                    size: 20,
                   ),
                   onPressed: toggle,
                 )

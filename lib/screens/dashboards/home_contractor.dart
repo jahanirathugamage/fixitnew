@@ -60,8 +60,10 @@ class _HomeContractorState extends State<HomeContractor> {
         title: const Text(
           "Settings",
           style: TextStyle(
+            fontFamily: 'Montserrat',
             color: Colors.black,
-            fontWeight: FontWeight.bold,
+            fontWeight: FontWeight.w800,
+            fontSize: 15,
           ),
         ),
         backgroundColor: Colors.white,
@@ -70,118 +72,158 @@ class _HomeContractorState extends State<HomeContractor> {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 20),
+          : SafeArea(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 8),
 
-                // ----------- PROFILE HEADER -----------
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Row(
-                    children: [
-                      const CircleAvatar(
-                        radius: 35,
-                        backgroundColor: Colors.black12,
-                        child: Icon(
-                          Icons.engineering,
-                          size: 40,
-                          color: Colors.black,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-
-                      // ✅ prevent overflow on small screens
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              "Welcome $contractorName",
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              contractorEmail,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(color: Colors.grey),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 30),
-
-                if (_error != null)
+                  // ----------- PROFILE HEADER (matches image layout) -----------
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Text(
-                      _error!,
-                      style: const TextStyle(color: Colors.red),
+                    padding: const EdgeInsets.symmetric(horizontal: 22),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        // ✅ keep current icon as requested
+                        const CircleAvatar(
+                          radius: 28,
+                          backgroundColor: Colors.black12,
+                          child: Icon(
+                            Icons.engineering,
+                            size: 30,
+                            color: Colors.black,
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "Hello $contractorName!",
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontFamily: 'Montserrat',
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.black,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                contractorEmail,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontFamily: 'Montserrat',
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                  color: Color(0xFF8A8A8A),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ),
 
-                // ----------- SETTINGS LIST -----------
-                _TileC(
-                  icon: Icons.person_outline,
-                  text: "Account Information",
-                  onTap: () => _go(
-                      "/dashboards/contractor/update_contractor_profile"),
-                ),
-                _TileC(
-                  icon: Icons.lock_outline,
-                  text: "Change Password",
-                  onTap: () =>
-                      _go("/dashboards/contractor/change_contractor_password"),
-                ),
-                _TileC(
-                  icon: Icons.credit_card,
-                  text: "Bank Details",
-                  onTap: () =>
-                      _go("/dashboards/contractor/contractor_bank_details"),
-                ),
+                  const SizedBox(height: 18),
 
-                const Spacer(),
-
-                // ----------- LOGOUT BUTTON -----------
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 20, vertical: 20),
-                  child: SizedBox(
-                    height: 55,
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.black,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                  if (_error != null)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 22),
+                      child: Text(
+                        _error!,
+                        style: const TextStyle(
+                          fontFamily: 'Montserrat',
+                          color: Colors.red,
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                      onPressed: () async {
-                        final navigator = Navigator.of(context);
-                        await _controller.signOut();
-                        navigator.pushNamedAndRemoveUntil(
-                          "/login",
-                          (route) => false,
-                        );
-                      },
-                      child: const Text(
-                        "Logout",
-                        style: TextStyle(fontSize: 18, color: Colors.white),
+                    ),
+
+                  // ----------- SECTION TITLE (Account) -----------
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(22, 14, 22, 6),
+                    child: Text(
+                      "Account",
+                      style: TextStyle(
+                        fontFamily: 'Montserrat',
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.black,
                       ),
                     ),
                   ),
-                ),
-              ],
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(22, 0, 22, 10),
+                    child: Text(
+                      "Account Management",
+                      style: TextStyle(
+                        fontFamily: 'Montserrat',
+                        fontSize: 11.5,
+                        color: Color(0xFF8A8A8A),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+
+                  // ----------- SETTINGS LIST (only the two items in image) -----------
+                  _TileC(
+                    icon: Icons.person_outline,
+                    text: "Account Information",
+                    onTap: () =>
+                        _go("/dashboards/contractor/update_contractor_profile"),
+                  ),
+                  _TileC(
+                    icon: Icons.lock_outline,
+                    text: "Change Password",
+                    onTap: () =>
+                        _go("/dashboards/contractor/change_contractor_password"),
+                  ),
+
+                  const Spacer(),
+
+                  // ----------- LOGOUT BUTTON (matches image position/shape) -----------
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(22, 0, 22, 14),
+                    child: SizedBox(
+                      height: 54,
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.black,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onPressed: () async {
+                          final navigator = Navigator.of(context);
+                          await _controller.signOut();
+                          navigator.pushNamedAndRemoveUntil(
+                            "/login",
+                            (route) => false,
+                          );
+                        },
+                        child: const Text(
+                          "Logout",
+                          style: TextStyle(
+                            fontFamily: 'Montserrat',
+                            fontSize: 15.5,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
 
       // ✅ Re-usable contractor bottom nav
@@ -204,20 +246,29 @@ class _TileC extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 10),
         child: Row(
           children: [
-            Icon(icon, size: 28),
+            Icon(icon, size: 20, color: Colors.black),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
                 text,
-                style: const TextStyle(fontSize: 16),
+                style: const TextStyle(
+                  fontFamily: 'Montserrat',
+                  fontSize: 12.8,
+                  color: Colors.black,
+                  fontWeight: FontWeight.w600,
+                ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            const Icon(Icons.chevron_right),
+            const Icon(
+              Icons.chevron_right,
+              size: 22,
+              color: Colors.black,
+            ),
           ],
         ),
       ),

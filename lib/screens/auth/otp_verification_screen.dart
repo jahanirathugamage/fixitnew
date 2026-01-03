@@ -95,100 +95,143 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.white,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-      ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 28),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              const SizedBox(height: 80),
-
-              // Title
-              const Text(
-                "Verification",
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.2,
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // Description
-              Text(
-                "Thank you for registering at FixIt. Please "
-                "click the link shared on your email\n$email to verify.",
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 15,
-                  height: 1.5,
-                  color: Colors.black87,
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              if (_error != null) ...[
-                Text(
-                  _error!,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Colors.red,
-                    fontSize: 13,
-                  ),
-                ),
-                const SizedBox(height: 8),
-              ],
-
-              const Spacer(),
-
-              // Link not received + Resend
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text(
-                    "Link not received? ",
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  if (_resendCountdown > 0)
-                    Text(
-                      "Resend in $_resendCountdown s",
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey,
-                      ),
-                    )
-                  else
-                    GestureDetector(
-                      onTap: _resendEmail,
-                      child: const Text(
-                        "Resend",
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: Stack(
+                  children: [
+                    // Top-left back arrow (like the image)
+                    Positioned(
+                      left: 8,
+                      top: 6,
+                      child: IconButton(
+                        icon: const Icon(
+                          Icons.arrow_back_ios_new,
                           color: Colors.black,
+                          size: 20,
+                        ),
+                        onPressed: () => Navigator.of(context).pop(),
+                        splashRadius: 22,
+                      ),
+                    ),
+
+                    // Centered content (horizontal + vertical)
+                    Center(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 28),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            const Text(
+                              "Verification",
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontFamily: "Montserrat",
+                                fontSize: 28,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.black,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+
+                            Text(
+                              "Thank you for registering at FixIt. Please\n"
+                              "click the link shared on your email\n"
+                              "$email to verify.",
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontFamily: "Montserrat",
+                                fontSize: 12.5,
+                                height: 1.35,
+                                color: Color(0xFF4A4A4A),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+
+                            const SizedBox(height: 14),
+
+                            const Text(
+                              "Can’t find our email? Please\n"
+                              "check your spam or junk mail to\n"
+                              "ensure you don't miss an update.",
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontFamily: "Montserrat",
+                                fontSize: 11.5,
+                                height: 1.35,
+                                color: Color(0xFF8A8A8A),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+
+                            const SizedBox(height: 16),
+
+                            if (_error != null) ...[
+                              Text(
+                                _error!,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontFamily: "Montserrat",
+                                  color: Colors.red,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                            ],
+
+                            // "Link not received? Resend"
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Text(
+                                  "Link not received? ",
+                                  style: TextStyle(
+                                    fontFamily: "Montserrat",
+                                    fontSize: 11.5,
+                                    color: Color(0xFF8A8A8A),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                if (_resendCountdown > 0)
+                                  Text(
+                                    "Resend in $_resendCountdown s",
+                                    style: const TextStyle(
+                                      fontFamily: "Montserrat",
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFFB0B0B0),
+                                    ),
+                                  )
+                                else
+                                  GestureDetector(
+                                    onTap: _resendEmail,
+                                    child: const Text(
+                                      "Resend",
+                                      style: TextStyle(
+                                        fontFamily: "Montserrat",
+                                        fontSize: 11.5,
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.black,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ],
                         ),
                       ),
                     ),
-                ],
+                  ],
+                ),
               ),
-
-              const SizedBox(height: 40),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );

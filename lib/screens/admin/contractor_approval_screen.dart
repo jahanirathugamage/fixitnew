@@ -51,7 +51,7 @@ class ContractorApprovalScreen extends StatelessWidget {
           if (docs.isEmpty) {
             return const Center(
               child: Text(
-                'No pending contractor registrations.',
+                'No Pending Contractor Registrations.',
                 style: TextStyle(fontWeight: FontWeight.w600),
               ),
             );

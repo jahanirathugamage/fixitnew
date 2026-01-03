@@ -23,7 +23,6 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
     super.initState();
     _loadProviderData();
 
-
     // ✅ Only enable this temporarily if you are debugging tokens
     //_printIdToken();
   }
@@ -74,9 +73,10 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
         title: const Text(
           "Settings",
           style: TextStyle(
+            fontFamily: 'Montserrat',
             color: Colors.black,
-            fontSize: 22,
-            fontWeight: FontWeight.w700,
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
           ),
         ),
       ),
@@ -84,126 +84,154 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : SafeArea(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    minHeight: MediaQuery.of(context).size.height -
-                        kToolbarHeight -
-                        MediaQuery.of(context).padding.top -
-                        75,
-                  ),
-                  child: IntrinsicHeight(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 8),
 
-                        // PROFILE HEADER
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          child: Row(
+                  // PROFILE HEADER (matches mock)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 22),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        const CircleAvatar(
+                          radius: 28,
+                          backgroundColor: Colors.black12,
+                          child: Icon(
+                            Icons.person,
+                            size: 30,
+                            color: Colors.black,
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const CircleAvatar(
-                                radius: 35,
-                                backgroundColor: Colors.black12,
-                                child: Icon(Icons.person,
-                                    size: 40, color: Colors.black),
+                              Text(
+                                "Hello $providerName!",
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontFamily: 'Montserrat',
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.black,
+                                ),
                               ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      "Welcome $providerName",
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      providerEmail,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style:
-                                          const TextStyle(color: Colors.grey),
-                                    ),
-                                  ],
+                              const SizedBox(height: 2),
+                              Text(
+                                providerEmail,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontFamily: 'Montserrat',
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                  color: Color(0xFF8A8A8A),
                                 ),
                               ),
                             ],
                           ),
                         ),
-
-                        const SizedBox(height: 30),
-
-                        if (_error != null)
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 20),
-                            child: Text(
-                              _error!,
-                              style: const TextStyle(color: Colors.red),
-                            ),
-                          ),
-
-                        
-                        _TileP(
-                          icon: Icons.person_outline,
-                          text: "Profile",
-                          onTap: () => _go("/provider/profile"),
-                        ),
-                        _TileP(
-                          icon: Icons.lock_outline,
-                          text: "Change Password",
-                          onTap: () => _go("/provider/change_password"),
-                        ),
-                        _TileP(
-                          icon: Icons.account_balance_wallet_outlined,
-                          text: "Bank Details",
-                          onTap: () => _go("/provider/bank_details"),
-                        ),
-
-                        const Spacer(),
-
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 20, vertical: 20),
-                          child: SizedBox(
-                            height: 55,
-                            width: double.infinity,
-                            child: ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.black,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                              ),
-                              onPressed: () async {
-                                final navigator = Navigator.of(context);
-                                await _controller.signOut();
-                                navigator.pushNamedAndRemoveUntil(
-                                  "/login",
-                                  (route) => false,
-                                );
-                              },
-                              child: const Text(
-                                "Logout",
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
                       ],
                     ),
                   ),
-                ),
+
+                  const SizedBox(height: 18),
+
+                  if (_error != null)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 22),
+                      child: Text(
+                        _error!,
+                        style: const TextStyle(
+                          fontFamily: 'Montserrat',
+                          color: Colors.red,
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+
+                  // SECTION TITLE (Account)
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(22, 14, 22, 6),
+                    child: Text(
+                      "Account",
+                      style: TextStyle(
+                        fontFamily: 'Montserrat',
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.black,
+                      ),
+                    ),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(22, 0, 22, 10),
+                    child: Text(
+                      "Account Management",
+                      style: TextStyle(
+                        fontFamily: 'Montserrat',
+                        fontSize: 11.5,
+                        color: Color(0xFF8A8A8A),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+
+                  // TILES (match mock: only two rows)
+                  _TileP(
+                    icon: Icons.person_outline,
+                    text: "Account Information",
+                    onTap: () => _go("/provider/profile"),
+                  ),
+                  _TileP(
+                    icon: Icons.lock_outline,
+                    text: "Change Password",
+                    onTap: () => _go("/provider/change_password"),
+                  ),
+
+                  const Spacer(),
+
+                  // LOGOUT BUTTON (matches mock)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(22, 0, 22, 14),
+                    child: SizedBox(
+                      height: 54,
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.black,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onPressed: () async {
+                          final navigator = Navigator.of(context);
+                          await _controller.signOut();
+                          navigator.pushNamedAndRemoveUntil(
+                            "/login",
+                            (route) => false,
+                          );
+                        },
+                        child: const Text(
+                          "Logout",
+                          style: TextStyle(
+                            fontFamily: 'Montserrat',
+                            fontSize: 15.5,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 6),
+                ],
               ),
             ),
 
@@ -232,20 +260,29 @@ class _TileP extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 10),
         child: Row(
           children: [
-            Icon(icon, size: 28),
-            const SizedBox(width: 16),
+            Icon(icon, size: 20, color: Colors.black),
+            const SizedBox(width: 12),
             Expanded(
               child: Text(
                 text,
-                style: const TextStyle(fontSize: 16),
+                style: const TextStyle(
+                  fontFamily: 'Montserrat',
+                  fontSize: 12.8,
+                  color: Colors.black,
+                  fontWeight: FontWeight.w600,
+                ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            const Icon(Icons.chevron_right, size: 26),
+            const Icon(
+              Icons.chevron_right,
+              size: 22,
+              color: Colors.black,
+            ),
           ],
         ),
       ),

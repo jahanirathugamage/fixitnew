@@ -163,7 +163,38 @@ class _ContractorApprovalDetailScreenState
     final companyEmail = (data['companyEmail'] ?? '') as String;
     final companyContact = (data['companyContact'] ?? '') as String;
     final brNo = (data['businessRegNo'] ?? '') as String;
+
     final certUrl = data['businessCertUrl'] as String?;
+    final hasCert = certUrl != null && certUrl.trim().isNotEmpty;
+
+    // ✅ "Other" text from contractor application should appear in textbox
+    // Supports: "otherMethod", "other", or a preformatted "Other: xyz" item if stored that way.
+    String otherText = '';
+    if (data['otherMethod'] is String) {
+      otherText = (data['otherMethod'] as String).trim();
+    } else if (data['other'] is String) {
+      otherText = (data['other'] as String).trim();
+    } else if (data['verificationMethods'] is List) {
+      final list = (data['verificationMethods'] as List)
+          .whereType<String>()
+          .map((e) => e.trim())
+          .toList();
+      final otherItem = list.firstWhere(
+        (e) => e.toLowerCase().startsWith('other:'),
+        orElse: () => '',
+      );
+      if (otherItem.isNotEmpty) {
+        otherText = otherItem.substring('other:'.length).trim();
+      }
+    }
+
+    // keep controller in sync without changing logic
+    if (_approveNote.text.isEmpty) {
+      _approveNote.text = '';
+    }
+    if (_rejectReason.text.isEmpty) {
+      _rejectReason.text = _rejectReason.text;
+    }
 
     return Scaffold(
       appBar: _appBar(),
@@ -174,91 +205,106 @@ class _ContractorApprovalDetailScreenState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
+
               const Text(
                 'Contractor Details',
                 style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
+                  fontFamily: 'Montserrat',
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black,
                 ),
               ),
-              const SizedBox(height: 8),
-              _infoRow('Name', '$firstName $lastName'),
-              _infoRow('NIC No.', nic),
-              _infoRow('Contact No.', personalContact),
-              const SizedBox(height: 16),
-              const Divider(),
-              const SizedBox(height: 16),
+              const SizedBox(height: 10),
+
+              _infoLine('Name', '$firstName $lastName'),
+              _infoLine('NIC No.', nic),
+              _infoLine('Contact No.', personalContact),
+
+              const SizedBox(height: 14),
+              const Divider(height: 1),
+              const SizedBox(height: 14),
+
               const Text(
                 'Company Details',
                 style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
+                  fontFamily: 'Montserrat',
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black,
                 ),
               ),
-              const SizedBox(height: 8),
-              _infoRow('Company Name', companyName),
-              _infoRow(
-                'Address',
-                [address1, address2, city]
-                    .where((s) => s.trim().isNotEmpty)
-                    .join(', '),
-              ),
-              _infoRow('Email', companyEmail),
-              _infoRow('Contact No.', companyContact),
-              _infoRow('BR No.', brNo),
-              const SizedBox(height: 16),
-              Container(
-                width: double.infinity,
-                height: 220,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
+              const SizedBox(height: 10),
+
+              _infoLine('Company Name', companyName),
+              _infoLine('Address line 1', address1),
+              _infoLine('Address line 2', address2),
+              _infoLine('City', city),
+              _infoLine('Email', companyEmail),
+              _infoLine('Contact No.', companyContact),
+              _infoLine('BR No.', brNo),
+
+              // ✅ Certificate image: full-width dynamic image. If not uploaded -> retract space.
+              if (hasCert) ...[
+                const SizedBox(height: 14),
+                ClipRRect(
                   borderRadius: BorderRadius.circular(8),
+                  child: AspectRatio(
+                    // tall-ish like the mock (but responsive)
+                    aspectRatio: 3 / 4,
+                    child: _buildCertImage(certUrl),
+                  ),
                 ),
-                child: _buildCertImage(certUrl),
-              ),
-              const SizedBox(height: 24),
+                const SizedBox(height: 14),
+              ] else ...[
+                const SizedBox(height: 14),
+              ],
+
+              const Divider(height: 1),
+              const SizedBox(height: 14),
+
               const Text(
                 'Service Provider Verification',
                 style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
+                  fontFamily: 'Montserrat',
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
+
               ..._checks.keys.map((k) {
-                return CheckboxListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(k),
+                return _readonlyCheckRow(
+                  label: k,
                   value: _checks[k] ?? false,
-                  onChanged: null,
-                  controlAffinity: ListTileControlAffinity.leading,
                 );
               }),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _approveNote,
-                decoration: InputDecoration(
-                  hintText: 'Note (optional)',
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
+
+              // ✅ "Other" textbox showing the contractor-provided text 
+              if ((_checks['Other'] ?? false)) ...[
+                const SizedBox(height: 10),
+                _boxedTextField(
+                  value: otherText,
+                  hint: 'Other method',
                 ),
-              ),
-              const SizedBox(height: 12),
+              ],
+
+              const SizedBox(height: 16),
+
+              // Approve button (black, rounded, tall)
               SizedBox(
                 width: double.infinity,
+                height: 52,
                 child: ElevatedButton(
                   onPressed: _approving ? null : _approve,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.black,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    elevation: 0,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                   ),
                   child: _approving
@@ -270,34 +316,64 @@ class _ContractorApprovalDetailScreenState
                             color: Colors.white,
                           ),
                         )
-                      : const Text('Approve'),
+                      : const Text(
+                          'Approve',
+                          style: TextStyle(
+                            fontFamily: 'Montserrat',
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                 ),
               ),
-              const SizedBox(height: 18),
+
+              const SizedBox(height: 14),
+
+              // Reject reason big box
               TextField(
                 controller: _rejectReason,
-                maxLines: 4,
+                maxLines: 6,
                 decoration: InputDecoration(
                   hintText: 'Reason for rejection',
+                  hintStyle: const TextStyle(
+                    fontFamily: 'Montserrat',
+                    fontSize: 14,
+                    color: Color(0xFF6D6D6D),
+                    fontWeight: FontWeight.w500,
+                  ),
                   alignLabelWithHint: true,
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 14,
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: Colors.black, width: 1.2),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: Colors.black, width: 1.4),
                   ),
                 ),
+                style: const TextStyle(
+                  fontFamily: 'Montserrat',
+                  fontSize: 14,
+                  color: Colors.black,
+                ),
               ),
+
               const SizedBox(height: 12),
+
               SizedBox(
                 width: double.infinity,
+                height: 52,
                 child: OutlinedButton(
                   onPressed: _rejecting ? null : _reject,
                   style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    side: const BorderSide(color: Colors.black),
+                    side: const BorderSide(color: Colors.black, width: 1.2),
                     foregroundColor: Colors.black,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                   ),
                   child: _rejecting
@@ -306,17 +382,30 @@ class _ContractorApprovalDetailScreenState
                           width: 18,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Text('Reject'),
+                      : const Text(
+                          'Reject',
+                          style: TextStyle(
+                            fontFamily: 'Montserrat',
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                 ),
               ),
+
               if (_error != null) ...[
                 const SizedBox(height: 10),
                 Text(
                   _error!,
-                  style: const TextStyle(color: Colors.red),
+                  style: const TextStyle(
+                    color: Colors.red,
+                    fontFamily: 'Montserrat',
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ],
-              const SizedBox(height: 20),
+
+              const SizedBox(height: 18),
             ],
           ),
         ),
@@ -335,6 +424,7 @@ class _ContractorApprovalDetailScreenState
       title: const Text(
         'Registration Approvals',
         style: TextStyle(
+          fontFamily: 'Montserrat',
           color: Colors.black,
           fontWeight: FontWeight.w700,
         ),
@@ -343,25 +433,55 @@ class _ContractorApprovalDetailScreenState
     );
   }
 
-  Widget _infoRow(String label, String value) {
+  Widget _infoLine(String label, String value) {
     if (value.trim().isEmpty) return const SizedBox.shrink();
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 6.0),
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Text(
+        '$label: $value',
+        style: const TextStyle(
+          fontFamily: 'Montserrat',
+          fontSize: 13.5,
+          color: Colors.black87,
+          fontWeight: FontWeight.w500,
+          height: 1.25,
+        ),
+      ),
+    );
+  }
+
+  Widget _readonlyCheckRow({required String label, required bool value}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '$label: ',
-            style: const TextStyle(
-              fontWeight: FontWeight.w600,
-              color: Colors.black87,
+          SizedBox(
+            width: 22,
+            height: 22,
+            child: Checkbox(
+              value: value,
+              onChanged: null,
+              activeColor: Colors.black,
+              checkColor: Colors.white,
+              side: const BorderSide(color: Colors.black, width: 1.2),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(2),
+              ),
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
             ),
           ),
+          const SizedBox(width: 12),
           Expanded(
             child: Text(
-              value,
-              style: const TextStyle(color: Colors.black87),
+              label,
+              style: const TextStyle(
+                fontFamily: 'Montserrat',
+                fontSize: 13.5,
+                color: Colors.black,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
         ],
@@ -369,29 +489,70 @@ class _ContractorApprovalDetailScreenState
     );
   }
 
+  Widget _boxedTextField({required String value, required String hint}) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.black, width: 1.2),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        value.isEmpty ? hint : value,
+        style: TextStyle(
+          fontFamily: 'Montserrat',
+          fontSize: 14,
+          color: value.isEmpty ? const Color(0xFF6D6D6D) : Colors.black,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
+  }
+
   Widget _buildCertImage(String? url) {
     if (url != null && url.startsWith('http')) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: Image.network(
-          url,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) {
-            return const Center(
+      return Image.network(
+        url,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          return Container(
+            color: Colors.grey.shade300,
+            child: const Center(
               child: Text(
                 'Unable to load certificate image',
                 textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: 'Montserrat',
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-            );
-          },
-        ),
+            ),
+          );
+        },
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Container(
+            color: Colors.grey.shade300,
+            child: const Center(
+              child: CircularProgressIndicator(),
+            ),
+          );
+        },
       );
     }
 
-    return const Center(
-      child: Text(
-        'Business\nregistration\ncertification image',
-        textAlign: TextAlign.center,
+    // Should not be reached when we hide the section, but kept safe.
+    return Container(
+      color: Colors.grey.shade300,
+      child: const Center(
+        child: Text(
+          'Business\nregistration\ncertification image',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontFamily: 'Montserrat',
+            fontWeight: FontWeight.w600,
+          ),
+        ),
       ),
     );
   }

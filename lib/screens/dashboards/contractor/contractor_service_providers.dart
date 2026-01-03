@@ -34,26 +34,34 @@ class _ContractorServiceProvidersState extends State<ContractorServiceProviders>
         child: Column(
           children: [
             // ------------------------------------------------------------------
-            // HEADER
+            // HEADER (matches image: centered title, back arrow left)
             // ------------------------------------------------------------------
             Padding(
-              padding: const EdgeInsets.all(16.0),
+              padding: const EdgeInsets.fromLTRB(14, 10, 14, 6),
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.arrow_back_ios, size: 24),
+                    icon: const Icon(Icons.arrow_back_ios, size: 22),
                     onPressed: () => Navigator.pop(context),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
+                    splashRadius: 22,
                   ),
-                  const SizedBox(width: 16),
-                  const Text(
-                    'Service Providers',
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
+                  Expanded(
+                    child: Center(
+                      child: Text(
+                        'Service Providers',
+                        style: const TextStyle(
+                          fontFamily: 'Montserrat',
+                          fontSize: 16.5,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.black,
+                        ),
+                      ),
                     ),
                   ),
+                  // spacer to keep title perfectly centered
+                  const SizedBox(width: 22),
                 ],
               ),
             ),
@@ -65,51 +73,53 @@ class _ContractorServiceProvidersState extends State<ContractorServiceProviders>
               child: SingleChildScrollView(
                 child: Column(
                   children: [
-                    // ---------------- Add Provider Button -------------------
-                    Container(
-                      margin: const EdgeInsets.symmetric(
-                        horizontal: 16.0,
-                        vertical: 8.0,
-                      ),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey[300]!, width: 1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: ListTile(
-                        leading: Container(
-                          width: 32,
-                          height: 32,
-                          decoration: const BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Colors.black,
-                          ),
-                          child: const Icon(
-                            Icons.add,
-                            color: Colors.white,
-                            size: 20,
-                          ),
+                    // ---------------- Add Provider Row (flat, divider below) -------------------
+                    InkWell(
+                      onTap: () {
+                        Navigator.pushNamed(
+                          context,
+                          "/profile/add_provider_screen",
+                        );
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(18, 12, 18, 12),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 20,
+                              height: 20,
+                              decoration: const BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.black,
+                              ),
+                              child: const Icon(
+                                Icons.add,
+                                color: Colors.white,
+                                size: 14,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            const Expanded(
+                              child: Text(
+                                'Add Service Provider',
+                                style: TextStyle(
+                                  fontFamily: 'Montserrat',
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.black,
+                                ),
+                              ),
+                            ),
+                            const Icon(
+                              Icons.arrow_forward_ios,
+                              size: 14,
+                              color: Colors.black,
+                            ),
+                          ],
                         ),
-                        title: const Text(
-                          'Add Service Provider',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        trailing: const Icon(
-                          Icons.arrow_forward_ios,
-                          size: 16,
-                        ),
-                        onTap: () {
-                          Navigator.pushNamed(
-                            context,
-                            "/profile/add_provider_screen",
-                          );
-                        },
                       ),
                     ),
-
-                    const SizedBox(height: 8),
+                    const Divider(height: 1, thickness: 1),
 
                     // ---------------- Firestore Provider List -------------------
                     StreamBuilder<QuerySnapshot>(
@@ -146,7 +156,7 @@ class _ContractorServiceProvidersState extends State<ContractorServiceProviders>
                                     ? null
                                     : profileImg;
 
-                            return _buildProviderCard(
+                            return _buildProviderRow(
                               context: context,
                               contractorId: contractorId,
                               providerId: doc.id,
@@ -171,173 +181,202 @@ class _ContractorServiceProvidersState extends State<ContractorServiceProviders>
   }
 
   // ======================================================================
-  // WIDGET: Provider Card
+  // WIDGET: Provider Row (matches screenshot: thin divider lines, small avatar,
+  // name on top, two small buttons under name)
   // ======================================================================
-  Widget _buildProviderCard({
+  Widget _buildProviderRow({
     required BuildContext context,
     required String contractorId,
     required String providerId,
     required String name,
     required String? imageUrl,
   }) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-      padding: const EdgeInsets.all(12.0),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey[300]!, width: 1),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          // ------------------ Profile Image ------------------
-          Container(
-            width: 60,
-            height: 60,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
-              color: Colors.grey[300],
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: imageUrl == null
-                  ? const Icon(Icons.person, size: 30, color: Colors.grey)
-                  : Image.network(
-                      imageUrl,
-                      fit: BoxFit.cover,
-                    ),
-            ),
-          ),
-
-          const SizedBox(width: 12),
-
-          // ------------------ Name + Buttons ------------------
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(18, 10, 18, 10),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // avatar
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: SizedBox(
+                  width: 34,
+                  height: 34,
+                  child: imageUrl == null
+                      ? Container(
+                          color: const Color(0xFFE6E6E6),
+                          child: const Icon(
+                            Icons.person,
+                            size: 18,
+                            color: Color(0xFF9A9A9A),
+                          ),
+                        )
+                      : Image.network(
+                          imageUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              color: const Color(0xFFE6E6E6),
+                              child: const Icon(
+                                Icons.person,
+                                size: 18,
+                                color: Color(0xFF9A9A9A),
+                              ),
+                            );
+                          },
+                        ),
                 ),
-                const SizedBox(height: 10),
-                Row(
+              ),
+
+              const SizedBox(width: 12),
+
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Manage Button
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () {
-                          Navigator.pushNamed(
-                            context,
-                            "/provider/update",
-                            arguments: {
-                              "providerId": providerId,
-                              "contractorId": contractorId,
-                            },
-                          );
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.black,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          elevation: 0,
-                        ),
-                        child: const Text(
-                          'Manage',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
+                    Text(
+                      name,
+                      style: const TextStyle(
+                        fontFamily: 'Montserrat',
+                        fontSize: 12.8,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.black,
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(height: 8),
 
-                    // Delete Button
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () async {
-                          final messenger = ScaffoldMessenger.of(context);
+                    Row(
+                      children: [
+                        // Manage (filled black, compact)
+                        SizedBox(
+                          height: 26,
+                          width: 86,
+                          child: ElevatedButton(
+                            onPressed: () {
+                              Navigator.pushNamed(
+                                context,
+                                "/provider/update",
+                                arguments: {
+                                  "providerId": providerId,
+                                  "contractorId": contractorId,
+                                },
+                              );
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.black,
+                              foregroundColor: Colors.white,
+                              padding: EdgeInsets.zero,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                            ),
+                            child: const Text(
+                              'Manage',
+                              style: TextStyle(
+                                fontFamily: 'Montserrat',
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
 
-                          final confirm = await showDialog<bool>(
-                                context: context,
-                                builder: (ctx) => AlertDialog(
-                                  title: const Text('Delete Provider'),
-                                  content: const Text(
-                                      'Are you sure you want to delete this provider?'),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () =>
-                                          Navigator.of(ctx).pop(false),
-                                      child: const Text('Cancel'),
-                                    ),
-                                    TextButton(
-                                      onPressed: () =>
-                                          Navigator.of(ctx).pop(true),
-                                      child: const Text(
-                                        'Delete',
-                                        style: TextStyle(
-                                          color: Colors.redAccent,
-                                        ),
+                        // Delete (outlined, compact)
+                        SizedBox(
+                          height: 26,
+                          width: 86,
+                          child: OutlinedButton(
+                            onPressed: () async {
+                              final messenger = ScaffoldMessenger.of(context);
+
+                              final confirm = await showDialog<bool>(
+                                    context: context,
+                                    builder: (ctx) => AlertDialog(
+                                      title: const Text('Delete Provider'),
+                                      content: const Text(
+                                        'Are you sure you want to delete this provider?',
                                       ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () =>
+                                              Navigator.of(ctx).pop(false),
+                                          child: const Text('Cancel'),
+                                        ),
+                                        TextButton(
+                                          onPressed: () =>
+                                              Navigator.of(ctx).pop(true),
+                                          child: const Text(
+                                            'Delete',
+                                            style: TextStyle(
+                                              color: Colors.redAccent,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                  ],
-                                ),
-                              ) ??
-                              false;
+                                  ) ??
+                                  false;
 
-                          if (!confirm || !context.mounted) return;
+                              if (!confirm || !context.mounted) return;
 
-                          final errorMessage = await _controller.deleteProvider(
-                            contractorId: contractorId,
-                            providerId: providerId,
-                          );
+                              final errorMessage =
+                                  await _controller.deleteProvider(
+                                contractorId: contractorId,
+                                providerId: providerId,
+                              );
 
-                          if (!context.mounted) return;
+                              if (!context.mounted) return;
 
-                          if (errorMessage == null) {
-                            messenger.showSnackBar(
-                              const SnackBar(
-                                content: Text("Provider deleted successfully"),
+                              if (errorMessage == null) {
+                                messenger.showSnackBar(
+                                  const SnackBar(
+                                    content:
+                                        Text("Provider deleted successfully"),
+                                  ),
+                                );
+                              } else {
+                                messenger.showSnackBar(
+                                  SnackBar(
+                                    content: Text(errorMessage),
+                                  ),
+                                );
+                              }
+                            },
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.black,
+                              padding: EdgeInsets.zero,
+                              side: const BorderSide(
+                                color: Colors.black,
+                                width: 1.1,
                               ),
-                            );
-                          } else {
-                            messenger.showSnackBar(
-                              SnackBar(
-                                content: Text(errorMessage),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6),
                               ),
-                            );
-                          }
-                        },
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.black,
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          side: const BorderSide(color: Colors.black, width: 1.5),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Text(
+                              'Delete',
+                              style: TextStyle(
+                                fontFamily: 'Montserrat',
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                           ),
                         ),
-                        child: const Text(
-                          'Delete',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
+                      ],
                     ),
                   ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+        const Divider(height: 1, thickness: 1),
+      ],
     );
   }
 }

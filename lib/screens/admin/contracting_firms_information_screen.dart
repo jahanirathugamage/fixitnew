@@ -22,7 +22,7 @@ class ContractingFirmsInformationScreen extends StatelessWidget {
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
-          'Contracting Firms Information',
+          'Contracting Firms',
           style: TextStyle(
             color: Colors.black,
             fontWeight: FontWeight.w700,

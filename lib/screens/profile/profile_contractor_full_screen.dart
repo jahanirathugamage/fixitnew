@@ -58,6 +58,9 @@ class _ProfileContractorFullScreenState
 
   bool _loading = false;
 
+  // ✅ Terms checkbox must be checked to proceed
+  bool _agreedToTerms = false;
+
   // ---------- PICKER (UI only) ----------
   Future<void> _pickCert() async {
     try {
@@ -125,9 +128,88 @@ class _ProfileContractorFullScreenState
     );
   }
 
+  // ✅ Success slide-up (matches attached style)
+  Future<void> _showSuccessSheet() async {
+    if (!mounted) return;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: false,
+      backgroundColor: Colors.transparent,
+      // ✅ FIX: withOpacity deprecated -> use withValues(alpha: ...)
+      barrierColor: Colors.black.withValues(alpha: 0.2),
+      builder: (ctx) {
+        return SafeArea(
+          top: false,
+          child: Container(
+            width: double.infinity,
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(24),
+                topRight: Radius.circular(24),
+              ),
+            ),
+            padding: const EdgeInsets.fromLTRB(22, 10, 22, 26),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                // drag handle
+                SizedBox(height: 4),
+                Center(
+                  child: SizedBox(
+                    width: 54,
+                    height: 5,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: Color(0xFFE0E0E0),
+                        borderRadius: BorderRadius.all(Radius.circular(99)),
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(height: 18),
+                Text(
+                  'Contractor Application Sent!',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: 'Montserrat',
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.black,
+                  ),
+                ),
+                SizedBox(height: 14),
+                Text(
+                  'Your application is headed to the\n'
+                  'FixIt team for review. We’ll send\n'
+                  'all future updates directly to your\n'
+                  'company email.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: 'Montserrat',
+                    fontSize: 13.5,
+                    height: 1.35,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.black87,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 
   // ---------- SAVE (calls controller = MVC) ----------
   Future<void> _saveContractor() async {
+    // ✅ Block if terms not agreed
+    if (!_agreedToTerms) {
+      _showError("Please agree to the Terms & Conditions to continue.");
+      return;
+    }
+
     if (!_validateRequiredFields()) return;
 
     setState(() {
@@ -143,8 +225,7 @@ class _ProfileContractorFullScreenState
         }
       });
 
-      if (_checks['Other'] == true &&
-          _otherMethod.text.trim().isNotEmpty) {
+      if (_checks['Other'] == true && _otherMethod.text.trim().isNotEmpty) {
         selectedChecks.add('Other: ${_otherMethod.text.trim()}');
       }
 
@@ -173,9 +254,10 @@ class _ProfileContractorFullScreenState
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Contractor profile saved.')),
-      );
+      // ✅ Replaced snackbar with slide-up success sheet
+      await _showSuccessSheet();
+
+      if (!mounted) return;
 
       // Navigate to login (same as before)
       Navigator.pushNamedAndRemoveUntil(
@@ -197,45 +279,90 @@ class _ProfileContractorFullScreenState
     }
   }
 
-  // ---------- Clean input widget ----------
-  Widget _input(TextEditingController c, String label) {
+  // ---------- Input widget (updated visuals only) ----------
+  Widget _input(TextEditingController c, String hint) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
-      child: TextField(
-        controller: c,
-        decoration: InputDecoration(
-          labelText: label,
-          labelStyle: const TextStyle(
+      child: SizedBox(
+        height: 52,
+        child: TextField(
+          controller: c,
+          style: const TextStyle(
             fontFamily: 'Montserrat',
-            fontSize: 14,
+            fontSize: 15.5,
             color: Colors.black,
           ),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: const TextStyle(
+              fontFamily: 'Montserrat',
+              fontSize: 15.5,
+              color: Color(0xFF3A3A3A),
+              fontWeight: FontWeight.w500,
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 18,
+              vertical: 14,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(
+                color: Color(0xFF2B2B2B),
+                width: 1.2,
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(
+                color: Colors.black,
+                width: 1.4,
+              ),
+            ),
           ),
         ),
       ),
     );
   }
 
-  // ---------- Checkbox widget ----------
+  // ---------- Checkbox row (updated visuals only) ----------
   Widget _checkbox(String label) {
-    return CheckboxListTile(
-      value: _checks[label],
-      onChanged: (v) {
-        setState(() => _checks[label] = v ?? false);
-      },
-      title: Text(
-        label,
-        style: const TextStyle(
-          fontFamily: 'Montserrat',
-          fontSize: 14,
-          fontWeight: FontWeight.w500,
-        ),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: 24,
+            height: 24,
+            child: Checkbox(
+              value: _checks[label],
+              onChanged: (v) {
+                setState(() => _checks[label] = v ?? false);
+              },
+              activeColor: Colors.black,
+              checkColor: Colors.white,
+              side: const BorderSide(color: Colors.black, width: 1.4),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(2),
+              ),
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontFamily: 'Montserrat',
+                fontSize: 13.8,
+                fontWeight: FontWeight.w500,
+                color: Colors.black,
+              ),
+            ),
+          ),
+        ],
       ),
-      activeColor: Colors.black,
-      checkColor: Colors.white,
-      controlAffinity: ListTileControlAffinity.leading,
     );
   }
 
@@ -260,43 +387,44 @@ class _ProfileContractorFullScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 8),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Back button + Title
+              const SizedBox(height: 4),
+
+              // Back + Title (matches screenshot)
               Row(
                 children: [
                   IconButton(
                     onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.chevron_left, size: 32),
+                    icon: const Icon(Icons.chevron_left, size: 30),
+                    splashRadius: 22,
                   ),
-                  const Expanded(
-                    child: Center(
-                      child: Text(
-                        'Create an account',
-                        style: TextStyle(
-                          fontFamily: 'Montserrat',
-                          fontSize: 26,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
+                  const SizedBox(width: 6),
+                  const Text(
+                    'Contractor Registration',
+                    style: TextStyle(
+                      fontFamily: 'Montserrat',
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.black,
                     ),
                   ),
-                  const SizedBox(width: 40),
                 ],
               ),
 
-              const SizedBox(height: 10),
+              const SizedBox(height: 18),
+
               const Text(
                 'Contractor Details',
                 style: TextStyle(
                   fontFamily: 'Montserrat',
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.black87,
                 ),
               ),
               const SizedBox(height: 10),
@@ -306,13 +434,15 @@ class _ProfileContractorFullScreenState
               _input(_nic, 'NIC No.'),
               _input(_personalContact, 'Contact Number'),
 
-              const SizedBox(height: 20),
+              const SizedBox(height: 8),
+
               const Text(
                 'Company Details',
                 style: TextStyle(
                   fontFamily: 'Montserrat',
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.black87,
                 ),
               ),
               const SizedBox(height: 10),
@@ -325,66 +455,80 @@ class _ProfileContractorFullScreenState
               _input(_companyContact, 'Company contact'),
               _input(_businessRegNo, 'Business Registration No.'),
 
-              const SizedBox(height: 10),
+              const SizedBox(height: 6),
 
-              // ---------- BUSINESS CERTIFICATE UPLOAD ----------
-              GestureDetector(
-                onTap: _pickCert,
-                child: Container(
-                  height: 150,
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.black),
-                    borderRadius: BorderRadius.circular(10),
-                    color: Colors.grey.shade200,
+              // Upload button (matches screenshot style)
+              Center(
+                child: OutlinedButton.icon(
+                  onPressed: _pickCert,
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Colors.black, width: 1.2),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 12,
+                    ),
                   ),
-                  child: _certBytes == null
-                      ? const Center(
-                          child: Text(
-                            'Upload Business Registration Certification',
-                            style: TextStyle(
-                              fontFamily: 'Montserrat',
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.black87,
-                            ),
-                          ),
-                        )
-                      : ClipRRect(
-                          borderRadius: BorderRadius.circular(10),
-                          child: Image.memory(
-                            _certBytes!,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
+                  icon: const Icon(Icons.upload, color: Colors.black, size: 20),
+                  label: const Text(
+                    'Upload Business\nRegistration Certification',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: 'Montserrat',
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black,
+                      height: 1.1,
+                    ),
+                  ),
                 ),
               ),
 
-              const SizedBox(height: 100),
+              if (_certBytes != null) ...[
+                const SizedBox(height: 8),
+                const Center(
+                  child: Text(
+                    'Certification selected',
+                    style: TextStyle(
+                      fontFamily: 'Montserrat',
+                      fontSize: 12,
+                      color: Color(0xFF6D6D6D),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+
+              const SizedBox(height: 18),
 
               const Text(
                 'Service Provider Verification',
                 style: TextStyle(
                   fontFamily: 'Montserrat',
-                  fontSize: 16,
+                  fontSize: 14.5,
                   fontWeight: FontWeight.w600,
+                  color: Colors.black,
                 ),
               ),
               const SizedBox(height: 4),
               const Text(
-                '* Select the methods you use to verify and maintain your workers’ credibility, safety and professionalism.',
+                '* Select the methods you use to verify and\nmaintain your workers\' credibility, safety and\nprofessionalism.',
                 style: TextStyle(
                   fontFamily: 'Montserrat',
-                  fontSize: 12,
-                  color: Colors.grey,
+                  fontSize: 11.5,
+                  color: Color(0xFF9A9A9A),
+                  height: 1.25,
                 ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
 
               // ---------- CHECKBOXES ----------
               ..._checks.keys.map((key) {
                 if (key == 'Other') {
                   return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _checkbox('Other'),
                       if (_checks['Other'] == true)
@@ -395,35 +539,57 @@ class _ProfileContractorFullScreenState
                 return _checkbox(key);
               }),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
 
               // ---------- TERMS & CONDITIONS ----------
               Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Checkbox(
-                    value: true,
-                    onChanged: (_) {},
-                    activeColor: Colors.black,
-                    checkColor: Colors.white,
+                  SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: Checkbox(
+                      value: _agreedToTerms,
+                      onChanged: (v) {
+                        setState(() => _agreedToTerms = v ?? false);
+                      },
+                      activeColor: Colors.black,
+                      checkColor: Colors.white,
+                      side: const BorderSide(color: Colors.black, width: 1.4),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      visualDensity:
+                          const VisualDensity(horizontal: -4, vertical: -4),
+                    ),
                   ),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: RichText(
                       text: const TextSpan(
                         text: 'I agree to FixIt’s ',
                         style: TextStyle(
                           fontFamily: 'Montserrat',
-                          fontSize: 13,
+                          fontSize: 12.5,
                           color: Colors.black,
+                          fontWeight: FontWeight.w500,
                         ),
                         children: [
                           TextSpan(
                             text: 'Terms & Conditions',
                             style: TextStyle(
-                              fontWeight: FontWeight.w700,
+                              fontWeight: FontWeight.w800,
                               decoration: TextDecoration.underline,
                             ),
                           ),
-                          TextSpan(text: ' to register my firm.'),
+                          TextSpan(
+                            text: '\nto register my firm on the platform.',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w500,
+                              decoration: TextDecoration.none,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -431,18 +597,19 @@ class _ProfileContractorFullScreenState
                 ],
               ),
 
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
 
               // ---------- REGISTER BUTTON ----------
               _loading
                   ? const Center(child: CircularProgressIndicator())
                   : SizedBox(
                       width: double.infinity,
-                      height: 55,
+                      height: 54,
                       child: ElevatedButton(
                         onPressed: _saveContractor,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.black,
+                          elevation: 0,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
@@ -451,7 +618,7 @@ class _ProfileContractorFullScreenState
                           'Register',
                           style: TextStyle(
                             fontFamily: 'Montserrat',
-                            fontSize: 16,
+                            fontSize: 18,
                             fontWeight: FontWeight.w700,
                             color: Colors.white,
                           ),
@@ -459,7 +626,7 @@ class _ProfileContractorFullScreenState
                       ),
                     ),
 
-              const SizedBox(height: 20),
+              const SizedBox(height: 24),
             ],
           ),
         ),
