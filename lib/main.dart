@@ -1,3 +1,4 @@
+// lib/main.dart
 // ignore_for_file: use_build_context_synchronously
 
 import 'package:flutter/material.dart';
@@ -42,15 +43,15 @@ import 'screens/dashboards/provider_home_screen.dart';
 import 'screens/dashboards/provider/provider_jobs.dart';
 import 'screens/dashboards/provider/job_requests_screen.dart';
 
-
 // ADMIN SCREENS
 import 'screens/admin/create_admin_account_screen.dart';
 import 'screens/admin/admin_settings_screen.dart';
-import 'screens/admin/contractor_approval_screen.dart';
-import 'screens/admin/contractor_approval_detail_screen.dart';
 import 'screens/admin/admin_account_info_screen.dart';
-import 'screens/admin/contracting_firms_information_screen.dart';
 import 'screens/admin/admin_change_password_screen.dart';
+import 'screens/admin/contractor_approval_detail_screen.dart' as admin_detail;
+import 'screens/admin/contractor_approval_screen.dart';
+import 'screens/admin/contracting_firms_information_screen.dart'
+    as admin_firms;
 
 // MATCHING
 import 'screens/services/matching_screen.dart';
@@ -59,8 +60,6 @@ import 'screens/services/matching_screen.dart';
 import 'screens/services/service_request_screen.dart';
 import 'screens/services/service_request_wrapper.dart';
 
-/// *********** ENTRYPOINT ***********
-/// Initializes Firebase and runs the app.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -68,56 +67,55 @@ Future<void> main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // Ensure Functions is initialized (kept as you had it)
   FirebaseFunctions.instanceFor(region: 'us-central1');
 
   runApp(const MyApp());
 }
 
-/// *********** ROOT APP WIDGET ***********
-/// Contains:
-/// - Named routes for screens that do NOT require runtime arguments
-/// - onGenerateRoute for screens that DO require arguments (ex: MatchingScreen(jobId))
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  /// Handles routes that require runtime data (arguments).
-  ///
-  /// Example usage:
-  /// Navigator.pushNamed(context, '/service/matching', arguments: jobId);
   Route<dynamic>? _onGenerateRoute(RouteSettings settings) {
-  switch (settings.name) {
-    case '/service/matching':
-      final args = settings.arguments;
-
-      if (args is String && args.trim().isNotEmpty) {
+    switch (settings.name) {
+      case '/service/matching':
+        final args = settings.arguments;
+        if (args is String && args.trim().isNotEmpty) {
+          return MaterialPageRoute(
+            builder: (_) => MatchingScreen(jobId: args),
+            settings: settings,
+          );
+        }
         return MaterialPageRoute(
-          builder: (_) => MatchingScreen(jobId: args),
+          builder: (_) => const _RouteErrorScreen(
+            message:
+                "Missing or invalid jobId for '/service/matching'.\n\n"
+                "Fix:\nNavigator.pushNamed(context, '/service/matching', arguments: jobId);",
+          ),
           settings: settings,
         );
-      }
 
-      return MaterialPageRoute(
-        builder: (_) => const _RouteErrorScreen(
-          message:
-              "Missing or invalid jobId for '/service/matching'.\n\n"
-              "Fix: Navigate like:\n"
-              "Navigator.pushNamed(context, '/service/matching', arguments: jobId);",
-        ),
-        settings: settings,
-      );
+      case '/admin/contractor_approval_detail_screen':
+        final args = settings.arguments;
+        if (args is String && args.trim().isNotEmpty) {
+          return MaterialPageRoute(
+            builder: (_) =>
+                admin_detail.ContractorApprovalDetailScreen(contractorId: args),
+            settings: settings,
+          );
+        }
+        return MaterialPageRoute(
+          builder: (_) => const _RouteErrorScreen(
+            message:
+                "Missing or invalid contractorId for '/admin/contractor_approval_detail_screen'.\n\n"
+                "Fix:\nNavigator.pushNamed(context, '/admin/contractor_approval_detail_screen', arguments: contractorId);",
+          ),
+          settings: settings,
+        );
 
-    // ✅ ADD THIS CASE
-    case '/provider/job_requests':
-      return MaterialPageRoute(
-        builder: (_) => const ProviderJobRequestsScreen(),
-        settings: settings,
-      );
-
-    default:
-      return null;
+      default:
+        return null;
+    }
   }
-}
 
   @override
   Widget build(BuildContext context) {
@@ -128,11 +126,7 @@ class MyApp extends StatelessWidget {
         fontFamily: 'Montserrat',
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.black),
       ),
-
-      // Home uses your AuthWrapper logic
       home: const AuthWrapper(),
-
-      // Routes WITHOUT required runtime arguments
       routes: {
         // AUTH
         '/welcome': (_) => const WelcomeScreen(),
@@ -179,18 +173,17 @@ class MyApp extends StatelessWidget {
         '/admin/create_admin_account_screen': (_) =>
             const CreateAdminAccountScreen(),
         '/admin/admin_settings_screen': (_) => const AdminSettingsScreen(),
-        '/admin/contractor_approval_screen': (_) =>
-            const ContractorApprovalScreen(),
-        '/admin/contractor_approval_detail_screen': (_) =>
-            const ContractorApprovalDetailScreen(contractorId: ''),
-        '/admin/admin_account_info_screen': (_) =>
-            const AdminAccountInfoScreen(),
+        '/admin/admin_account_info_screen': (_) => const AdminAccountInfoScreen(),
+
+        // ✅ FIXED: approval screen route must point to the LIST screen (no contractorId)
+        '/admin/contractor_approval_screen': (_) => const ContractorApprovalScreen(),
+
         '/admin/contracting_firms_information_screen': (_) =>
-            const ContractingFirmsInformationScreen(),
+            const admin_firms.ContractingFirmsInformationScreen(),
         '/admin/admin_change_password_screen': (_) =>
             const AdminChangePasswordScreen(),
 
-        // SERVICES – all use the generic ServiceRequestScreen
+        // SERVICES
         '/service/ac': (_) =>
             ServiceRequestScreen(config: ServiceRequestWrapper.acConfig),
         '/service/plumbing': (_) =>
@@ -202,20 +195,14 @@ class MyApp extends StatelessWidget {
         '/service/gardening': (_) =>
             ServiceRequestScreen(config: ServiceRequestWrapper.gardeningConfig),
         '/service/pest': (_) => ServiceRequestScreen(
-            config: ServiceRequestWrapper.pestControlConfig),
+              config: ServiceRequestWrapper.pestControlConfig,
+            ),
         '/service/appliances': (_) =>
             ServiceRequestScreen(config: ServiceRequestWrapper.appliancesConfig),
         '/service/cleaning': (_) =>
             ServiceRequestScreen(config: ServiceRequestWrapper.cleaningConfig),
-
-        // ❌ DO NOT put MatchingScreen here because it requires jobId at runtime
-        // '/service/matching': (_) => const MatchingScreen(),  <-- removed
       },
-
-      // ✅ Handles routes that need arguments (ex: MatchingScreen(jobId))
       onGenerateRoute: _onGenerateRoute,
-
-      // Optional: fallback for unknown routes
       onUnknownRoute: (settings) {
         return MaterialPageRoute(
           builder: (_) => _RouteErrorScreen(
@@ -227,38 +214,69 @@ class MyApp extends StatelessWidget {
   }
 }
 
-/// *********** AUTH WRAPPER ***********
-/// Decides which home screen to show based on auth + role.
 class AuthWrapper extends StatelessWidget {
   const AuthWrapper({super.key});
 
   Future<Widget> _getUserHome(User user) async {
     final uid = user.uid;
 
+    // 1) Email verification gate
     if (!user.emailVerified) {
       return const VerifyEmailScreen();
     }
 
+    // 2) Load users/{uid}
     final userDoc =
         await FirebaseFirestore.instance.collection('users').doc(uid).get();
     if (!userDoc.exists) return const WelcomeScreen();
 
-    final role = userDoc['role'];
-    final profileComplete = userDoc['profile_completed'] ?? false;
+    final role = userDoc.data()?['role'];
 
-    if (!profileComplete) {
-      if (role == 'client') return const ProfileClientScreen();
-      if (role == 'contractor') return const ProfileContractorFullScreen();
+    // 3) Role-based routing
+    if (role == 'client') {
+      final profileComplete = userDoc.data()?['profile_completed'] ?? false;
+      if (!profileComplete) return const ProfileClientScreen();
+      return const HomeClient();
     }
 
-    switch (role) {
-      case 'contractor':
+    if (role == 'provider') {
+      return const ProviderHomeScreen();
+    }
+
+    if (role == 'contractor') {
+      // ✅ Contractor gating based on contractors/{uid}.approvalStatus
+      final contractorDoc = await FirebaseFirestore.instance
+          .collection('contractors')
+          .doc(uid)
+          .get();
+
+      // If they haven't submitted the contractor application yet,
+      // send them to the contractor profile form.
+      if (!contractorDoc.exists) {
+        return const ProfileContractorFullScreen();
+      }
+
+      final data = contractorDoc.data() ?? {};
+      final approvalStatus = (data['approvalStatus'] ?? '').toString();
+
+      // Expected canonical:
+      // pending / approved / rejected
+      if (approvalStatus == 'approved') {
         return const HomeContractor();
-      case 'provider':
-        return const ProviderHomeScreen();
-      default:
-        return const WelcomeScreen();
+      }
+
+      if (approvalStatus == 'rejected') {
+        // Even if backend deletes auth+doc after email,
+        // show a clear message while it still exists.
+        final reason = (data['rejectionReason'] ?? '').toString();
+        return ContractorRejectedScreen(reason: reason);
+      }
+
+      // Default: pending (or missing/unknown)
+      return const ContractorPendingApprovalScreen();
     }
+
+    return const WelcomeScreen();
   }
 
   @override
@@ -284,7 +302,6 @@ class AuthWrapper extends StatelessWidget {
   }
 }
 
-/// *********** VERIFY EMAIL SCREEN ***********
 class VerifyEmailScreen extends StatelessWidget {
   const VerifyEmailScreen({super.key});
 
@@ -331,8 +348,145 @@ class VerifyEmailScreen extends StatelessWidget {
   }
 }
 
-/// A small helper screen used to show route errors clearly during development.
-/// This prevents cryptic crashes when a required argument isn't passed.
+/// ✅ New screen: Contractor pending approval (blocks access)
+class ContractorPendingApprovalScreen extends StatelessWidget {
+  const ContractorPendingApprovalScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        title: const Text(
+          'Pending Approval',
+          style: TextStyle(color: Colors.black, fontWeight: FontWeight.w700),
+        ),
+        centerTitle: true,
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(22),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.hourglass_top, size: 70, color: Colors.black),
+            const SizedBox(height: 14),
+            const Text(
+              'Your contractor application is under review.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'You will be able to log in once an admin approves your firm.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: OutlinedButton(
+                onPressed: () async {
+                  await FirebaseAuth.instance.signOut();
+                  Navigator.pushNamedAndRemoveUntil(
+                    context,
+                    '/login',
+                    (route) => false,
+                  );
+                },
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Colors.black),
+                ),
+                child: const Text(
+                  'Logout',
+                  style: TextStyle(
+                    color: Colors.black,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// ✅ New screen: Contractor rejected (blocks access)
+class ContractorRejectedScreen extends StatelessWidget {
+  final String reason;
+
+  const ContractorRejectedScreen({super.key, required this.reason});
+
+  @override
+  Widget build(BuildContext context) {
+    final cleanReason =
+        reason.trim().isEmpty ? 'No reason was provided.' : reason.trim();
+
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        title: const Text(
+          'Application Rejected',
+          style: TextStyle(color: Colors.black, fontWeight: FontWeight.w700),
+        ),
+        centerTitle: true,
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(22),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.cancel, size: 70, color: Colors.black),
+            const SizedBox(height: 14),
+            const Text(
+              'Your contractor application was rejected.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Reason: $cleanReason',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.black87),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: OutlinedButton(
+                onPressed: () async {
+                  await FirebaseAuth.instance.signOut();
+                  Navigator.pushNamedAndRemoveUntil(
+                    context,
+                    '/login',
+                    (route) => false,
+                  );
+                },
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Colors.black),
+                ),
+                child: const Text(
+                  'Logout',
+                  style: TextStyle(
+                    color: Colors.black,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _RouteErrorScreen extends StatelessWidget {
   final String message;
 

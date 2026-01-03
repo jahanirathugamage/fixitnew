@@ -1,5 +1,7 @@
-import 'package:flutter/material.dart';
+// lib\screens\admin\contractor_approval_detail_screen.dart
 
+import 'package:flutter/material.dart';
+import '../../backend/admin_api.dart';
 import '../../controllers/admin/contractor_approvals_controller.dart';
 import '../../models/admin/contractor_verification.dart';
 
@@ -76,9 +78,9 @@ class _ContractorApprovalDetailScreenState
     });
 
     try {
-      await _controller.approveContractor(
-        widget.contractorId,
-        _approveNote.text.trim(),
+      await AdminApi.approveContractor(
+        contractorId: widget.contractorId,
+        approvalNote: _approveNote.text.trim(),
       );
 
       if (!mounted) return;
@@ -107,9 +109,9 @@ class _ContractorApprovalDetailScreenState
     });
 
     try {
-      await _controller.rejectContractor(
-        widget.contractorId,
-        _rejectReason.text.trim(),
+      await AdminApi.rejectContractor(
+        contractorId: widget.contractorId,
+        rejectionReason: _rejectReason.text.trim(),
       );
 
       if (!mounted) return;

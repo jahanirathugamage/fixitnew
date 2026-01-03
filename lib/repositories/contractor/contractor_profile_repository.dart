@@ -26,8 +26,7 @@ class ContractorProfileRepository {
       throw Exception('No logged in user.');
     }
 
-    final doc =
-        await _firestore.collection('contractors').doc(u.uid).get();
+    final doc = await _firestore.collection('contractors').doc(u.uid).get();
 
     if (!doc.exists) return null;
     return ContractorProfileModel.fromMap(doc.data()!);
@@ -42,8 +41,13 @@ class ContractorProfileRepository {
       throw Exception('No authenticated user.');
     }
 
-    final data = profile.toMap()
-      ..['updatedAt'] = FieldValue.serverTimestamp();
+    // ✅ NEW: read existing contractor doc to decide whether to set pending
+    final contractorRef = _firestore.collection('contractors').doc(u.uid);
+    final existingSnap = await contractorRef.get();
+    final existingData =
+        existingSnap.exists ? (existingSnap.data() as Map<String, dynamic>) : null;
+
+    final data = profile.toMap()..['updatedAt'] = FieldValue.serverTimestamp();
 
     if (certBytes != null) {
       data['businessCertBase64'] = base64Encode(certBytes);
@@ -58,10 +62,17 @@ class ContractorProfileRepository {
       SetOptions(merge: true),
     );
 
-    await _firestore
-        .collection('contractors')
-        .doc(u.uid)
-        .set(data, SetOptions(merge: true));
+    // ✅ NEW: if approvalStatus not present yet, initialize as pending
+    final hasApprovalStatus =
+        existingData != null && existingData['approvalStatus'] != null;
+
+    if (!hasApprovalStatus) {
+      data['approvalStatus'] = 'pending';
+      data['verified'] = false; // keep for old UI/queries if any still rely on it
+      data['registeredAt'] = FieldValue.serverTimestamp();
+    }
+
+    await contractorRef.set(data, SetOptions(merge: true));
   }
 
   Future<void> deleteAccount() async {

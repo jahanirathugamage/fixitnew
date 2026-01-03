@@ -1,28 +1,24 @@
 // lib/screens/admin/contractor_approval_screen.dart
 
 import 'package:flutter/material.dart';
-
-import '../../controllers/admin/contractor_approvals_controller.dart';
-import '../../models/admin/contracting_firm.dart';
-import 'contractor_approval_detail_screen.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class ContractorApprovalScreen extends StatelessWidget {
   const ContractorApprovalScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final controller = ContractorApprovalsController();
+    final db = FirebaseFirestore.instance;
 
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        elevation: 0,
         backgroundColor: Colors.white,
+        elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios, color: Colors.black),
           onPressed: () => Navigator.pop(context),
         ),
-        centerTitle: true,
         title: const Text(
           'Registration Approvals',
           style: TextStyle(
@@ -31,8 +27,11 @@ class ContractorApprovalScreen extends StatelessWidget {
           ),
         ),
       ),
-      body: StreamBuilder<List<ContractingFirm>>(
-        stream: controller.pendingContractorsStream(),
+      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+        stream: db
+            .collection('contractors')
+            .where('verified', isEqualTo: false)
+            .snapshots(),
         builder: (context, snap) {
           if (snap.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -41,82 +40,73 @@ class ContractorApprovalScreen extends StatelessWidget {
           if (snap.hasError) {
             return Center(
               child: Text(
-                'Error: ${snap.error}',
+                'Failed to load: ${snap.error}',
                 style: const TextStyle(color: Colors.red),
               ),
             );
           }
 
-          final firms = snap.data ?? [];
+          final docs = snap.data?.docs ?? [];
 
-          if (firms.isEmpty) {
+          if (docs.isEmpty) {
             return const Center(
               child: Text(
-                'No pending firms.',
-                style: TextStyle(color: Colors.grey),
+                'No pending contractor registrations.',
+                style: TextStyle(fontWeight: FontWeight.w600),
               ),
             );
           }
 
           return ListView.separated(
-            itemCount: firms.length,
-            separatorBuilder: (_, unused) => const Divider(
-              height: 1,
-              color: Colors.black12,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            itemCount: docs.length,
+            separatorBuilder: (context, index) =>
+                const Divider(height: 18),
+            itemBuilder: (context, i) {
+              final doc = docs[i];
+              final data = doc.data();
 
-            itemBuilder: (_, i) {
-              final firm = firms[i];
+              final companyName =
+                  (data['companyName'] ?? 'Unknown Firm').toString();
+              final city =
+                  (data['companyCity'] ?? data['city'] ?? '').toString();
+              final email = (data['companyEmail'] ?? '').toString();
 
-              return Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                child: Row(
+              return ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(
+                  companyName,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: Colors.black,
+                  ),
+                ),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: Text(
-                        firm.companyName,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
+                    if (city.trim().isNotEmpty)
+                      Text(
+                        city,
+                        style: const TextStyle(color: Colors.black54),
                       ),
-                    ),
-                    SizedBox(
-                      height: 36,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.black,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 22,
-                            vertical: 8,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => ContractorApprovalDetailScreen(
-                                contractorId: firm.id,
-                              ),
-                            ),
-                          );
-                        },
-                        child: const Text(
-                          'Check',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
+                    if (email.trim().isNotEmpty)
+                      Text(
+                        email,
+                        style: const TextStyle(color: Colors.black54),
                       ),
-                    ),
                   ],
                 ),
+                trailing: const Icon(
+                  Icons.chevron_right,
+                  color: Colors.black87,
+                ),
+                onTap: () {
+                  Navigator.pushNamed(
+                    context,
+                    '/admin/contractor_approval_detail_screen',
+                    arguments: doc.id, // contractorId
+                  );
+                },
               );
             },
           );

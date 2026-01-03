@@ -1,8 +1,13 @@
+// lib\screens\auth\register_select.dart
+
 // ignore_for_file: use_build_context_synchronously
 
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+
+// ✅ ADDED (only change): for disabling contractor auth after registration
+import 'package:fixitnew/backend/admin_api.dart';
 
 class RegisterSelectScreen extends StatefulWidget {
   const RegisterSelectScreen({super.key});
@@ -77,6 +82,16 @@ class _RegisterSelectScreenState extends State<RegisterSelectScreen> {
 
       // 3️⃣ SEND VERIFICATION EMAIL
       await userCred.user!.sendEmailVerification();
+
+      // ✅ ONLY CHANGE: If contractor, disable auth user via backend
+      // (so they cannot sign in again until admin approves)
+      if (_selectedRole == "contractor") {
+        try {
+          await AdminApi.disableSelfContractorAuth();
+        } catch (_) {
+          // Non-fatal: registration + email verification flow should still continue
+        }
+      }
 
       // 4️⃣ GO TO OTP PAGE WITH ARGUMENTS ⭐ FIXED
       Navigator.pushNamed(
