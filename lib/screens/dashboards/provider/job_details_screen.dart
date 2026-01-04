@@ -1,22 +1,17 @@
+// lib/screens/dashboards/provider/job_details_screen.dart
+
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+
+import 'package:fixitnew/controllers/provider/provider_job_details_controller.dart';
+import 'package:fixitnew/models/jobs/job_request_model.dart';
 
 class ProviderJobDetailsScreen extends StatelessWidget {
   final String jobId;
   const ProviderJobDetailsScreen({super.key, required this.jobId});
 
-  String _fmtDateTime(Timestamp? ts) {
-    if (ts == null) return "—";
-    final d = ts.toDate();
-    final hh = d.hour % 12 == 0 ? 12 : d.hour % 12;
-    final ampm = d.hour >= 12 ? "PM" : "AM";
-    final mm = d.minute.toString().padLeft(2, "0");
-    return "Nov ${d.day} • $hh:$mm$ampm"; // keep simple; adjust if you want full month names
-  }
-
   @override
   Widget build(BuildContext context) {
-    final ref = FirebaseFirestore.instance.collection('jobRequest').doc(jobId);
+    final controller = ProviderJobDetailsController();
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -26,7 +21,7 @@ class ProviderJobDetailsScreen extends StatelessWidget {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black),
-          onPressed: () => Navigator.pop(context), // ✅ go back to previous page
+          onPressed: () => Navigator.pop(context),
         ),
         centerTitle: true,
         title: const Text(
@@ -37,25 +32,24 @@ class ProviderJobDetailsScreen extends StatelessWidget {
           ),
         ),
       ),
-      body: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-        stream: ref.snapshots(),
+      body: StreamBuilder<JobRequestModel?>(
+        stream: controller.watchJob(jobId),
         builder: (context, snap) {
           if (snap.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
-          if (!snap.hasData || !snap.data!.exists) {
+          final job = snap.data;
+          if (job == null) {
             return const Center(child: Text("Job not found"));
           }
 
-          final data = snap.data!.data() ?? {};
-          final clientId = (data['clientId'] ?? '').toString();
-          final scheduled = data['scheduledDate'] is Timestamp
-              ? data['scheduledDate'] as Timestamp
-              : null;
-          final whenText = _fmtDateTime(scheduled);
+          final whenText = controller.formatDateTime(job.scheduledDate);
+          final tasks = job.tasks;
 
-          final tasks =
-              (data['tasks'] is List) ? (data['tasks'] as List) : const [];
+          // Prefer clientName if available, else clientId.
+          final displayClient = job.clientName.trim().isNotEmpty
+              ? job.clientName.trim()
+              : (job.clientId.trim().isNotEmpty ? job.clientId.trim() : "Client");
 
           return SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
@@ -81,7 +75,7 @@ class ProviderJobDetailsScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            clientId.isEmpty ? "Client" : clientId,
+                            displayClient,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
@@ -177,7 +171,9 @@ class ProviderJobDetailsScreen extends StatelessWidget {
                       // Header row (black)
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 10),
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
                         decoration: const BoxDecoration(
                           color: Color(0xFF3A3A3A),
                           borderRadius: BorderRadius.vertical(
@@ -212,15 +208,16 @@ class ProviderJobDetailsScreen extends StatelessWidget {
                       ),
 
                       // Body rows
-                      ...tasks.map((t) {
-                        final m = (t is Map) ? t : {};
+                      ...tasks.map((m) {
                         final label =
                             (m['label'] ?? m['taskName'] ?? '').toString();
                         final qty = (m['quantity'] ?? 1).toString();
 
                         return Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 12),
+                            horizontal: 12,
+                            vertical: 12,
+                          ),
                           decoration: BoxDecoration(
                             border: Border(
                               top: BorderSide(

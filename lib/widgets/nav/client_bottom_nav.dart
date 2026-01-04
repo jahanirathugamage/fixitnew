@@ -39,6 +39,9 @@ class ClientBottomNav extends StatelessWidget {
               _go(context, '/dashboards/client/client_jobs');
               break;
             case 2:
+              _go(context, '/dashboards/client/client_job_requests');
+              break;
+            case 3:
               _go(context, '/dashboards/home_client');
               break;
           }
@@ -51,6 +54,10 @@ class ClientBottomNav extends StatelessWidget {
           BottomNavigationBarItem(
             icon: Icon(Icons.assignment),
             label: "Jobs",
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.receipt_long),
+            label: "Requests",
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.settings),

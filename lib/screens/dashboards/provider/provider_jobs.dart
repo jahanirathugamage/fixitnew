@@ -1,108 +1,22 @@
-// lib\screens\dashboards\provider\provider_jobs.dart
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+// lib/screens/dashboards/provider/provider_jobs.dart
+
 import 'package:flutter/material.dart';
-import 'package:fixitnew/widgets/nav/provider_bottom_nav.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:latlong2/latlong.dart';
+
+import 'package:fixitnew/controllers/provider/provider_jobs_controller.dart';
+import 'package:fixitnew/models/jobs/job_request_model.dart';
+import 'package:fixitnew/widgets/nav/provider_bottom_nav.dart';
 
 import 'navigation_screen.dart';
 import 'job_details_screen.dart';
 
-// dashboards/provider/provider_jobs.dart
-// REAL DATA version — keeps your UI, replaces hardcoded list.
-
 class ProviderJobsScreen extends StatelessWidget {
   const ProviderJobsScreen({super.key});
 
-  String _formatDateText(Timestamp? ts) {
-    if (ts == null) return "—";
-    final d = ts.toDate().toLocal();
-
-    const months = [
-      "Jan",
-      "Feb",
-      "Mar",
-      "Apr",
-      "May",
-      "Jun",
-      "Jul",
-      "Aug",
-      "Sep",
-      "Oct",
-      "Nov",
-      "Dec",
-    ];
-
-    final month = months[d.month - 1];
-    final day = d.day;
-
-    final hour12 = d.hour % 12 == 0 ? 12 : d.hour % 12;
-    final ampm = d.hour >= 12 ? "pm" : "am";
-    final mm = d.minute.toString().padLeft(2, "0");
-
-    // "Nov 12 · 10:00am"
-    return "$month $day · $hour12:$mm$ampm";
-  }
-
-  bool _isSameLocalDay(DateTime a, DateTime b) {
-    return a.year == b.year && a.month == b.month && a.day == b.day;
-  }
-
-  /// ✅ Only allow jobs for today (any time) and future dates.
-  /// If scheduledDate is missing, we skip (no assumptions).
-  bool _isTodayOrFuture(Timestamp? scheduledDate, DateTime nowLocal) {
-    if (scheduledDate == null) return false;
-
-    final jobLocal = scheduledDate.toDate().toLocal();
-    final startOfTodayLocal = DateTime(nowLocal.year, nowLocal.month, nowLocal.day);
-
-    // Include anything scheduled from 00:00 today onwards.
-    return !jobLocal.isBefore(startOfTodayLocal);
-  }
-
-  String _norm(String v) => v.trim().toLowerCase();
-
-  bool _isAccepted(String status) => _norm(status) == "accepted";
-
-  bool _isCancelled(String status) {
-    final s = _norm(status);
-    return s == "cancelled_by_provider" || s == "cancelled_by_client";
-  }
-
-  RightType _computeRightType({
-    required String status,
-    required Timestamp? scheduledDate,
-    required DateTime now,
-  }) {
-    // Cancelled pill always for cancelled statuses
-    if (_isCancelled(status)) return RightType.cancelledTag;
-
-    // For accepted jobs:
-    if (_isAccepted(status)) {
-      final jobDate = scheduledDate?.toDate().toLocal();
-      final isToday = jobDate != null && _isSameLocalDay(jobDate, now);
-
-      // ✅ Requirement:
-      // - Navigate only if same day
-      // - Cancel only if NOT same day
-      return isToday ? RightType.navigate : RightType.cancelButton;
-    }
-
-    // Not accepted/cancelled => don’t show on this page
-    return RightType.none;
-  }
-
-  LatLng? _readJobLatLng(Map<String, dynamic> data) {
-    // Uses GeoPoint from Firestore (no risky casting).
-    final v = data['location'];
-    if (v is GeoPoint) {
-      return LatLng(v.latitude, v.longitude);
-    }
-    return null; // If missing/not GeoPoint, we skip this job (no crash).
-  }
-
   @override
   Widget build(BuildContext context) {
+    final controller = ProviderJobsController();
     final user = FirebaseAuth.instance.currentUser;
 
     if (user == null) {
@@ -113,11 +27,6 @@ class ProviderJobsScreen extends StatelessWidget {
     }
 
     final uid = user.uid;
-    final now = DateTime.now().toLocal();
-
-    final query = FirebaseFirestore.instance
-        .collection('jobRequest')
-        .where('selectedProviderUid', isEqualTo: uid);
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -139,8 +48,8 @@ class ProviderJobsScreen extends StatelessWidget {
         ),
       ),
       body: SafeArea(
-        child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-          stream: query.snapshots(),
+        child: StreamBuilder<List<JobRequestModel>>(
+          stream: controller.watchProviderJobs(uid),
           builder: (context, snap) {
             if (snap.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
@@ -156,65 +65,9 @@ class ProviderJobsScreen extends StatelessWidget {
               );
             }
 
-            final docs = snap.data?.docs ?? [];
+            final jobs = snap.data ?? [];
 
-            // Build rows safely from Firestore docs
-            final rows = <_JobRowModel>[];
-
-            for (final doc in docs) {
-              final data = doc.data();
-
-              final clientName = (data['clientName'] ?? '').toString().trim();
-              final category = (data['category'] ?? '').toString().trim();
-              final status = (data['status'] ?? '').toString().trim();
-
-              final Timestamp? scheduledDate =
-                  (data['scheduledDate'] is Timestamp)
-                      ? data['scheduledDate'] as Timestamp
-                      : null;
-
-              // ✅ Filter: ONLY current date + future jobs
-              if (!_isTodayOrFuture(scheduledDate, now)) continue;
-
-              // Only show accepted or cancelled jobs here (no assumptions)
-              final showInThisPage = _isAccepted(status) || _isCancelled(status);
-              if (!showInThisPage) continue;
-
-              // Job location (required for navigation). If missing, skip to avoid errors.
-              final jobLatLng = _readJobLatLng(data);
-              if (jobLatLng == null) {
-                // ignore: avoid_print
-                print(
-                  "Skipping job ${doc.id}: missing/invalid 'location' GeoPoint.",
-                );
-                continue;
-              }
-
-              final rightType = _computeRightType(
-                status: status,
-                scheduledDate: scheduledDate,
-                now: now,
-              );
-
-              rows.add(
-                _JobRowModel(
-                  jobId: doc.id, // ✅ only ONCE
-                  scheduledMillis: scheduledDate?.millisecondsSinceEpoch ?? 0,
-                  job: JobCardData(
-                    clientName: clientName.isEmpty ? "Client" : clientName,
-                    dateText: _formatDateText(scheduledDate),
-                    category: category.isEmpty ? "—" : category,
-                    rightType: rightType,
-                    jobLatLng: jobLatLng,
-                  ),
-                ),
-              );
-            }
-
-            // Sort by scheduledDate ascending (soonest first). If missing, goes top (0).
-            rows.sort((a, b) => a.scheduledMillis.compareTo(b.scheduledMillis));
-
-            if (rows.isEmpty) {
+            if (jobs.isEmpty) {
               return const Center(
                 child: Text(
                   "No scheduled jobs.",
@@ -229,140 +82,121 @@ class ProviderJobsScreen extends StatelessWidget {
 
             return ListView.separated(
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-              itemCount: rows.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 18), // ✅ fixed
+              itemCount: jobs.length,
+              separatorBuilder: (context, index) => const SizedBox(height: 18),
               itemBuilder: (context, index) {
-                final row = rows[index];
-                return JobCard(
-                  job: row.job,
-                  jobId: row.jobId,
+                final j = jobs[index];
+
+                final clientName = j.clientName.trim().isNotEmpty
+                    ? j.clientName.trim()
+                    : (j.clientId.trim().isNotEmpty ? j.clientId.trim() : "Client");
+
+                final dateText = controller.formatDateText(j.scheduledDate);
+
+                final category = j.category.trim().isEmpty ? "—" : j.category.trim();
+
+                final rightType = controller.computeRightType(
+                  status: j.status,
+                  scheduledDate: j.scheduledDate,
+                  now: DateTime.now().toLocal(),
+                );
+
+                final LatLng? jobLatLng = controller.readJobLatLng(j.location);
+
+                return Column(
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Left content
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                clientName,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.black,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              _MetaRow(icon: Icons.access_time, text: dateText),
+                              const SizedBox(height: 6),
+                              _MetaRow(icon: Icons.build_outlined, text: category),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+
+                        _RightWidget(
+                          type: rightType,
+                          onNavigate: () {
+                            if (jobLatLng == null) return;
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => ProviderNavigationScreen(
+                                  jobId: j.id,
+                                  jobLatLng: jobLatLng,
+                                ),
+                              ),
+                            );
+                          },
+                          onCancel: () {
+                            // left empty by design (no assumptions)
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+
+                    SizedBox(
+                      width: double.infinity,
+                      height: 44,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => ProviderJobDetailsScreen(jobId: j.id),
+                            ),
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.black,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        child: const Text(
+                          'View Job Details',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+                    const Divider(height: 1, thickness: 1, color: Color(0xFFE9E9E9)),
+                  ],
                 );
               },
             );
           },
         ),
       ),
-      bottomNavigationBar: const ProviderBottomNav(
-        currentIndex: 0,
-      ),
+      bottomNavigationBar: const ProviderBottomNav(currentIndex: 0),
     );
   }
 }
 
-class _JobRowModel {
-  final String jobId;
-  final int scheduledMillis;
-  final JobCardData job;
-
-  _JobRowModel({
-    required this.jobId,
-    required this.scheduledMillis,
-    required this.job,
-  });
-}
-
-class JobCard extends StatelessWidget {
-  const JobCard({super.key, required this.job, required this.jobId});
-
-  final JobCardData job;
-  final String jobId;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Left content
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    job.clientName,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.black,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  MetaRow(
-                    icon: Icons.access_time,
-                    text: job.dateText,
-                  ),
-                  const SizedBox(height: 6),
-                  MetaRow(
-                    icon: Icons.build_outlined,
-                    text: job.category,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-
-            // Right action area
-            RightWidget(
-              type: job.rightType,
-              onNavigate: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => ProviderNavigationScreen(
-                      jobId: jobId, // ✅ ADD
-                      jobLatLng: job.jobLatLng,
-                    ),
-                  ),
-                );
-              },
-              onCancel: () {
-                // Later: cancel logic (kept empty to avoid assumptions)
-              },
-            ),
-          ],
-        ),
-        const SizedBox(height: 14),
-
-        // ✅ View Job Details button → open same details screen using THIS jobId
-        SizedBox(
-          width: double.infinity,
-          height: 44,
-          child: ElevatedButton(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => ProviderJobDetailsScreen(jobId: jobId),
-                ),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.black,
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            child: const Text(
-              'View Job Details',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ),
-
-        const SizedBox(height: 12),
-        const Divider(height: 1, thickness: 1, color: Color(0xFFE9E9E9)),
-      ],
-    );
-  }
-}
-
-class MetaRow extends StatelessWidget {
-  const MetaRow({super.key, required this.icon, required this.text});
+class _MetaRow extends StatelessWidget {
+  const _MetaRow({required this.icon, required this.text});
 
   final IconData icon;
   final String text;
@@ -389,11 +223,8 @@ class MetaRow extends StatelessWidget {
   }
 }
 
-enum RightType { navigate, cancelButton, cancelledTag, none }
-
-class RightWidget extends StatelessWidget {
-  const RightWidget({
-    super.key,
+class _RightWidget extends StatelessWidget {
+  const _RightWidget({
     required this.type,
     required this.onNavigate,
     required this.onCancel,
@@ -407,26 +238,19 @@ class RightWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     switch (type) {
       case RightType.navigate:
-        return FilledPillButton(text: 'Navigate', onPressed: onNavigate);
-
+        return _FilledPillButton(text: 'Navigate', onPressed: onNavigate);
       case RightType.cancelButton:
-        return OutlinedPillButton(text: 'Cancel', onPressed: onCancel);
-
+        return _OutlinedPillButton(text: 'Cancel', onPressed: onCancel);
       case RightType.cancelledTag:
-        return const FixedStatusPill(text: 'Cancelled');
-
+        return const _FixedStatusPill(text: 'Cancelled');
       case RightType.none:
         return const SizedBox.shrink();
     }
   }
 }
 
-class FilledPillButton extends StatelessWidget {
-  const FilledPillButton({
-    super.key,
-    required this.text,
-    required this.onPressed,
-  });
+class _FilledPillButton extends StatelessWidget {
+  const _FilledPillButton({required this.text, required this.onPressed});
 
   final String text;
   final VoidCallback onPressed;
@@ -441,28 +265,19 @@ class FilledPillButton extends StatelessWidget {
           backgroundColor: Colors.black,
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
         child: Text(
           text,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w600,
-          ),
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
         ),
       ),
     );
   }
 }
 
-class OutlinedPillButton extends StatelessWidget {
-  const OutlinedPillButton({
-    super.key,
-    required this.text,
-    required this.onPressed,
-  });
+class _OutlinedPillButton extends StatelessWidget {
+  const _OutlinedPillButton({required this.text, required this.onPressed});
 
   final String text;
   final VoidCallback onPressed;
@@ -476,24 +291,19 @@ class OutlinedPillButton extends StatelessWidget {
         style: OutlinedButton.styleFrom(
           padding: const EdgeInsets.symmetric(horizontal: 18),
           side: const BorderSide(color: Colors.black, width: 1.4),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
         child: Text(
           text,
-          style: const TextStyle(
-            color: Colors.black,
-            fontWeight: FontWeight.w600,
-          ),
+          style: const TextStyle(color: Colors.black, fontWeight: FontWeight.w600),
         ),
       ),
     );
   }
 }
 
-class FixedStatusPill extends StatelessWidget {
-  const FixedStatusPill({super.key, required this.text});
+class _FixedStatusPill extends StatelessWidget {
+  const _FixedStatusPill({required this.text});
 
   final String text;
 
@@ -509,27 +319,8 @@ class FixedStatusPill extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: const TextStyle(
-          color: Colors.black54,
-          fontWeight: FontWeight.w700,
-        ),
+        style: const TextStyle(color: Colors.black54, fontWeight: FontWeight.w700),
       ),
     );
   }
-}
-
-class JobCardData {
-  final String clientName;
-  final String dateText;
-  final String category;
-  final RightType rightType;
-  final LatLng jobLatLng;
-
-  const JobCardData({
-    required this.clientName,
-    required this.dateText,
-    required this.category,
-    required this.rightType,
-    required this.jobLatLng,
-  });
 }

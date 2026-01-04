@@ -7,58 +7,59 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 
-import 'firebase_options.dart';
+import 'package:fixitnew/firebase_options.dart';
 
 // AUTH SCREENS
-import 'screens/welcome_screen.dart';
-import 'screens/auth/login_screen.dart';
-import 'screens/auth/forgot_password.dart';
-import 'screens/auth/register_select.dart';
-import 'screens/auth/otp_verification_screen.dart';
+import 'package:fixitnew/screens/welcome_screen.dart';
+import 'package:fixitnew/screens/auth/login_screen.dart';
+import 'package:fixitnew/screens/auth/forgot_password.dart';
+import 'package:fixitnew/screens/auth/register_select.dart';
+import 'package:fixitnew/screens/auth/otp_verification_screen.dart';
 
 // PROFILE SCREENS
-import 'screens/profile/profile_client_screen.dart';
-import 'screens/profile/profile_contractor_full_screen.dart';
-import 'screens/profile/add_provider_screen.dart';
+import 'package:fixitnew/screens/profile/profile_client_screen.dart';
+import 'package:fixitnew/screens/profile/profile_contractor_full_screen.dart';
+import 'package:fixitnew/screens/profile/add_provider_screen.dart';
 
 // DASHBOARDS – CLIENT
-import 'screens/dashboards/home_client.dart';
-import 'screens/dashboards/client/home_screen.dart';
-import 'screens/dashboards/client/client_jobs.dart';
-import 'screens/dashboards/client/change_client_password.dart';
-import 'screens/dashboards/client/update_client_profile.dart';
+import 'package:fixitnew/screens/dashboards/home_client.dart';
+import 'package:fixitnew/screens/dashboards/client/home_screen.dart';
+import 'package:fixitnew/screens/dashboards/client/client_jobs.dart';
+import 'package:fixitnew/screens/dashboards/client/change_client_password.dart';
+import 'package:fixitnew/screens/dashboards/client/update_client_profile.dart';
+import 'package:fixitnew/screens/dashboards/client/client_job_requests.dart';
 
 // DASHBOARDS – CONTRACTOR
-import 'screens/dashboards/home_contractor.dart';
-import 'screens/dashboards/contractor/contractor_account_info.dart';
-import 'screens/dashboards/contractor/contractor_jobs.dart';
-import 'screens/dashboards/contractor/contractor_service_providers.dart';
-import 'screens/dashboards/contractor/contractor_bank_details.dart';
-import 'screens/dashboards/contractor/change_contractor_password_screen.dart';
-import 'screens/dashboards/contractor/update_contractor_profile.dart';
+import 'package:fixitnew/screens/dashboards/home_contractor.dart';
+import 'package:fixitnew/screens/dashboards/contractor/contractor_account_info.dart';
+import 'package:fixitnew/screens/dashboards/contractor/contractor_jobs.dart';
+import 'package:fixitnew/screens/dashboards/contractor/contractor_service_providers.dart';
+import 'package:fixitnew/screens/dashboards/contractor/change_contractor_password_screen.dart';
+import 'package:fixitnew/screens/dashboards/contractor/update_contractor_profile.dart';
+import 'package:fixitnew/screens/dashboards/contractor/update_provider_screen.dart';
 
 // DASHBOARDS – PROVIDER
-import 'screens/dashboards/provider/update_provider_screen.dart';
-import 'screens/dashboards/provider_home_screen.dart';
-import 'screens/dashboards/provider/provider_jobs.dart';
-import 'screens/dashboards/provider/job_requests_screen.dart';
+import 'package:fixitnew/screens/dashboards/provider_home_screen.dart';
+import 'package:fixitnew/screens/dashboards/provider/provider_jobs.dart';
+import 'package:fixitnew/screens/dashboards/provider/job_requests_screen.dart';
 
 // ADMIN SCREENS
-import 'screens/admin/create_admin_account_screen.dart';
-import 'screens/admin/admin_settings_screen.dart';
-import 'screens/admin/admin_account_info_screen.dart';
-import 'screens/admin/admin_change_password_screen.dart';
-import 'screens/admin/contractor_approval_detail_screen.dart' as admin_detail;
-import 'screens/admin/contractor_approval_screen.dart';
-import 'screens/admin/contracting_firms_information_screen.dart'
+import 'package:fixitnew/screens/admin/create_admin_account_screen.dart';
+import 'package:fixitnew/screens/admin/admin_settings_screen.dart';
+import 'package:fixitnew/screens/admin/admin_account_info_screen.dart';
+import 'package:fixitnew/screens/admin/admin_change_password_screen.dart';
+import 'package:fixitnew/screens/admin/contractor_approval_detail_screen.dart'
+    as admin_detail;
+import 'package:fixitnew/screens/admin/contractor_approval_screen.dart';
+import 'package:fixitnew/screens/admin/contracting_firms_information_screen.dart'
     as admin_firms;
 
 // MATCHING
-import 'screens/services/matching_screen.dart';
+import 'package:fixitnew/screens/services/matching_screen.dart';
 
 // NEW GENERIC SERVICE REQUEST FLOW
-import 'screens/services/service_request_screen.dart';
-import 'screens/services/service_request_wrapper.dart';
+import 'package:fixitnew/screens/services/service_request_screen.dart';
+import 'package:fixitnew/screens/services/service_request_wrapper.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -144,6 +145,8 @@ class MyApp extends StatelessWidget {
         '/dashboards/home_client': (_) => const HomeClient(),
         '/dashboards/client/home_screen': (_) => const HomeScreen(),
         '/dashboards/client/client_jobs': (_) => const ClientJobsScreen(),
+        '/dashboards/client/client_job_requests': (_) =>
+            const ClientJobRequestsScreen(),
         '/dashboards/client/update_client_profile': (_) =>
             const UpdateClientProfile(),
         '/dashboards/client/change_client_password': (_) =>
@@ -156,8 +159,11 @@ class MyApp extends StatelessWidget {
         '/dashboards/contractor/contractor_jobs': (_) => const ContractorJobs(),
         '/dashboards/contractor/contractor_service_providers': (_) =>
             const ContractorServiceProviders(),
-        '/dashboards/contractor/contractor_bank_details': (_) =>
-            const ContractorBankDetails(),
+
+        // IMPORTANT: this must match the class in update_provider_screen.dart
+        '/dashboards/contractor/update_provider_screen': (_) =>
+            const UpdateProviderScreen(),
+
         '/dashboards/contractor/change_contractor_password': (_) =>
             const ChangeContractorPasswordScreen(),
         '/dashboards/contractor/update_contractor_profile': (_) =>
@@ -165,19 +171,18 @@ class MyApp extends StatelessWidget {
 
         // PROVIDER DASHBOARD
         '/dashboards/provider_home_screen': (_) => const ProviderHomeScreen(),
-        '/dashboards/provider/update_profile': (_) => const UpdateProviderScreen(),
         '/provider/provider_jobs': (_) => const ProviderJobsScreen(),
-        '/provider/job_requests_screen': (_) => const ProviderJobRequestsScreen(),
+        '/provider/job_requests_screen': (_) =>
+            const ProviderJobRequestsScreen(),
 
         // ADMIN
         '/admin/create_admin_account_screen': (_) =>
             const CreateAdminAccountScreen(),
         '/admin/admin_settings_screen': (_) => const AdminSettingsScreen(),
-        '/admin/admin_account_info_screen': (_) => const AdminAccountInfoScreen(),
-
-        // ✅ FIXED: approval screen route must point to the LIST screen (no contractorId)
-        '/admin/contractor_approval_screen': (_) => const ContractorApprovalScreen(),
-
+        '/admin/admin_account_info_screen': (_) =>
+            const AdminAccountInfoScreen(),
+        '/admin/contractor_approval_screen': (_) =>
+            const ContractorApprovalScreen(),
         '/admin/contracting_firms_information_screen': (_) =>
             const admin_firms.ContractingFirmsInformationScreen(),
         '/admin/admin_change_password_screen': (_) =>
@@ -220,19 +225,16 @@ class AuthWrapper extends StatelessWidget {
   Future<Widget> _getUserHome(User user) async {
     final uid = user.uid;
 
-    // 1) Email verification gate
     if (!user.emailVerified) {
       return const VerifyEmailScreen();
     }
 
-    // 2) Load users/{uid}
     final userDoc =
         await FirebaseFirestore.instance.collection('users').doc(uid).get();
     if (!userDoc.exists) return const WelcomeScreen();
 
     final role = userDoc.data()?['role'];
 
-    // 3) Role-based routing
     if (role == 'client') {
       final profileComplete = userDoc.data()?['profile_completed'] ?? false;
       if (!profileComplete) return const ProfileClientScreen();
@@ -244,14 +246,11 @@ class AuthWrapper extends StatelessWidget {
     }
 
     if (role == 'contractor') {
-      // ✅ Contractor gating based on contractors/{uid}.approvalStatus
       final contractorDoc = await FirebaseFirestore.instance
           .collection('contractors')
           .doc(uid)
           .get();
 
-      // If they haven't submitted the contractor application yet,
-      // send them to the contractor profile form.
       if (!contractorDoc.exists) {
         return const ProfileContractorFullScreen();
       }
@@ -259,20 +258,15 @@ class AuthWrapper extends StatelessWidget {
       final data = contractorDoc.data() ?? {};
       final approvalStatus = (data['approvalStatus'] ?? '').toString();
 
-      // Expected canonical:
-      // pending / approved / rejected
       if (approvalStatus == 'approved') {
         return const HomeContractor();
       }
 
       if (approvalStatus == 'rejected') {
-        // Even if backend deletes auth+doc after email,
-        // show a clear message while it still exists.
         final reason = (data['rejectionReason'] ?? '').toString();
         return ContractorRejectedScreen(reason: reason);
       }
 
-      // Default: pending (or missing/unknown)
       return const ContractorPendingApprovalScreen();
     }
 
@@ -348,7 +342,6 @@ class VerifyEmailScreen extends StatelessWidget {
   }
 }
 
-/// ✅ New screen: Contractor pending approval (blocks access)
 class ContractorPendingApprovalScreen extends StatelessWidget {
   const ContractorPendingApprovalScreen({super.key});
 
@@ -415,7 +408,6 @@ class ContractorPendingApprovalScreen extends StatelessWidget {
   }
 }
 
-/// ✅ New screen: Contractor rejected (blocks access)
 class ContractorRejectedScreen extends StatelessWidget {
   final String reason;
 

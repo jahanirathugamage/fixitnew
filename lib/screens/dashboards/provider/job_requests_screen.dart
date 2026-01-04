@@ -1,59 +1,23 @@
-import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
+// lib/screens/dashboards/provider/job_requests_screen.dart
 
+import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
+import 'package:fixitnew/controllers/provider/provider_job_requests_controller.dart';
+import 'package:fixitnew/models/jobs/job_request_model.dart';
 import 'package:fixitnew/widgets/nav/provider_bottom_nav.dart';
+
 import 'job_details_screen.dart';
 
 class ProviderJobRequestsScreen extends StatelessWidget {
   const ProviderJobRequestsScreen({super.key});
 
-  String _fmtDateTime(Timestamp? ts) {
-    if (ts == null) return "—";
-    final d = ts.toDate();
-    final hh = d.hour % 12 == 0 ? 12 : d.hour % 12;
-    final ampm = d.hour >= 12 ? "PM" : "AM";
-    final mm = d.minute.toString().padLeft(2, "0");
-    return "${d.month}/${d.day} • $hh:$mm$ampm";
-  }
-
-  bool _isRequestStatus(String status) {
-    final s = status.trim().toLowerCase();
-    return s == "requested" || s == "holding";
-  }
-
-  Future<void> _respond({
-    required BuildContext context,
-    required String jobId,
-    required String status, // "accepted" | "declined"
-  }) async {
-    final doc = FirebaseFirestore.instance.collection('jobRequest').doc(jobId);
-
-    await doc.update({
-      'status': status,
-      'providerDecisionAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
-
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(status == "accepted" ? "✅ Accepted" : "❌ Declined"),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
+    final controller = ProviderJobRequestsController();
+
     final user = FirebaseAuth.instance.currentUser;
     final uid = user?.uid;
-
-    final projectId = Firebase.app().options.projectId;
-    debugPrint("🔥 FIREBASE PROJECT ID (runtime) => $projectId");
-
-    // ignore: avoid_print
-    print("PROVIDER UID => $uid");
 
     if (uid == null) {
       return const Scaffold(
@@ -66,10 +30,6 @@ class ProviderJobRequestsScreen extends StatelessWidget {
         ),
       );
     }
-
-    final query = FirebaseFirestore.instance
-        .collection('jobRequest')
-        .where('selectedProviderUid', isEqualTo: uid);
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -90,15 +50,14 @@ class ProviderJobRequestsScreen extends StatelessWidget {
           ),
         ),
       ),
-      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-        stream: query.snapshots(),
+      body: StreamBuilder<List<JobRequestModel>>(
+        stream: controller.watchRequests(uid),
         builder: (context, snap) {
           if (snap.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
 
           if (snap.hasError) {
-            debugPrint("JOB REQUESTS STREAM ERROR => ${snap.error}");
             return Center(
               child: Text(
                 "Error: ${snap.error}",
@@ -107,32 +66,12 @@ class ProviderJobRequestsScreen extends StatelessWidget {
             );
           }
 
-          final allDocs = snap.data?.docs ?? [];
-
-          final docs = allDocs.where((d) {
-            final data = d.data();
-            final status = (data['status'] ?? '').toString();
-            return _isRequestStatus(status);
-          }).toList();
-
-          docs.sort((a, b) {
-            final ad = a.data();
-            final bd = b.data();
-            final ats = ad['scheduledDate'] is Timestamp
-                ? ad['scheduledDate'] as Timestamp
-                : null;
-            final bts = bd['scheduledDate'] is Timestamp
-                ? bd['scheduledDate'] as Timestamp
-                : null;
-            final am = ats?.millisecondsSinceEpoch ?? 0;
-            final bm = bts?.millisecondsSinceEpoch ?? 0;
-            return bm.compareTo(am);
-          });
+          final docs = snap.data ?? [];
 
           if (docs.isEmpty) {
             return const Center(
               child: Text(
-                "No job requests.",
+                "No Job Requests.",
                 style: TextStyle(
                   fontFamily: "Montserrat",
                   fontWeight: FontWeight.w700,
@@ -144,23 +83,18 @@ class ProviderJobRequestsScreen extends StatelessWidget {
           return ListView.separated(
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
             itemCount: docs.length,
-            // ✅ Fix 1: remove unnecessary "__" underscore pattern
             separatorBuilder: (context, index) => const SizedBox(height: 18),
             itemBuilder: (context, i) {
-              final d = docs[i];
-              final data = d.data();
+              final j = docs[i];
 
-              final category = (data['category'] ?? '').toString().trim();
-              final scheduled = data['scheduledDate'] is Timestamp
-                  ? data['scheduledDate'] as Timestamp
-                  : null;
-              final whenText = _fmtDateTime(scheduled);
+              final category = j.category.trim().isEmpty ? "—" : j.category.trim();
+              final whenText = controller.formatDateTime(j.scheduledDate);
 
-              final clientName = (data['clientName'] ?? '').toString().trim();
-              final name = clientName.isEmpty ? "Client" : clientName;
+              final name = j.clientName.trim().isNotEmpty
+                  ? j.clientName.trim()
+                  : (j.clientId.trim().isNotEmpty ? j.clientId.trim() : "Client");
 
-              final status =
-                  (data['status'] ?? '').toString().trim().toLowerCase();
+              final status = j.status.trim().toLowerCase();
               final canRespond = status == "holding" || status == "requested";
 
               return Column(
@@ -174,7 +108,7 @@ class ProviderJobRequestsScreen extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              name, // ✅ fetched from Firestore (clientName)
+                              name,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
@@ -187,11 +121,7 @@ class ProviderJobRequestsScreen extends StatelessWidget {
                             const SizedBox(height: 8),
                             Row(
                               children: [
-                                Icon(
-                                  Icons.schedule,
-                                  size: 14,
-                                  color: Colors.grey.shade700,
-                                ),
+                                Icon(Icons.schedule, size: 14, color: Colors.grey.shade700),
                                 const SizedBox(width: 6),
                                 Flexible(
                                   child: Text(
@@ -211,15 +141,11 @@ class ProviderJobRequestsScreen extends StatelessWidget {
                             const SizedBox(height: 6),
                             Row(
                               children: [
-                                Icon(
-                                  Icons.home_repair_service,
-                                  size: 14,
-                                  color: Colors.grey.shade700,
-                                ),
+                                Icon(Icons.home_repair_service, size: 14, color: Colors.grey.shade700),
                                 const SizedBox(width: 6),
                                 Expanded(
                                   child: Text(
-                                    category.isEmpty ? "—" : category,
+                                    category,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
@@ -243,24 +169,24 @@ class ProviderJobRequestsScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           SizedBox(
-                            width: 100, // ✅ slightly wider to prevent wrapping
+                            width: 100,
                             height: 34,
                             child: ElevatedButton(
                               onPressed: canRespond
-                                  ? () => _respond(
-                                        context: context,
-                                        jobId: d.id,
-                                        status: "accepted",
-                                      )
+                                  ? () async {
+                                      await controller.respond(jobId: j.id, status: "accepted");
+                                      if (!context.mounted) return;
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(content: Text("✅ Accepted")),
+                                      );
+                                    }
                                   : null,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.black,
-                                // ✅ Fix 2: withOpacity deprecated -> withValues(alpha: ...)
-                                disabledBackgroundColor:
-                                    Colors.black.withValues(alpha: 0.35),
+                                disabledBackgroundColor: Colors.black.withValues(alpha: 0.35),
                                 foregroundColor: Colors.white,
                                 elevation: 0,
-                                padding: EdgeInsets.zero, // ✅ keeps text centered
+                                padding: EdgeInsets.zero,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(10),
                                 ),
@@ -282,23 +208,21 @@ class ProviderJobRequestsScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 10),
                           SizedBox(
-                            width:
-                                100, // ✅ slightly wider to prevent "Decline" wrapping
+                            width: 100,
                             height: 34,
                             child: OutlinedButton(
                               onPressed: canRespond
-                                  ? () => _respond(
-                                        context: context,
-                                        jobId: d.id,
-                                        status: "declined",
-                                      )
+                                  ? () async {
+                                      await controller.respond(jobId: j.id, status: "declined");
+                                      if (!context.mounted) return;
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(content: Text("❌ Declined")),
+                                      );
+                                    }
                                   : null,
                               style: OutlinedButton.styleFrom(
-                                side: const BorderSide(
-                                  color: Colors.black,
-                                  width: 1.2,
-                                ),
-                                padding: EdgeInsets.zero, // ✅ keeps text centered
+                                side: const BorderSide(color: Colors.black, width: 1.2),
+                                padding: EdgeInsets.zero,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(10),
                                 ),
@@ -326,7 +250,7 @@ class ProviderJobRequestsScreen extends StatelessWidget {
 
                   const SizedBox(height: 12),
 
-                  // View Job Details button (full width)
+                  // View Job Details button
                   SizedBox(
                     width: double.infinity,
                     height: 44,
@@ -335,8 +259,7 @@ class ProviderJobRequestsScreen extends StatelessWidget {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) =>
-                                ProviderJobDetailsScreen(jobId: d.id),
+                            builder: (_) => ProviderJobDetailsScreen(jobId: j.id),
                           ),
                         );
                       },
@@ -359,21 +282,15 @@ class ProviderJobRequestsScreen extends StatelessWidget {
                   ),
 
                   const SizedBox(height: 12),
-                  const Divider(
-                    height: 1,
-                    thickness: 1,
-                    color: Color(0xFFE9E9E9),
-                  ),
+                  const Divider(height: 1, thickness: 1, color: Color(0xFFE9E9E9)),
                 ],
               );
             },
           );
         },
       ),
-
-      // ✅ REUSABLE PROVIDER NAVIGATION (same pattern as provider_jobs.dart)
       bottomNavigationBar: const ProviderBottomNav(
-        currentIndex: 1, // Requests tab (adjust if your nav order differs)
+        currentIndex: 1,
       ),
     );
   }

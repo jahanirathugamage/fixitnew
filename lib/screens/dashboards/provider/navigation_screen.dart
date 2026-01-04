@@ -149,7 +149,7 @@ class _ProviderNavigationScreenState extends State<ProviderNavigationScreen> {
           ? const Center(child: CircularProgressIndicator())
           : Stack(
               children: [
-                // MAP (full screen) - unchanged behavior
+                // MAP (full screen) - DO NOT CHANGE
                 FlutterMap(
                   mapController: _mapController,
                   options: MapOptions(
@@ -212,48 +212,65 @@ class _ProviderNavigationScreenState extends State<ProviderNavigationScreen> {
                   ],
                 ),
 
-                // TOP BAR (single pill that includes back + text) - matches screenshot
+                // TOP CARD (exact layout like screenshot)
                 Positioned(
-                  top: 8,
-                  left: 8,
-                  right: 8,
+                  top: 10,
+                  left: 10,
+                  right: 10,
                   child: SafeArea(
                     bottom: false,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 8,
+                        horizontal: 12,
+                        vertical: 12,
                       ),
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(18),
+                        borderRadius: BorderRadius.circular(20),
                         boxShadow: const [
                           BoxShadow(
                             blurRadius: 18,
                             offset: Offset(0, 6),
-                            color: Color.fromARGB(30, 0, 0, 0),
+                            color: Color.fromARGB(35, 0, 0, 0),
                           ),
                         ],
                       ),
                       child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          // back button inside the same bar
-                          Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(14),
-                              onTap: () => Navigator.pop(context),
-                              child: const Padding(
-                                padding: EdgeInsets.all(10),
-                                child: Icon(
-                                  Icons.arrow_back_ios_new,
-                                  size: 18,
-                                  color: Colors.black,
+                          // Back button (round) inside the card
+                          Container(
+                            decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.white,
+                              boxShadow: [
+                                BoxShadow(
+                                  blurRadius: 12,
+                                  offset: Offset(0, 4),
+                                  color: Color.fromARGB(30, 0, 0, 0),
+                                ),
+                              ],
+                            ),
+                            child: Material(
+                              color: Colors.transparent,
+                              shape: const CircleBorder(),
+                              child: InkWell(
+                                customBorder: const CircleBorder(),
+                                onTap: () => Navigator.pop(context),
+                                child: const Padding(
+                                  padding: EdgeInsets.all(12),
+                                  child: Icon(
+                                    Icons.arrow_back_ios_new,
+                                    size: 18,
+                                    color: Colors.black,
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                          const SizedBox(width: 6),
+
+                          const SizedBox(width: 12),
+
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -263,21 +280,21 @@ class _ProviderNavigationScreenState extends State<ProviderNavigationScreen> {
                                   _fmtEta(_state.durationSeconds),
                                   style: const TextStyle(
                                     fontFamily: "Montserrat",
-                                    fontSize: 18,
+                                    fontSize: 26,
                                     fontWeight: FontWeight.w800,
                                     color: Colors.black,
-                                    height: 1.1,
+                                    height: 1.0,
                                   ),
                                 ),
-                                const SizedBox(height: 2),
+                                const SizedBox(height: 6),
                                 Text(
                                   "Arrival time · $arrival",
                                   style: const TextStyle(
                                     fontFamily: "Montserrat",
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.black54,
-                                    height: 1.1,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                    color: Colors.black87,
+                                    height: 1.0,
                                   ),
                                 ),
                               ],
@@ -289,186 +306,145 @@ class _ProviderNavigationScreenState extends State<ProviderNavigationScreen> {
                   ),
                 ),
 
-                // BOTTOM PANEL (smaller default area)
+                // BOTTOM CARD (exact like screenshot: client info + black button)
                 Align(
                   alignment: Alignment.bottomCenter,
-                  child: DraggableScrollableSheet(
-                    initialChildSize: 0.19,
-                    minChildSize: 0.16,
-                    maxChildSize: 0.50,
-                    builder: (context, scrollController) {
-                      return Container(
-                        padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
-                        decoration: const BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.vertical(
-                            top: Radius.circular(22),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              blurRadius: 22,
-                              offset: Offset(0, -6),
-                              color: Color.fromARGB(25, 0, 0, 0),
-                            ),
-                          ],
+                  child: SafeArea(
+                    top: false,
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.vertical(
+                          top: Radius.circular(24),
                         ),
-                        child: ListView(
-                          controller: scrollController,
-                          children: [
-                            Center(
-                              child: Container(
-                                width: 44,
-                                height: 5,
-                                margin: const EdgeInsets.only(bottom: 12),
-                                decoration: BoxDecoration(
-                                  color: Colors.black12,
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                              ),
-                            ),
-
-                            // Client row
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(12),
-                                  child: Container(
-                                    width: 56,
-                                    height: 56,
-                                    color: Colors.grey.shade200,
-                                    child: (_state.clientPhotoUrl != null)
-                                        ? Image.network(
-                                            _state.clientPhotoUrl!,
-                                            fit: BoxFit.cover,
-                                            errorBuilder: (context, error,
-                                                    stackTrace) =>
-                                                const Icon(
-                                              Icons.person,
-                                              color: Colors.black,
-                                            ),
-                                          )
-                                        : const Icon(
+                        boxShadow: [
+                          BoxShadow(
+                            blurRadius: 22,
+                            offset: Offset(0, -8),
+                            color: Color.fromARGB(30, 0, 0, 0),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(14),
+                                child: Container(
+                                  width: 64,
+                                  height: 64,
+                                  color: Colors.grey.shade200,
+                                  child: (_state.clientPhotoUrl != null)
+                                      ? Image.network(
+                                          _state.clientPhotoUrl!,
+                                          fit: BoxFit.cover,
+                                          errorBuilder:
+                                              (context, error, stackTrace) =>
+                                                  const Icon(
                                             Icons.person,
                                             color: Colors.black,
                                           ),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        _state.clientName,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          fontFamily: "Montserrat",
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w800,
+                                        )
+                                      : const Icon(
+                                          Icons.person,
                                           color: Colors.black,
-                                          height: 1.1,
                                         ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        _state.clientAddress.isNotEmpty
-                                            ? _state.clientAddress
-                                            : "Address not available",
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          fontFamily: "Montserrat",
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w600,
-                                          color: Colors.black54,
-                                          height: 1.1,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-
-                            const SizedBox(height: 14),
-
-                            SizedBox(
-                              height: 46,
-                              width: double.infinity,
-                              child: ElevatedButton(
-                                onPressed: () {
-                                  // ✅ no-op as requested
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.black,
-                                  foregroundColor: Colors.white,
-                                  elevation: 0,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
-                                child: const Text(
-                                  "Arrived",
-                                  style: TextStyle(
-                                    fontFamily: "Montserrat",
-                                    fontWeight: FontWeight.w800,
-                                  ),
                                 ),
                               ),
-                            ),
-
-                            const SizedBox(height: 10),
-
-                            SizedBox(
-                              height: 46,
-                              width: double.infinity,
-                              child: OutlinedButton(
-                                onPressed: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) =>
-                                          ProviderJobDetailsScreen(
-                                        jobId: widget.jobId,
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      _state.clientName,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontFamily: "Montserrat",
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w800,
+                                        color: Colors.black,
+                                        height: 1.1,
                                       ),
                                     ),
-                                  );
-                                },
-                                style: OutlinedButton.styleFrom(
-                                  side: const BorderSide(
-                                    color: Colors.black,
-                                    width: 1.5,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      _state.clientAddress.isNotEmpty
+                                          ? _state.clientAddress
+                                          : "Address not available",
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontFamily: "Montserrat",
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w500,
+                                        color: Colors.black,
+                                        height: 1.15,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                child: const Text(
-                                  "View Job Details",
-                                  style: TextStyle(
-                                    fontFamily: "Montserrat",
-                                    fontWeight: FontWeight.w800,
-                                    color: Colors.black,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          SizedBox(
+                            height: 54,
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        ProviderJobDetailsScreen(
+                                      jobId: widget.jobId,
+                                    ),
                                   ),
+                                );
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.black,
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                              ),
+                              child: const Text(
+                                "View Job Details",
+                                style: TextStyle(
+                                  fontFamily: "Montserrat",
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w800,
                                 ),
                               ),
                             ),
-                          ],
-                        ),
-                      );
-                    },
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
 
-                // route warning (kept)
+                // route warning (kept exactly as before)
                 if (_state.error != null)
                   Positioned(
                     left: 12,
                     right: 12,
-                    bottom: 12 + MediaQuery.of(context).size.height * 0.19,
+                    bottom: 12 +
+                        (MediaQuery.of(context).padding.bottom +
+                            18 + // bottom container padding
+                            16 + // spacing
+                            54 + // button height
+                            16 + // spacing
+                            64), // image height area approximation (keeps it above)
                     child: Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(

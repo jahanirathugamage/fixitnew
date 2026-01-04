@@ -7,15 +7,15 @@ import 'package:fixitnew/controllers/contractor/contractor_providers_controller.
 // ✅ reusable contractor bottom nav
 import 'package:fixitnew/widgets/nav/contractor_bottom_nav.dart';
 
-class ContractorServiceProviders extends StatefulWidget {
-  const ContractorServiceProviders({super.key});
+class UpdateProviderScreen extends StatefulWidget {
+  const UpdateProviderScreen({super.key});
 
   @override
-  State<ContractorServiceProviders> createState() =>
+  State<UpdateProviderScreen> createState() =>
       _ContractorServiceProvidersState();
 }
 
-class _ContractorServiceProvidersState extends State<ContractorServiceProviders> {
+class _ContractorServiceProvidersState extends State<UpdateProviderScreen> {
   final _controller = ContractorProvidersController();
 
   @override
@@ -255,7 +255,7 @@ class _ContractorServiceProvidersState extends State<ContractorServiceProviders>
                             onPressed: () {
                               Navigator.pushNamed(
                                 context,
-                                "/provider/update",
+                                "/dashboards/contractor/update_provider_screen",
                                 arguments: {
                                   "providerId": providerId,
                                   "contractorId": contractorId,

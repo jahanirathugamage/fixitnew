@@ -272,7 +272,7 @@ class _HomeClientState extends State<HomeClient> {
 
       // ✅ Re-usable bottom nav
       bottomNavigationBar: const ClientBottomNav(
-        currentIndex: 2, // Settings selected on this screen
+        currentIndex: 3, // Settings selected on this screen
       ),
     );
   }

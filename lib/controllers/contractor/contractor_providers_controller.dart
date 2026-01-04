@@ -32,8 +32,9 @@ class ContractorProvidersController {
   /// Load a single provider document for editing
   Future<Map<String, dynamic>?> fetchProvider({
     required String providerId,
+    String? contractorIdOverride,
   }) async {
-    final contractorId = getCurrentContractorId();
+    final contractorId = contractorIdOverride ?? getCurrentContractorId();
     if (contractorId == null) return null;
 
     final doc = await _firestore
@@ -51,8 +52,9 @@ class ContractorProvidersController {
   Future<String?> updateProvider({
     required String providerId,
     required Map<String, dynamic> data,
+    String? contractorIdOverride,
   }) async {
-    final contractorId = getCurrentContractorId();
+    final contractorId = contractorIdOverride ?? getCurrentContractorId();
     if (contractorId == null) return 'No authenticated contractor.';
 
     try {
@@ -93,10 +95,6 @@ class ContractorProvidersController {
   }
 
   /// Create provider (Option A)
-  /// 1) Create contractor subdoc
-  /// 2) Call Vercel API to create Auth user + users/{providerUid} (+ location)
-  /// 3) Save providerUid into contractor subdoc
-  /// 4) Backend mirrors serviceProviders/{providerUid}
   Future<String?> createProvider({
     required String firstName,
     required String lastName,
@@ -124,8 +122,6 @@ class ContractorProvidersController {
       // ✅ Get Firebase ID token to authorize the backend call
       final idToken = await user.getIdToken();
 
-      // Build full address safely (avoid empty address2 messing geocoding)
-      // (avoid duplicates like "Sri Lanka, Sri Lanka")
       final parts = <String>[
         address1.trim(),
         if (address2.trim().isNotEmpty) address2.trim(),
@@ -203,20 +199,16 @@ class ContractorProvidersController {
               'email': email,
               'password': password,
               'address': fullAddress,
-
               'languages': languages,
               'skills': skills,
               'categories': rawCategories,
               'categoriesNormalized': categoriesNormalized,
-
-              // ✅ send the pinned location too (your backend supports this)
               if (latitude != null && longitude != null)
                 'location': {'lat': latitude, 'lng': longitude},
             }),
           )
           .timeout(const Duration(seconds: 25));
 
-      // Debug
       // ignore: avoid_print
       print("BACKEND STATUS: ${resp.statusCode}");
       // ignore: avoid_print
@@ -244,14 +236,14 @@ class ContractorProvidersController {
         SetOptions(merge: true),
       );
 
-      // 4) Backend mirrors serviceProviders (so client doesn't write it)
-      // 4) Backend mirrors serviceProviders (contractor may not have permission to read it)
-      // So we only log and NEVER fail createProvider because of this.
+      // 4) Backend mirrors serviceProviders
       try {
-        final spDoc = await _firestore.collection('serviceProviders').doc(providerUid).get();
+        final spDoc =
+            await _firestore.collection('serviceProviders').doc(providerUid).get();
         if (!spDoc.exists) {
           // ignore: avoid_print
-          print("NOTE: serviceProviders/$providerUid not found yet (server may still be writing).");
+          print(
+              "NOTE: serviceProviders/$providerUid not found yet (server may still be writing).");
         }
       } catch (e) {
         // ignore: avoid_print
