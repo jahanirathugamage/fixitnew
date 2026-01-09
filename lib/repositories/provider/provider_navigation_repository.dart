@@ -1,11 +1,16 @@
-import 'dart:async'; // ✅ needed for TimeoutException
+// lib/repositories/provider/provider_navigation_repository.dart
+
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
+
+import '../../backend/api_config.dart';
 
 class ProviderNavigationRepository {
   final FirebaseFirestore _db;
@@ -29,7 +34,6 @@ class ProviderNavigationRepository {
 
   // -------------------- LOCATION --------------------
 
-  /// Main method (kept from your existing repository)
   Future<LatLng> getCurrentLatLng() async {
     final enabled = await Geolocator.isLocationServiceEnabled();
     if (!enabled) throw Exception("Location services are disabled.");
@@ -42,9 +46,7 @@ class ProviderNavigationRepository {
       throw Exception("Location permission denied.");
     }
     if (permission == LocationPermission.deniedForever) {
-      throw Exception(
-        "Location permission permanently denied. Enable in settings.",
-      );
+      throw Exception("Location permission permanently denied. Enable in settings.");
     }
 
     final pos = await Geolocator.getCurrentPosition(
@@ -56,22 +58,19 @@ class ProviderNavigationRepository {
     return LatLng(pos.latitude, pos.longitude);
   }
 
-  /// ✅ Backwards-compatible alias (so old code calling this still works)
   Future<LatLng> getCurrentLocationLatLng() => getCurrentLatLng();
 
   Stream<Position> positionStream() {
     return Geolocator.getPositionStream(
       locationSettings: const LocationSettings(
         accuracy: LocationAccuracy.high,
-        distanceFilter: 10, // update after moving ~10m
+        distanceFilter: 10,
       ),
     );
   }
 
   // -------------------- OSRM ROUTE --------------------
 
-  /// ✅ Superset route method:
-  /// returns both route polyline points + durationSeconds from OSRM.
   Future<({List<LatLng> points, int? durationSeconds})> fetchOsrmRoute({
     required LatLng from,
     required LatLng to,
@@ -99,13 +98,10 @@ class ProviderNavigationRepository {
     try {
       resp = await doRequest();
     } on TimeoutException {
-      // retry once
       resp = await doRequest();
     } on SocketException {
-      // retry once
       resp = await doRequest();
-    } catch (e) {
-      // anything else -> propagate (same intent as before)
+    } catch (_) {
       rethrow;
     }
 
@@ -127,22 +123,86 @@ class ProviderNavigationRepository {
     final geometry = first["geometry"];
     final duration = first["duration"];
 
-    final pts = (geometry is String && geometry.isNotEmpty)
-        ? _decodePolyline(geometry)
-        : <LatLng>[];
+    final pts =
+        (geometry is String && geometry.isNotEmpty) ? _decodePolyline(geometry) : <LatLng>[];
 
     final durSeconds = (duration is num) ? duration.round() : null;
 
     return (points: pts, durationSeconds: durSeconds);
   }
 
-  /// ✅ Compatibility helper: if any old code expects ONLY points List&lt;LatLng&gt;
   Future<List<LatLng>> fetchOsrmRoutePointsOnly({
     required LatLng from,
     required LatLng to,
   }) async {
     final r = await fetchOsrmRoute(from: from, to: to);
     return r.points;
+  }
+
+  // -------------------- NAV EVENTS (Vercel -> FCM) --------------------
+
+  Future<void> sendNavigationStarted({required String jobId}) async {
+    await _sendNavEvent(jobId: jobId, type: "NAV_STARTED");
+  }
+
+  Future<void> sendNavigationUpdate({
+    required String jobId,
+    required LatLng provider,
+    int? etaSeconds,
+  }) async {
+    await _sendNavEvent(
+      jobId: jobId,
+      type: "NAV_UPDATE",
+      lat: provider.latitude,
+      lng: provider.longitude,
+      etaSeconds: etaSeconds,
+    );
+  }
+
+  Future<void> _sendNavEvent({
+    required String jobId,
+    required String type,
+    double? lat,
+    double? lng,
+    int? etaSeconds,
+  }) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
+      final idToken = await user.getIdToken();
+      final base = ApiConfig.baseUrl;
+
+      // Ensure no trailing slash issues
+      final baseClean = base.endsWith('/') ? base.substring(0, base.length - 1) : base;
+      final url = Uri.parse("$baseClean/api/navigation-event");
+
+      final payload = <String, dynamic>{
+        "jobId": jobId,
+        "type": type,
+        if (lat != null) "lat": lat,
+        if (lng != null) "lng": lng,
+        if (etaSeconds != null) "etaSeconds": etaSeconds,
+      };
+
+      final res = await _client
+          .post(
+            url,
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": "Bearer $idToken",
+            },
+            body: jsonEncode(payload),
+          )
+          .timeout(const Duration(seconds: 12));
+
+      // Do not crash navigation if notification fails.
+      if (res.statusCode < 200 || res.statusCode >= 300) {
+        // ignore quietly (optional: log)
+      }
+    } catch (_) {
+      // ignore quietly
+    }
   }
 
   // -------------------- POLYLINE DECODE --------------------

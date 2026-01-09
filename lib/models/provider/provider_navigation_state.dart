@@ -1,3 +1,5 @@
+// lib\models\provider\provider_navigation_state.dart
+
 import 'package:latlong2/latlong.dart';
 
 enum NavigationGate {

@@ -1,8 +1,17 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- ✅ REQUIRED FOR NETWORK CALLS + FCM -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+
     <!-- ✅ LOCATION PERMISSIONS -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+
+    <!-- ✅ Android 13+ notification permission -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+
+    <!-- ✅ (Optional but recommended) Allows FCM to keep device awake briefly to process messages -->
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
 
     <application
         android:label="FixIt"
@@ -13,6 +22,11 @@
         <meta-data
             android:name="com.google.android.geo.API_KEY"
             android:value="not_needed_for_osm"/>
+
+        <!-- ✅ FCM default notification channel (required for Android 8+) -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="fixit_default_channel" />
 
         <activity
             android:name=".MainActivity"

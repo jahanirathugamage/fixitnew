@@ -1,3 +1,5 @@
+// lib/controllers/provider/provider_navigation_controller.dart
+
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:latlong2/latlong.dart';
@@ -13,10 +15,13 @@ class ProviderNavigationController {
 
   StreamSubscription? _posSub;
 
-  // ✅ to prevent OSRM spam + jitter updates
+  // OSRM throttling
   DateTime _lastRouteFetchAt = DateTime.fromMillisecondsSinceEpoch(0);
   LatLng? _lastFrom;
   bool _routeFetchInFlight = false;
+
+  // Nav event throttling (to avoid spamming server)
+  DateTime _lastNavUpdateSentAt = DateTime.fromMillisecondsSinceEpoch(0);
 
   void dispose() {
     _posSub?.cancel();
@@ -32,24 +37,20 @@ class ProviderNavigationController {
     return NavigationGate.authorized;
   }
 
-  // ✅ simple distance check (meters-ish) using rough calc
   bool _movedEnough(LatLng? a, LatLng b, {double minMeters = 10}) {
     if (a == null) return true;
 
-    // Rough meter approximation (good enough for thresholding)
     final dx = (a.longitude - b.longitude).abs() * 111320;
     final dy = (a.latitude - b.latitude).abs() * 110540;
     final dist = (dx * dx + dy * dy).sqrt();
     return dist >= minMeters;
   }
 
-  /// Load everything once + starts live ETA updates based on movement.
   Future<ProviderNavigationState> load({
     required String jobId,
     required LatLng jobLatLng,
     required void Function(ProviderNavigationState) onState,
   }) async {
-    // ✅ Keep a mutable "current state" so live updates build on latest.
     ProviderNavigationState current = ProviderNavigationState.loading(
       jobId: jobId,
       jobLatLng: jobLatLng,
@@ -64,8 +65,7 @@ class ProviderNavigationController {
               .trim();
 
       String address = "";
-      for (final key
-          in ['address', 'fullAddress', 'locationText', 'clientAddress']) {
+      for (final key in ['address', 'fullAddress', 'locationText', 'clientAddress']) {
         final v = (jobData[key] ?? '').toString().trim();
         if (v.isNotEmpty) {
           address = v;
@@ -85,10 +85,8 @@ class ProviderNavigationController {
 
       final gate = computeGate(scheduledAt: scheduledAt, now: DateTime.now());
 
-      // provider location
       final provider = await _repo.getCurrentLatLng();
 
-      // route + duration
       final route = await _repo.fetchOsrmRoute(from: provider, to: jobLatLng);
       final arrival = (route.durationSeconds != null)
           ? DateTime.now().add(Duration(seconds: route.durationSeconds!))
@@ -109,20 +107,22 @@ class ProviderNavigationController {
 
       onState(current);
 
-      // ✅ Live updates: when provider moves, re-fetch route and update ETA.
+      // ✅ Notify client: "On the way" (server will send only once)
+      await _repo.sendNavigationStarted(jobId: jobId);
+
+      // Live updates
       _posSub?.cancel();
       _posSub = _repo.positionStream().listen((pos) async {
         final from = LatLng(pos.latitude, pos.longitude);
 
-        // ✅ ignore tiny jitter
         if (!_movedEnough(_lastFrom, from, minMeters: 10)) return;
 
-        // ✅ throttle OSRM calls (ex: once per 8 seconds)
         final now = DateTime.now();
-        if (now.difference(_lastRouteFetchAt).inSeconds < 8) return;
 
-        // ✅ avoid overlapping route fetches
+        // OSRM throttle
+        if (now.difference(_lastRouteFetchAt).inSeconds < 8) return;
         if (_routeFetchInFlight) return;
+
         _routeFetchInFlight = true;
 
         try {
@@ -134,24 +134,40 @@ class ProviderNavigationController {
               ? DateTime.now().add(Duration(seconds: updated.durationSeconds!))
               : null;
 
-          final gate2 =
-              computeGate(scheduledAt: scheduledAt, now: DateTime.now());
+          final gate2 = computeGate(scheduledAt: scheduledAt, now: DateTime.now());
 
           current = current.copyWith(
             providerLatLng: from,
-            routePoints: updated.points.isNotEmpty
-                ? updated.points
-                : [from, jobLatLng],
+            routePoints: updated.points.isNotEmpty ? updated.points : [from, jobLatLng],
             durationSeconds: updated.durationSeconds ?? current.durationSeconds,
             arrivalTime: arrival2 ?? current.arrivalTime,
             gate: gate2,
           );
 
           onState(current);
+
+          // ✅ Send NAV_UPDATE to server (throttle to ~1 per 20s)
+          if (now.difference(_lastNavUpdateSentAt).inSeconds >= 20) {
+            _lastNavUpdateSentAt = now;
+            await _repo.sendNavigationUpdate(
+              jobId: jobId,
+              provider: from,
+              etaSeconds: current.durationSeconds,
+            );
+          }
         } catch (_) {
-          // ✅ ignore route failures during movement (keep last good)
+          // Keep last good route; still send location updates occasionally
           current = current.copyWith(providerLatLng: from);
           onState(current);
+
+          if (now.difference(_lastNavUpdateSentAt).inSeconds >= 25) {
+            _lastNavUpdateSentAt = now;
+            await _repo.sendNavigationUpdate(
+              jobId: jobId,
+              provider: from,
+              etaSeconds: current.durationSeconds,
+            );
+          }
         } finally {
           _routeFetchInFlight = false;
         }

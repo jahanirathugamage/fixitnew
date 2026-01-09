@@ -6,8 +6,10 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 import 'package:fixitnew/firebase_options.dart';
+import 'package:fixitnew/services/push_notifications.dart';
 
 // AUTH SCREENS
 import 'package:fixitnew/screens/welcome_screen.dart';
@@ -61,12 +63,23 @@ import 'package:fixitnew/screens/services/matching_screen.dart';
 import 'package:fixitnew/screens/services/service_request_screen.dart';
 import 'package:fixitnew/screens/services/service_request_wrapper.dart';
 
+/// ✅ Needed for background FCM handling
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  // No UI work here. This ensures background messages can be received safely.
+}
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  // ✅ Register background handler
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
   FirebaseFunctions.instanceFor(region: 'us-central1');
 
@@ -232,6 +245,9 @@ class AuthWrapper extends StatelessWidget {
     final userDoc =
         await FirebaseFirestore.instance.collection('users').doc(uid).get();
     if (!userDoc.exists) return const WelcomeScreen();
+
+    // ✅ Subscribe this user to their topic (client/provider/contractor/admin)
+    await PushNotifications.initForUser(uid);
 
     final role = userDoc.data()?['role'];
 

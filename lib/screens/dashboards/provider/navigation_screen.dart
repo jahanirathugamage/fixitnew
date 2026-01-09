@@ -1,3 +1,5 @@
+// lib\screens\dashboards\provider\navigation_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -272,32 +274,36 @@ class _ProviderNavigationScreenState extends State<ProviderNavigationScreen> {
                           const SizedBox(width: 12),
 
                           Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  _fmtEta(_state.durationSeconds),
-                                  style: const TextStyle(
-                                    fontFamily: "Montserrat",
-                                    fontSize: 26,
-                                    fontWeight: FontWeight.w800,
-                                    color: Colors.black,
-                                    height: 1.0,
+                            child: Center(
+                              // ✅ ensures the two lines sit centered vertically in the available space
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    _fmtEta(_state.durationSeconds),
+                                    style: const TextStyle(
+                                      fontFamily: "Montserrat",
+                                      fontSize: 24, // ✅ slightly reduced
+                                      fontWeight: FontWeight.w800,
+                                      color: Colors.black,
+                                      height: 1.0,
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  "Arrival time · $arrival",
-                                  style: const TextStyle(
-                                    fontFamily: "Montserrat",
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w500,
-                                    color: Colors.black87,
-                                    height: 1.0,
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    "Arrival time · $arrival",
+                                    style: const TextStyle(
+                                      fontFamily: "Montserrat",
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.black87,
+                                      height: 1.0,
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         ],
@@ -335,24 +341,29 @@ class _ProviderNavigationScreenState extends State<ProviderNavigationScreen> {
                             children: [
                               ClipRRect(
                                 borderRadius: BorderRadius.circular(14),
-                                child: Container(
+                                child: SizedBox(
                                   width: 64,
                                   height: 64,
-                                  color: Colors.grey.shade200,
                                   child: (_state.clientPhotoUrl != null)
                                       ? Image.network(
                                           _state.clientPhotoUrl!,
-                                          fit: BoxFit.cover,
+                                          fit: BoxFit.cover, // ✅ ensures visible & fills
                                           errorBuilder:
                                               (context, error, stackTrace) =>
-                                                  const Icon(
+                                                  Container(
+                                            color: Colors.grey.shade200,
+                                            child: const Icon(
+                                              Icons.person,
+                                              color: Colors.black,
+                                            ),
+                                          ),
+                                        )
+                                      : Container(
+                                          color: Colors.grey.shade200,
+                                          child: const Icon(
                                             Icons.person,
                                             color: Colors.black,
                                           ),
-                                        )
-                                      : const Icon(
-                                          Icons.person,
-                                          color: Colors.black,
                                         ),
                                 ),
                               ),
