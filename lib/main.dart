@@ -64,6 +64,7 @@ import 'package:fixitnew/screens/services/service_request_screen.dart';
 import 'package:fixitnew/screens/services/service_request_wrapper.dart';
 
 /// ✅ Needed for background FCM handling
+@pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
