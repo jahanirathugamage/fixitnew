@@ -2,6 +2,11 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Allow signed-in users to read provider profiles
+    match /serviceProviders/{providerDocId} {
+      allow read: if request.auth != null;
+    }
+
     // ----------------- HELPERS -----------------
     function isSignedIn() {
       return request.auth != null;
