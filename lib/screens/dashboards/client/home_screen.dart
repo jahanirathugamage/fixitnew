@@ -218,117 +218,86 @@ class _HomeScreenState extends State<HomeScreen> {
         }
 
         final docs = snapshot.data?.docs ?? [];
-
-        // ✅ SERVICES UI: match screenshot sizing + spacing
-        const double tileWidth = 88;
-        const double iconBoxSize = 68;
-        const double spacingX = 26;
-        const double spacingY = 26;
-        const double labelTopGap = 10;
-
-        List<Widget> tiles;
-
         if (docs.isEmpty) {
-          tiles = [
-            ServiceCard(
-              icon: Icons.flash_on,
-              label: 'Electrical',
-              onTap: () => _openServiceRequest(context, 'electrical'),
-              tileWidth: tileWidth,
-              iconBoxSize: iconBoxSize,
-              labelTopGap: labelTopGap,
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20.0),
+            child: GridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: 3,
+              mainAxisSpacing: 12,
+              crossAxisSpacing: 12,
+              childAspectRatio: 0.75,
+              children: [
+                ServiceCard(
+                  icon: Icons.flash_on,
+                  label: 'Electrical',
+                  onTap: () => _openServiceRequest(context, 'electrical'),
+                ),
+                ServiceCard(
+                  icon: Icons.water_drop,
+                  label: 'Plumbing',
+                  onTap: () => _openServiceRequest(context, 'plumbing'),
+                ),
+                ServiceCard(
+                  icon: Icons.cleaning_services,
+                  label: 'Cleaning',
+                  onTap: () => _openServiceRequest(context, 'cleaning'),
+                ),
+                ServiceCard(
+                  icon: Icons.kitchen,
+                  label: 'Appliances',
+                  onTap: () => _openServiceRequest(context, 'appliances'),
+                ),
+                ServiceCard(
+                  icon: Icons.ac_unit,
+                  label: 'AC',
+                  onTap: () => _openServiceRequest(context, 'ac'),
+                ),
+                ServiceCard(
+                  icon: Icons.pest_control,
+                  label: 'Pest Control',
+                  onTap: () => _openServiceRequest(context, 'pest_control'),
+                ),
+                ServiceCard(
+                  icon: Icons.chair,
+                  label: 'Carpentry',
+                  onTap: () => _openServiceRequest(context, 'carpentry'),
+                ),
+                ServiceCard(
+                  icon: Icons.grass,
+                  label: 'Gardening',
+                  onTap: () => _openServiceRequest(context, 'gardening'),
+                ),
+              ],
             ),
-            ServiceCard(
-              icon: Icons.water_drop,
-              label: 'Plumbing',
-              onTap: () => _openServiceRequest(context, 'plumbing'),
-              tileWidth: tileWidth,
-              iconBoxSize: iconBoxSize,
-              labelTopGap: labelTopGap,
-            ),
-            ServiceCard(
-              icon: Icons.cleaning_services,
-              label: 'Cleaning',
-              onTap: () => _openServiceRequest(context, 'cleaning'),
-              tileWidth: tileWidth,
-              iconBoxSize: iconBoxSize,
-              labelTopGap: labelTopGap,
-            ),
-            ServiceCard(
-              icon: Icons.kitchen,
-              label: 'Appliances',
-              onTap: () => _openServiceRequest(context, 'appliances'),
-              tileWidth: tileWidth,
-              iconBoxSize: iconBoxSize,
-              labelTopGap: labelTopGap,
-            ),
-            ServiceCard(
-              icon: Icons.ac_unit,
-              label: 'AC',
-              onTap: () => _openServiceRequest(context, 'ac'),
-              tileWidth: tileWidth,
-              iconBoxSize: iconBoxSize,
-              labelTopGap: labelTopGap,
-            ),
-            ServiceCard(
-              icon: Icons.pest_control,
-              label: 'Pest Control',
-              onTap: () => _openServiceRequest(context, 'pest_control'),
-              tileWidth: tileWidth,
-              iconBoxSize: iconBoxSize,
-              labelTopGap: labelTopGap,
-            ),
-            ServiceCard(
-              icon: Icons.chair,
-              label: 'Carpentry',
-              onTap: () => _openServiceRequest(context, 'carpentry'),
-              tileWidth: tileWidth,
-              iconBoxSize: iconBoxSize,
-              labelTopGap: labelTopGap,
-            ),
-            ServiceCard(
-              icon: Icons.grass,
-              label: 'Gardening',
-              onTap: () => _openServiceRequest(context, 'gardening'),
-              tileWidth: tileWidth,
-              iconBoxSize: iconBoxSize,
-              labelTopGap: labelTopGap,
-            ),
-          ];
-        } else {
-          tiles = List.generate(docs.length, (index) {
-            final data = docs[index].data() as Map<String, dynamic>;
-            final name = (data['name'] ?? '') as String;
-            final iconKey = (data['iconKey'] ?? '') as String;
-            final categoryKey = _categoryKeyFromDoc(name, iconKey);
-
-            return ServiceCard(
-              icon: _mapServiceIcon(iconKey, fallback: Icons.build),
-              label: name,
-              onTap: () => _openServiceRequest(context, categoryKey),
-              tileWidth: tileWidth,
-              iconBoxSize: iconBoxSize,
-              labelTopGap: labelTopGap,
-            );
-          });
+          );
         }
 
         return Padding(
-          // ✅ Move the whole Services block a bit to the right (but keep the right padding normal)
-          // This fixes the “heavy left” look you showed.
-          padding: const EdgeInsets.only(left: 30.0, right: 20.0),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Wrap(
-                  spacing: spacingX,
-                  runSpacing: spacingY,
-                  children: tiles,
-                ),
-              ),
+          padding: const EdgeInsets.symmetric(horizontal: 20.0),
+          child: GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: docs.length,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              mainAxisSpacing: 12,
+              crossAxisSpacing: 12,
+              childAspectRatio: 0.75,
             ),
+            itemBuilder: (context, index) {
+              final data = docs[index].data() as Map<String, dynamic>;
+              final name = (data['name'] ?? '') as String;
+              final iconKey = (data['iconKey'] ?? '') as String;
+              final categoryKey = _categoryKeyFromDoc(name, iconKey);
+
+              return ServiceCard(
+                icon: _mapServiceIcon(iconKey, fallback: Icons.build),
+                label: name,
+                onTap: () => _openServiceRequest(context, categoryKey),
+              );
+            },
           ),
         );
       },
@@ -364,8 +333,7 @@ class _HomeScreenState extends State<HomeScreen> {
         final docs = snapshot.data?.docs ?? [];
         if (docs.isEmpty) {
           return Padding(
-            // ✅ also move this section slightly right to match your screenshot feel
-            padding: const EdgeInsets.only(left: 30.0),
+            padding: const EdgeInsets.only(left: 20.0),
             child: SizedBox(
               height: 170,
               child: ListView(
@@ -387,8 +355,7 @@ class _HomeScreenState extends State<HomeScreen> {
         }
 
         return Padding(
-          // ✅ same right-shift for loaded carousel list
-          padding: const EdgeInsets.only(left: 30.0),
+          padding: const EdgeInsets.only(left: 20.0),
           child: SizedBox(
             height: 170,
             child: ListView.separated(
@@ -440,9 +407,8 @@ class _HomeScreenState extends State<HomeScreen> {
             // ✅ ORIGINAL UI (unchanged)
             return Column(
               children: [
-                // ✅ slightly more left padding so title aligns nicer with shifted content
                 Padding(
-                  padding: const EdgeInsets.only(left: 30.0, right: 20.0, top: 20.0, bottom: 20.0),
+                  padding: const EdgeInsets.all(20.0),
                   child: Row(
                     children: const [
                       Text(
@@ -462,8 +428,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Padding(
-                          // ✅ shift Services header to align with grid
-                          padding: EdgeInsets.only(left: 30.0, right: 20.0),
+                          padding: EdgeInsets.symmetric(horizontal: 20.0),
                           child: Text(
                             'Services',
                             style: TextStyle(
@@ -477,8 +442,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         _buildServicesGrid(),
                         const SizedBox(height: 40),
                         const Padding(
-                          // ✅ shift Repairs header to align with carousel
-                          padding: EdgeInsets.only(left: 30.0, right: 20.0),
+                          padding: EdgeInsets.symmetric(horizontal: 20.0),
                           child: Text(
                             'Repairs Made Simple',
                             style: TextStyle(
@@ -537,18 +501,11 @@ class ServiceCard extends StatefulWidget {
   final String label;
   final VoidCallback onTap;
 
-  final double tileWidth;
-  final double iconBoxSize;
-  final double labelTopGap;
-
   const ServiceCard({
     super.key,
     required this.icon,
     required this.label,
     required this.onTap,
-    required this.tileWidth,
-    required this.iconBoxSize,
-    required this.labelTopGap,
   });
 
   @override
@@ -560,6 +517,11 @@ class _ServiceCardState extends State<ServiceCard> {
 
   @override
   Widget build(BuildContext context) {
+    // ✅ Only the icon "button" UI is adjusted to match the screenshot:
+    // - black filled rounded square
+    // - white icon
+    // - no border
+    // - subtle press feedback (slight opacity) but same look
     return GestureDetector(
       onTapDown: (_) => setState(() => _pressed = true),
       onTapUp: (_) {
@@ -567,43 +529,50 @@ class _ServiceCardState extends State<ServiceCard> {
         widget.onTap();
       },
       onTapCancel: () => setState(() => _pressed = false),
-      child: SizedBox(
-        width: widget.tileWidth,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            AnimatedOpacity(
-              duration: const Duration(milliseconds: 90),
-              opacity: _pressed ? 0.75 : 1.0,
-              child: Container(
-                width: widget.iconBoxSize,
-                height: widget.iconBoxSize,
-                decoration: BoxDecoration(
-                  color: Colors.black,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Center(
-                  child: Icon(
-                    widget.icon,
-                    size: widget.iconBoxSize * 0.46,
-                    color: Colors.white,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Expanded(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final boxSize = constraints.maxWidth;
+                final iconSize = boxSize * (40 / 70);
+
+                return AspectRatio(
+                  aspectRatio: 1,
+                  child: AnimatedOpacity(
+                    duration: const Duration(milliseconds: 90),
+                    opacity: _pressed ? 0.75 : 1.0,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.black,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Center(
+                        child: Icon(
+                          widget.icon,
+                          size: iconSize,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-              ),
+                );
+              },
             ),
-            SizedBox(height: widget.labelTopGap),
-            Text(
-              widget.label,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontFamily: 'Montserrat',
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Colors.black,
-              ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            widget.label,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontFamily: 'Montserrat',
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Colors.black,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
