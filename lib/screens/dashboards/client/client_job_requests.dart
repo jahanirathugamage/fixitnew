@@ -1,5 +1,7 @@
 // lib/screens/dashboards/client/client_job_requests.dart
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -77,6 +79,9 @@ class _ClientJobRequestsScreenState extends State<ClientJobRequestsScreen> {
     }
 
     final uid = user.uid;
+
+    debugPrint("ClientJobRequestsScreen UID = $uid");
+    debugPrint("Firestore projectId = ${FirebaseFirestore.instance.app.options.projectId}");
 
     return Scaffold(
       backgroundColor: Colors.white,
