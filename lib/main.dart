@@ -70,6 +70,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  // No UI work here.
 }
 
 Future<void> main() async {
@@ -81,6 +82,7 @@ Future<void> main() async {
 
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
+  // ✅ Ensure Functions region is set (if you call callable functions)
   FirebaseFunctions.instanceFor(region: 'us-central1');
 
   runApp(const MyApp());
@@ -238,8 +240,8 @@ class MyApp extends StatelessWidget {
             ServiceRequestScreen(config: ServiceRequestWrapper.acConfig),
         '/service/plumbing': (_) =>
             ServiceRequestScreen(config: ServiceRequestWrapper.plumbingConfig),
-        '/service/electrical': (_) =>
-            ServiceRequestScreen(config: ServiceRequestWrapper.electricalConfig),
+        '/service/electrical': (_) => ServiceRequestScreen(
+            config: ServiceRequestWrapper.electricalConfig),
         '/service/carpentry': (_) =>
             ServiceRequestScreen(config: ServiceRequestWrapper.carpentryConfig),
         '/service/gardening': (_) =>
@@ -247,8 +249,8 @@ class MyApp extends StatelessWidget {
         '/service/pest': (_) => ServiceRequestScreen(
               config: ServiceRequestWrapper.pestControlConfig,
             ),
-        '/service/appliances': (_) =>
-            ServiceRequestScreen(config: ServiceRequestWrapper.appliancesConfig),
+        '/service/appliances': (_) => ServiceRequestScreen(
+            config: ServiceRequestWrapper.appliancesConfig),
         '/service/cleaning': (_) =>
             ServiceRequestScreen(config: ServiceRequestWrapper.cleaningConfig),
       },
@@ -270,7 +272,13 @@ class AuthWrapper extends StatelessWidget {
   Future<Widget> _getUserHome(User user) async {
     final uid = user.uid;
 
-    if (!user.emailVerified) {
+    // ✅ Refresh user to ensure emailVerified is up-to-date
+    await user.reload();
+    final refreshedUser = FirebaseAuth.instance.currentUser;
+
+    if (refreshedUser == null) return const WelcomeScreen();
+
+    if (!refreshedUser.emailVerified) {
       return const VerifyEmailScreen();
     }
 
@@ -278,6 +286,7 @@ class AuthWrapper extends StatelessWidget {
         await FirebaseFirestore.instance.collection('users').doc(uid).get();
     if (!userDoc.exists) return const WelcomeScreen();
 
+    // ✅ Subscribe user to push notifications (guard inside PushNotifications)
     await PushNotifications.initForUser(uid);
 
     final role = userDoc.data()?['role'];
@@ -325,7 +334,15 @@ class AuthWrapper extends StatelessWidget {
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snap) {
+        // ✅ Prevent welcome screen flicker
+        if (snap.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
         if (!snap.hasData) return const WelcomeScreen();
+
         final user = snap.data!;
         return FutureBuilder<Widget>(
           future: _getUserHome(user),
