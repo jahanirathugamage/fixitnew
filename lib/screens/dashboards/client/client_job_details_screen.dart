@@ -1,0 +1,276 @@
+// lib/screens/dashboards/client/client_job_details_screen.dart
+
+import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+import 'package:fixitnew/models/jobs/job_request_model.dart';
+import 'package:fixitnew/repositories/jobs/job_request_repository.dart';
+import 'package:fixitnew/controllers/client/client_job_requests_controller.dart';
+
+class ClientJobDetailsScreen extends StatelessWidget {
+  final String jobId;
+  const ClientJobDetailsScreen({super.key, required this.jobId});
+
+  String _formatDateTime(Timestamp? ts) {
+    if (ts == null) return "—";
+    final d = ts.toDate().toLocal();
+
+    const months = [
+      "Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec",
+    ];
+
+    final month = months[d.month - 1];
+    final day = d.day;
+
+    final hour12 = d.hour % 12 == 0 ? 12 : d.hour % 12;
+    final ampm = d.hour >= 12 ? "pm" : "am";
+    final mm = d.minute.toString().padLeft(2, "0");
+
+    return "$month $day  ·  $hour12:$mm$ampm";
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final repo = JobRequestRepository();
+    final providerNameResolver = ClientJobRequestsController(); // reuse your resolver
+
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black),
+          onPressed: () => Navigator.pop(context),
+        ),
+        centerTitle: true,
+        title: const Text(
+          "Job Details",
+          style: TextStyle(
+            fontFamily: "Montserrat",
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ),
+      body: StreamBuilder<JobRequestModel?>(
+        stream: repo.watchById(jobId),
+        builder: (context, snap) {
+          if (snap.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          final job = snap.data;
+          if (job == null) {
+            return const Center(child: Text("Job not found"));
+          }
+
+          final whenText = _formatDateTime(job.scheduledDate);
+          final tasks = job.tasks;
+
+          return SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Top header (avatar + provider name + view profile)
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        width: 60,
+                        height: 60,
+                        color: Colors.grey.shade200,
+                        child: const Icon(Icons.person, color: Colors.black),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FutureBuilder<String>(
+                        future: providerNameResolver.resolveProviderName(job),
+                        builder: (context, nameSnap) {
+                          final providerName =
+                              (nameSnap.data ?? "Service Provider").trim();
+
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                providerName.isEmpty ? "Service Provider" : providerName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontFamily: "Montserrat",
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 16,
+                                  color: Colors.black,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              SizedBox(
+                                width: double.infinity,
+                                height: 40,
+                                child: ElevatedButton(
+                                  onPressed: () {
+                                    // later: navigate to provider profile
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.black,
+                                    foregroundColor: Colors.white,
+                                    elevation: 0,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                  ),
+                                  child: const Text(
+                                    "View Profile",
+                                    style: TextStyle(
+                                      fontFamily: "Montserrat",
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 22),
+
+                // Date & Time
+                const Text(
+                  "Date & Time",
+                  style: TextStyle(
+                    fontFamily: "Montserrat",
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
+                    color: Colors.black,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    const Icon(Icons.schedule, size: 20, color: Colors.black),
+                    const SizedBox(width: 10),
+                    Text(
+                      whenText,
+                      style: const TextStyle(
+                        fontFamily: "Montserrat",
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                        color: Colors.black,
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 22),
+
+                // Task Details
+                const Text(
+                  "Task Details",
+                  style: TextStyle(
+                    fontFamily: "Montserrat",
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
+                    color: Colors.black,
+                  ),
+                ),
+                const SizedBox(height: 10),
+
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.grey.shade300, width: 1),
+                  ),
+                  child: Column(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF3A3A3A),
+                          borderRadius: BorderRadius.vertical(top: Radius.circular(10)),
+                        ),
+                        child: const Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                "Service Task",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontFamily: "Montserrat",
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                            SizedBox(width: 10),
+                            Text(
+                              "Qty",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontFamily: "Montserrat",
+                                fontWeight: FontWeight.w800,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      ...tasks.map((m) {
+                        final label = (m['label'] ?? m['taskName'] ?? '').toString();
+                        final qty = (m['quantity'] ?? 1).toString();
+
+                        return Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          decoration: BoxDecoration(
+                            border: Border(
+                              top: BorderSide(color: Colors.grey.shade200, width: 1),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  label.isEmpty ? "Task" : label,
+                                  style: const TextStyle(
+                                    fontFamily: "Montserrat",
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 13,
+                                    color: Colors.black,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Text(
+                                qty,
+                                style: const TextStyle(
+                                  fontFamily: "Montserrat",
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 13,
+                                  color: Colors.black,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}

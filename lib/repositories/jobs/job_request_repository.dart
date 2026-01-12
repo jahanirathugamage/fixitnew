@@ -25,11 +25,20 @@ class JobRequestRepository {
         .map((snap) => snap.docs.map(JobRequestModel.fromDoc).toList());
   }
 
-  /// Client "Job Requests" should include jobs in 'holding' state (and 'pending' too).
+  /// ✅ NEW: Client Jobs page can read from jobRequest too
+  Stream<List<JobRequestModel>> watchByClientUid(String clientUid) {
+    return _col
+        .where('clientId', isEqualTo: clientUid)
+        .snapshots()
+        .map((snap) => snap.docs.map(JobRequestModel.fromDoc).toList());
+  }
+
+  /// ✅ UPDATED: Client "Job Requests" should include:
+  /// pending/requested/holding (awaiting provider response) + declined (so client can rematch/stop)
   Stream<List<JobRequestModel>> watchPendingByClientUid(String clientUid) {
     return _col
         .where('clientId', isEqualTo: clientUid)
-        .where('status', whereIn: ['holding', 'pending'])
+        .where('status', whereIn: ['pending', 'requested', 'holding', 'declined'])
         .orderBy('scheduledDate') // requires composite index
         .snapshots()
         .map((snap) => snap.docs.map(JobRequestModel.fromDoc).toList());
@@ -45,7 +54,7 @@ class JobRequestRepository {
     });
   }
 
-  /// Pending -> Cancelled
+  /// Pending/Requested/Holding/Declined -> Cancelled
   Future<void> cancelByClient(String jobId) async {
     await _col.doc(jobId).update({
       'status': 'cancelled',
@@ -54,7 +63,7 @@ class JobRequestRepository {
     });
   }
 
-  /// Holding -> Stop Job -> Cancelled (as per your rule)
+  /// Declined -> Stop Job -> Cancelled (same outcome you asked)
   Future<void> stopJobByClient(String jobId) async {
     await _col.doc(jobId).update({
       'status': 'cancelled',
@@ -63,17 +72,23 @@ class JobRequestRepository {
     });
   }
 
-  /// Holding -> Rematch (recommended default)
-  /// Clears provider + hold metadata so matching can be re-done.
+  /// ✅ NEW: Accepted future job -> Cancelled by client
+  Future<void> cancelAcceptedJobByClient(String jobId) async {
+    await _col.doc(jobId).update({
+      'status': 'cancelled_by_client',
+      'cancelledAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  /// Holding -> Rematch (keep your existing behavior)
   Future<void> rematchByClient(String jobId) async {
     await _col.doc(jobId).update({
       'status': 'rematch',
 
-      // Clear provider selection
       'selectedProviderUid': '',
       'providerName': '',
 
-      // Clear hold metadata (remove if present)
       'holdId': FieldValue.delete(),
       'holdExpiresAt': FieldValue.delete(),
 

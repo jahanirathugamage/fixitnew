@@ -1,18 +1,17 @@
+// firestore.rules
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Allow signed-in users to read provider profiles
     match /serviceProviders/{providerDocId} {
       allow read: if request.auth != null;
     }
 
-    // ----------------- HELPERS -----------------
     function isSignedIn() {
       return request.auth != null;
     }
 
-    // ✅ Safe role lookup (won't crash if users doc missing)
     function userRole() {
       return isSignedIn()
         && exists(/databases/$(database)/documents/users/$(request.auth.uid))
@@ -32,20 +31,17 @@ service cloud.firestore {
       return isSignedIn() && userRole() == "provider";
     }
 
-    // ✅ Provider access should NOT rely on role lookup
     function isSelectedProvider() {
       return isSignedIn()
         && resource.data.selectedProviderUid == request.auth.uid;
     }
 
-    // Optional matched list support (no role check)
     function isMatchedProvider() {
       return isSignedIn()
         && (resource.data.matchedProviderIds is list)
         && (request.auth.uid in resource.data.matchedProviderIds);
     }
 
-    // ✅ Provider can accept/decline only on selected jobs (field whitelist)
     function providerCanRespondToJob() {
       return isSignedIn()
         && resource.data.selectedProviderUid == request.auth.uid
@@ -54,7 +50,25 @@ service cloud.firestore {
         && (request.resource.data.status in ["accepted", "declined"]);
     }
 
-    // ----------------- USERS (role store) -----------------
+    // ✅ Client is allowed to cancel/stop ONLY via these fields
+    function clientCanCancelJob() {
+      return isSignedIn()
+        && resource.data.clientId == request.auth.uid
+        && request.resource.data.diff(resource.data).changedKeys()
+            .hasOnly(["status", "cancelledAt", "stoppedAt", "updatedAt"])
+        && (request.resource.data.status in ["cancelled"]);
+    }
+
+    // ✅ Client can cancel accepted job (future) via these fields
+    function clientCanCancelAcceptedJob() {
+      return isSignedIn()
+        && resource.data.clientId == request.auth.uid
+        && request.resource.data.diff(resource.data).changedKeys()
+            .hasOnly(["status", "cancelledAt", "updatedAt"])
+        && (request.resource.data.status in ["cancelled_by_client"]);
+    }
+
+    // ----------------- USERS -----------------
     match /users/{uid} {
       allow create: if isSignedIn() && request.auth.uid == uid;
       allow read, update: if isSignedIn() && request.auth.uid == uid;
@@ -67,7 +81,6 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // Admin invitations (Admin SDK only)
     match /adminInvites/{inviteId} {
       allow read, write: if false;
     }
@@ -82,48 +95,28 @@ service cloud.firestore {
     // ----------------- CONTRACTORS -----------------
     match /contractors/{uid} {
       allow create: if isSignedIn() && request.auth.uid == uid;
-
-      // (kept as you had) any signed-in user can read contractors
       allow read: if isSignedIn();
-
-      // contractor self OR admin can update
       allow update: if isSignedIn() && (request.auth.uid == uid || isAdmin());
-
       allow delete: if false;
     }
 
-    // ----------------- SERVICE PROVIDERS (top-level) -----------------
+    // ----------------- SERVICE PROVIDERS -----------------
     match /serviceProviders/{uid} {
       allow create: if isSignedIn() && request.auth.uid == uid;
-
-      // provider can read/update their own provider doc
       allow read, update: if isSignedIn() && request.auth.uid == uid;
-
-      // admin access
       allow read, update: if isAdmin();
-
       allow delete: if false;
     }
 
-    // ----------------- CONTRACTOR -> providers subcollection -----------------
     match /contractors/{contractorId}/providers/{providerId} {
-      // contractor creates provider docs
       allow create: if isSignedIn() && request.auth.uid == contractorId;
-
-      // provider can read/update their own info
       allow read, update: if isSignedIn() && request.auth.uid == providerId;
-
-      // contractor can read/update providers under them
       allow read, update: if isSignedIn() && request.auth.uid == contractorId;
-
-      // admins can also read/update
       allow read, update: if isAdmin();
-
       allow delete: if false;
     }
 
-    // ----------------- PUBLIC / CATALOG DATA -----------------
-    // Your UI loads these lists; allow read without auth issues.
+    // ----------------- PUBLIC DATA -----------------
     match /services/{serviceId} {
       allow read: if true;
       allow write: if false;
@@ -134,13 +127,11 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // ✅ You have this collection in your DB list
     match /serviceTasks/{taskId} {
       allow read: if true;
       allow write: if false;
     }
 
-    // optional aliases (keep if your teammate uses these names)
     match /serviceCategories/{id} {
       allow read: if true;
       allow write: if false;
@@ -159,42 +150,42 @@ service cloud.firestore {
     // ----------------- JOB REQUESTS -----------------
     match /jobRequest/{jobId} {
 
-      // Clients can create jobs for themselves
       allow create: if isSignedIn()
         && request.resource.data.clientId == request.auth.uid;
 
-      // READ:
-      // - client owner
-      // - admin
-      // - selected provider
-      // - matched provider
-      allow read: if (isClient() && resource.data.clientId == request.auth.uid)
-        || isAdmin()
-        || isSelectedProvider()
-        || isMatchedProvider();
+      // ✅ Block reads for cancelled states (client + provider shouldn't view it anymore)
+      function isCancelledState() {
+        return resource.data.status in ["cancelled", "cancelled_by_client", "cancelled_by_provider"];
+      }
+
+      allow read: if isAdmin()
+        || (
+          !isCancelledState()
+          && (
+            (isClient() && resource.data.clientId == request.auth.uid)
+            || isSelectedProvider()
+            || isMatchedProvider()
+          )
+        );
 
       // UPDATE:
-      // - client owner
       // - admin
-      // - selected provider accept/decline only
-      allow update: if (isClient() && resource.data.clientId == request.auth.uid)
-        || isAdmin()
-        || providerCanRespondToJob();
+      // - provider accept/decline only
+      // - client cancel/stop (to cancelled)
+      // - client cancel accepted job (to cancelled_by_client)
+      allow update: if isAdmin()
+        || providerCanRespondToJob()
+        || clientCanCancelJob()
+        || clientCanCancelAcceptedJob();
 
       allow delete: if false;
     }
 
     // ----------------- JOBS -----------------
-    // ✅ Needed because your ClientJobs screen reads from /jobs
     match /jobs/{jobId} {
-
-      // READ:
-      // - client owner (based on clientId on the job doc)
-      // - admin
       allow read: if (isClient() && resource.data.clientId == request.auth.uid)
         || isAdmin();
 
-      // Keep writes locked (since you didn't specify any write logic here)
       allow create, update, delete: if false;
     }
   }

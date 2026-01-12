@@ -30,6 +30,7 @@ import 'package:fixitnew/screens/dashboards/client/client_jobs.dart';
 import 'package:fixitnew/screens/dashboards/client/change_client_password.dart';
 import 'package:fixitnew/screens/dashboards/client/update_client_profile.dart';
 import 'package:fixitnew/screens/dashboards/client/client_job_requests.dart';
+import 'package:fixitnew/screens/dashboards/client/client_job_details_screen.dart';
 
 // DASHBOARDS – CONTRACTOR
 import 'package:fixitnew/screens/dashboards/home_contractor.dart';
@@ -44,6 +45,7 @@ import 'package:fixitnew/screens/dashboards/contractor/update_provider_screen.da
 import 'package:fixitnew/screens/dashboards/provider_home_screen.dart';
 import 'package:fixitnew/screens/dashboards/provider/provider_jobs.dart';
 import 'package:fixitnew/screens/dashboards/provider/job_requests_screen.dart';
+import 'package:fixitnew/screens/dashboards/provider/job_details_screen.dart';
 
 // ADMIN SCREENS
 import 'package:fixitnew/screens/admin/create_admin_account_screen.dart';
@@ -63,13 +65,11 @@ import 'package:fixitnew/screens/services/matching_screen.dart';
 import 'package:fixitnew/screens/services/service_request_screen.dart';
 import 'package:fixitnew/screens/services/service_request_wrapper.dart';
 
-/// ✅ Needed for background FCM handling
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  // No UI work here. This ensures background messages can be received safely.
 }
 
 Future<void> main() async {
@@ -79,7 +79,6 @@ Future<void> main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // ✅ Register background handler
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
   FirebaseFunctions.instanceFor(region: 'us-central1');
@@ -123,6 +122,42 @@ class MyApp extends StatelessWidget {
             message:
                 "Missing or invalid contractorId for '/admin/contractor_approval_detail_screen'.\n\n"
                 "Fix:\nNavigator.pushNamed(context, '/admin/contractor_approval_detail_screen', arguments: contractorId);",
+          ),
+          settings: settings,
+        );
+
+      // ✅ NEW: Client Job Details by jobRequestId
+      case '/dashboards/client/job_details':
+        final args = settings.arguments;
+        if (args is String && args.trim().isNotEmpty) {
+          return MaterialPageRoute(
+            builder: (_) => ClientJobDetailsScreen(jobId: args),
+            settings: settings,
+          );
+        }
+        return MaterialPageRoute(
+          builder: (_) => const _RouteErrorScreen(
+            message:
+                "Missing or invalid jobId for '/dashboards/client/job_details'.\n\n"
+                "Fix:\nNavigator.pushNamed(context, '/dashboards/client/job_details', arguments: jobId);",
+          ),
+          settings: settings,
+        );
+
+      // ✅ NEW: Provider Job Details by jobRequestId
+      case '/provider/job_details':
+        final args = settings.arguments;
+        if (args is String && args.trim().isNotEmpty) {
+          return MaterialPageRoute(
+            builder: (_) => ProviderJobDetailsScreen(jobId: args),
+            settings: settings,
+          );
+        }
+        return MaterialPageRoute(
+          builder: (_) => const _RouteErrorScreen(
+            message:
+                "Missing or invalid jobId for '/provider/job_details'.\n\n"
+                "Fix:\nNavigator.pushNamed(context, '/provider/job_details', arguments: jobId);",
           ),
           settings: settings,
         );
@@ -173,11 +208,8 @@ class MyApp extends StatelessWidget {
         '/dashboards/contractor/contractor_jobs': (_) => const ContractorJobs(),
         '/dashboards/contractor/contractor_service_providers': (_) =>
             const ContractorServiceProviders(),
-
-        // IMPORTANT: this must match the class in update_provider_screen.dart
         '/dashboards/contractor/update_provider_screen': (_) =>
             const UpdateProviderScreen(),
-
         '/dashboards/contractor/change_contractor_password': (_) =>
             const ChangeContractorPasswordScreen(),
         '/dashboards/contractor/update_contractor_profile': (_) =>
@@ -186,8 +218,7 @@ class MyApp extends StatelessWidget {
         // PROVIDER DASHBOARD
         '/dashboards/provider_home_screen': (_) => const ProviderHomeScreen(),
         '/provider/provider_jobs': (_) => const ProviderJobsScreen(),
-        '/provider/job_requests_screen': (_) =>
-            const ProviderJobRequestsScreen(),
+        '/provider/job_requests_screen': (_) => const ProviderJobRequestsScreen(),
 
         // ADMIN
         '/admin/create_admin_account_screen': (_) =>
@@ -247,7 +278,6 @@ class AuthWrapper extends StatelessWidget {
         await FirebaseFirestore.instance.collection('users').doc(uid).get();
     if (!userDoc.exists) return const WelcomeScreen();
 
-    // ✅ Subscribe this user to their topic (client/provider/contractor/admin)
     await PushNotifications.initForUser(uid);
 
     final role = userDoc.data()?['role'];
@@ -312,6 +342,8 @@ class AuthWrapper extends StatelessWidget {
     );
   }
 }
+
+// --- rest of your file stays exactly same (VerifyEmailScreen, Contractor screens, _RouteErrorScreen) ---
 
 class VerifyEmailScreen extends StatelessWidget {
   const VerifyEmailScreen({super.key});
