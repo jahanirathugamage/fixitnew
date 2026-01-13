@@ -10,6 +10,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 
 import 'package:fixitnew/firebase_options.dart';
 import 'package:fixitnew/services/push_notifications.dart';
+import 'package:fixitnew/services/notification_router.dart';
 
 // AUTH SCREENS
 import 'package:fixitnew/screens/welcome_screen.dart';
@@ -128,7 +129,7 @@ class MyApp extends StatelessWidget {
           settings: settings,
         );
 
-      // ✅ NEW: Client Job Details by jobRequestId
+      // ✅ Client Job Details by jobRequestId
       case '/dashboards/client/job_details':
         final args = settings.arguments;
         if (args is String && args.trim().isNotEmpty) {
@@ -146,7 +147,7 @@ class MyApp extends StatelessWidget {
           settings: settings,
         );
 
-      // ✅ NEW: Provider Job Details by jobRequestId
+      // ✅ Provider Job Details by jobRequestId
       case '/provider/job_details':
         final args = settings.arguments;
         if (args is String && args.trim().isNotEmpty) {
@@ -171,6 +172,9 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // ✅ Init routing for notification taps (use the SAME navigatorKey used by MaterialApp)
+    NotificationRouter.instance.init(PushNotifications.navigatorKey);
+
     return MaterialApp(
       title: 'FixIt App',
       debugShowCheckedModeBanner: false,
@@ -178,6 +182,7 @@ class MyApp extends StatelessWidget {
         fontFamily: 'Montserrat',
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.black),
       ),
+      navigatorKey: PushNotifications.navigatorKey, // ✅ ONLY ONCE
       home: const AuthWrapper(),
       routes: {
         // AUTH
@@ -220,7 +225,8 @@ class MyApp extends StatelessWidget {
         // PROVIDER DASHBOARD
         '/dashboards/provider_home_screen': (_) => const ProviderHomeScreen(),
         '/provider/provider_jobs': (_) => const ProviderJobsScreen(),
-        '/provider/job_requests_screen': (_) => const ProviderJobRequestsScreen(),
+        '/provider/job_requests_screen': (_) =>
+            const ProviderJobRequestsScreen(),
 
         // ADMIN
         '/admin/create_admin_account_screen': (_) =>
@@ -240,8 +246,8 @@ class MyApp extends StatelessWidget {
             ServiceRequestScreen(config: ServiceRequestWrapper.acConfig),
         '/service/plumbing': (_) =>
             ServiceRequestScreen(config: ServiceRequestWrapper.plumbingConfig),
-        '/service/electrical': (_) => ServiceRequestScreen(
-            config: ServiceRequestWrapper.electricalConfig),
+        '/service/electrical': (_) =>
+            ServiceRequestScreen(config: ServiceRequestWrapper.electricalConfig),
         '/service/carpentry': (_) =>
             ServiceRequestScreen(config: ServiceRequestWrapper.carpentryConfig),
         '/service/gardening': (_) =>
@@ -249,8 +255,8 @@ class MyApp extends StatelessWidget {
         '/service/pest': (_) => ServiceRequestScreen(
               config: ServiceRequestWrapper.pestControlConfig,
             ),
-        '/service/appliances': (_) => ServiceRequestScreen(
-            config: ServiceRequestWrapper.appliancesConfig),
+        '/service/appliances': (_) =>
+            ServiceRequestScreen(config: ServiceRequestWrapper.appliancesConfig),
         '/service/cleaning': (_) =>
             ServiceRequestScreen(config: ServiceRequestWrapper.cleaningConfig),
       },
@@ -286,7 +292,7 @@ class AuthWrapper extends StatelessWidget {
         await FirebaseFirestore.instance.collection('users').doc(uid).get();
     if (!userDoc.exists) return const WelcomeScreen();
 
-    // ✅ Subscribe user to push notifications (guard inside PushNotifications)
+    // ✅ Subscribe user to push notifications
     await PushNotifications.initForUser(uid);
 
     final role = userDoc.data()?['role'];
@@ -334,7 +340,6 @@ class AuthWrapper extends StatelessWidget {
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snap) {
-        // ✅ Prevent welcome screen flicker
         if (snap.connectionState == ConnectionState.waiting) {
           return const Scaffold(
             body: Center(child: CircularProgressIndicator()),
@@ -359,8 +364,6 @@ class AuthWrapper extends StatelessWidget {
     );
   }
 }
-
-// --- rest of your file stays exactly same (VerifyEmailScreen, Contractor screens, _RouteErrorScreen) ---
 
 class VerifyEmailScreen extends StatelessWidget {
   const VerifyEmailScreen({super.key});
