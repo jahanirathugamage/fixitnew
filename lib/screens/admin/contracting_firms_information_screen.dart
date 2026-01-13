@@ -1,9 +1,8 @@
-// lib/screens/admin/contracting_firms_information_screen.dart
-
 import 'package:flutter/material.dart';
 
 import '../../controllers/admin/contracting_firms_controller.dart';
 import '../../models/admin/contracting_firm.dart';
+import 'contractor_firm_information_screen.dart';
 
 class ContractingFirmsInformationScreen extends StatelessWidget {
   const ContractingFirmsInformationScreen({super.key});
@@ -58,17 +57,19 @@ class ContractingFirmsInformationScreen extends StatelessWidget {
 
           return ListView.separated(
             itemCount: firms.length,
-            separatorBuilder: (context, index) =>
-                const Divider(height: 1),
+            separatorBuilder: (_, __) => const Divider(height: 1),
             itemBuilder: (context, i) {
               final firm = firms[i];
 
               return ListTile(
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                 title: Text(
                   firm.companyName,
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
+                    color: Colors.black,
                   ),
                 ),
                 subtitle: Text(
@@ -76,7 +77,33 @@ class ContractingFirmsInformationScreen extends StatelessWidget {
                     if (firm.city.isNotEmpty) firm.city,
                     if (firm.contact.isNotEmpty) 'Tel: ${firm.contact}',
                   ].join(' • '),
+                  style: const TextStyle(color: Colors.black54),
                 ),
+                trailing:
+                    const Icon(Icons.chevron_right, color: Colors.black54),
+
+                // ✅ single reliable tap handler
+                onTap: () {
+                  
+                  final id = firm.id.trim();
+
+                  if (id.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Error: contractorId is empty.'),
+                      ),
+                    );
+                    return;
+                  }
+
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          ContractorFirmInformationScreen(contractorId: id),
+                    ),
+                  );
+                },
               );
             },
           );

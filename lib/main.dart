@@ -53,6 +53,8 @@ import 'package:fixitnew/screens/admin/contractor_approval_detail_screen.dart'
 import 'package:fixitnew/screens/admin/contractor_approval_screen.dart';
 import 'package:fixitnew/screens/admin/contracting_firms_information_screen.dart'
     as admin_firms;
+import 'package:fixitnew/screens/admin/contractor_firm_information_screen.dart'
+    as admin_firm_info;
 
 // MATCHING
 import 'package:fixitnew/screens/services/matching_screen.dart';
@@ -109,6 +111,26 @@ class MyApp extends StatelessWidget {
             message:
                 "Missing or invalid contractorId for '/admin/contractor_approval_detail_screen'.\n\n"
                 "Fix:\nNavigator.pushNamed(context, '/admin/contractor_approval_detail_screen', arguments: contractorId);",
+          ),
+          settings: settings,
+        );
+
+      // ✅ NEW: Contractor Firm Info detail (Admin)
+      case '/admin/contractor_firm_information_screen':
+        final args = settings.arguments;
+        if (args is String && args.trim().isNotEmpty) {
+          return MaterialPageRoute(
+            builder: (_) => admin_firm_info.ContractorFirmInformationScreen(
+              contractorId: args,
+            ),
+            settings: settings,
+          );
+        }
+        return MaterialPageRoute(
+          builder: (_) => const _RouteErrorScreen(
+            message:
+                "Missing or invalid contractorId for '/admin/contractor_firm_information_screen'.\n\n"
+                "Fix:\nNavigator.pushNamed(context, '/admin/contractor_firm_information_screen', arguments: contractorId);",
           ),
           settings: settings,
         );
