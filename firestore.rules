@@ -1,71 +1,37 @@
-// firestore.rules
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    match /serviceProviders/{providerDocId} {
-      allow read: if request.auth != null;
-    }
-
+    // ----------------- HELPERS -----------------
     function isSignedIn() {
       return request.auth != null;
     }
 
-    function userRole() {
+    function userDocExists() {
       return isSignedIn()
-        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function userRole() {
+      return userDocExists()
         ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
         : "unknown";
     }
 
+    // Admin: role OR /admins doc
     function isAdmin() {
-      return isSignedIn() && userRole() == "admin";
+      return isSignedIn() && (
+        userRole() == "admin"
+        || exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
     }
 
-    function isClient() {
-      return isSignedIn() && userRole() == "client";
-    }
-
-    function isProvider() {
-      return isSignedIn() && userRole() == "provider";
-    }
-
-    function isSelectedProvider() {
-      return isSignedIn()
-        && resource.data.selectedProviderUid == request.auth.uid;
-    }
-
-    function isMatchedProvider() {
-      return isSignedIn()
-        && (resource.data.matchedProviderIds is list)
-        && (request.auth.uid in resource.data.matchedProviderIds);
-    }
-
-    function providerCanRespondToJob() {
-      return isSignedIn()
-        && resource.data.selectedProviderUid == request.auth.uid
-        && request.resource.data.diff(resource.data).changedKeys()
-            .hasOnly(["status", "providerDecisionAt", "updatedAt"])
-        && (request.resource.data.status in ["accepted", "declined"]);
-    }
-
-    // ✅ Client is allowed to cancel/stop ONLY via these fields
-    function clientCanCancelJob() {
-      return isSignedIn()
-        && resource.data.clientId == request.auth.uid
-        && request.resource.data.diff(resource.data).changedKeys()
-            .hasOnly(["status", "cancelledAt", "stoppedAt", "updatedAt"])
-        && (request.resource.data.status in ["cancelled"]);
-    }
-
-    // ✅ Client can cancel accepted job (future) via these fields
-    function clientCanCancelAcceptedJob() {
-      return isSignedIn()
-        && resource.data.clientId == request.auth.uid
-        && request.resource.data.diff(resource.data).changedKeys()
-            .hasOnly(["status", "cancelledAt", "updatedAt"])
-        && (request.resource.data.status in ["cancelled_by_client"]);
+    // Contractor: role OR /contractors doc
+    function isContractor() {
+      return isSignedIn() && (
+        userRole() == "contractor"
+        || exists(/databases/$(database)/documents/contractors/$(request.auth.uid))
+      );
     }
 
     // ----------------- USERS -----------------
@@ -100,14 +66,20 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // ----------------- SERVICE PROVIDERS -----------------
+    // ----------------- SERVICE PROVIDERS (GLOBAL MIRROR) -----------------
     match /serviceProviders/{uid} {
       allow create: if isSignedIn() && request.auth.uid == uid;
-      allow read, update: if isSignedIn() && request.auth.uid == uid;
-      allow read, update: if isAdmin();
+
+      // You query this collection, so allow any signed-in user to read it
+      allow read: if isSignedIn();
+
+      allow update: if isAdmin()
+        || (isSignedIn() && request.auth.uid == uid);
+
       allow delete: if false;
     }
 
+    // Contractor-owned subcollection providers
     match /contractors/{contractorId}/providers/{providerId} {
       allow create: if isSignedIn() && request.auth.uid == contractorId;
       allow read, update: if isSignedIn() && request.auth.uid == providerId;
@@ -153,26 +125,83 @@ service cloud.firestore {
       allow create: if isSignedIn()
         && request.resource.data.clientId == request.auth.uid;
 
-      // ✅ Block reads for cancelled states (client + provider shouldn't view it anymore)
       function isCancelledState() {
-        return resource.data.status in ["cancelled", "cancelled_by_client", "cancelled_by_provider"];
+        return resource.data.status in [
+          "cancelled",
+          "cancelled_by_client",
+          "cancelled_by_provider"
+        ];
       }
 
-      allow read: if isAdmin()
-        || (
-          !isCancelledState()
-          && (
-            (isClient() && resource.data.clientId == request.auth.uid)
-            || isSelectedProvider()
-            || isMatchedProvider()
-          )
-        );
+      function isClientOwner() {
+        return isSignedIn()
+          && (resource.data.clientId is string)
+          && resource.data.clientId == request.auth.uid;
+      }
 
-      // UPDATE:
+      function isSelectedProvider() {
+        return isSignedIn()
+          && (resource.data.selectedProviderUid is string)
+          && resource.data.selectedProviderUid == request.auth.uid;
+      }
+
+      function isMatchedProvider() {
+        return isSignedIn()
+          && (resource.data.matchedProviderIds is list)
+          && (request.auth.uid in resource.data.matchedProviderIds);
+      }
+
+      function providerCanRespondToJob() {
+        return isSignedIn()
+          && (resource.data.selectedProviderUid is string)
+          && resource.data.selectedProviderUid == request.auth.uid
+          && request.resource.data.diff(resource.data).changedKeys()
+              .hasOnly(["status", "providerDecisionAt", "updatedAt"])
+          && (request.resource.data.status in ["accepted", "declined"]);
+      }
+
+      function clientCanCancelJob() {
+        return isSignedIn()
+          && resource.data.clientId == request.auth.uid
+          && request.resource.data.diff(resource.data).changedKeys()
+              .hasOnly(["status", "cancelledAt", "stoppedAt", "updatedAt"])
+          && (request.resource.data.status in ["cancelled"]);
+      }
+
+      function clientCanCancelAcceptedJob() {
+        return isSignedIn()
+          && resource.data.clientId == request.auth.uid
+          && request.resource.data.diff(resource.data).changedKeys()
+              .hasOnly(["status", "cancelledAt", "updatedAt"])
+          && (request.resource.data.status in ["cancelled_by_client"]);
+      }
+
+      // ✅ Contractor owns job if selected provider belongs to contractor.
+      // We support BOTH:
+      // 1) Mirror lookup serviceProviders/{providerUid}.contractorId
+      // 2) Subcollection existence contractors/{contractorUid}/providers/{providerUid}
+      function contractorOwnsThisJob() {
+        return isContractor()
+          && (resource.data.selectedProviderUid is string)
+          && exists(/databases/$(database)/documents/serviceProviders/$(resource.data.selectedProviderUid))
+          && (
+            get(/databases/$(database)/documents/serviceProviders/$(resource.data.selectedProviderUid)).data.managedBy
+            == /databases/$(database)/documents/contractors/$(request.auth.uid)
+          );
+      }
+
+      // ✅ READ:
       // - admin
-      // - provider accept/decline only
-      // - client cancel/stop (to cancelled)
-      // - client cancel accepted job (to cancelled_by_client)
+      // - contractor owner (via either method)
+      // - client owner (even if cancelled)
+      // - selected provider (even if cancelled)
+      // - matched providers only if NOT cancelled
+      allow read: if isAdmin()
+        || contractorOwnsThisJob()
+        || isClientOwner()
+        || isSelectedProvider()
+        || (isMatchedProvider() && !isCancelledState());
+
       allow update: if isAdmin()
         || providerCanRespondToJob()
         || clientCanCancelJob()
@@ -181,10 +210,32 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ----------------- QUOTATIONS -----------------
+    match /quotations/{quotationId} {
+
+      allow create: if isContractor()
+        && request.resource.data.contractorId == request.auth.uid
+        && request.resource.data.jobId is string
+        && request.resource.data.pricing is map
+        && request.resource.data.tasks is list;
+
+      allow read: if isAdmin()
+        || (isContractor() && resource.data.contractorId == request.auth.uid)
+        || (
+          isSignedIn()
+          && resource.data.jobId is string
+          && exists(/databases/$(database)/documents/jobRequest/$(resource.data.jobId))
+          && get(/databases/$(database)/documents/jobRequest/$(resource.data.jobId)).data.clientId
+              == request.auth.uid
+        );
+
+      allow update, delete: if false;
+    }
+
     // ----------------- JOBS -----------------
     match /jobs/{jobId} {
-      allow read: if (isClient() && resource.data.clientId == request.auth.uid)
-        || isAdmin();
+      allow read: if isAdmin()
+        || (isSignedIn() && resource.data.clientId == request.auth.uid);
 
       allow create, update, delete: if false;
     }

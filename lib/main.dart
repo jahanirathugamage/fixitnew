@@ -36,7 +36,7 @@ import 'package:fixitnew/screens/dashboards/client/client_job_details_screen.dar
 // DASHBOARDS – CONTRACTOR
 import 'package:fixitnew/screens/dashboards/home_contractor.dart';
 import 'package:fixitnew/screens/dashboards/contractor/contractor_account_info.dart';
-import 'package:fixitnew/screens/dashboards/contractor/contractor_jobs.dart';
+import 'package:fixitnew/screens/dashboards/contractor/contractor_jobs_screen.dart';
 import 'package:fixitnew/screens/dashboards/contractor/contractor_service_providers.dart';
 import 'package:fixitnew/screens/dashboards/contractor/change_contractor_password_screen.dart';
 import 'package:fixitnew/screens/dashboards/contractor/update_contractor_profile.dart';
@@ -212,7 +212,7 @@ class MyApp extends StatelessWidget {
         '/dashboards/home_contractor': (_) => const HomeContractor(),
         '/dashboards/contractor/contractor_account_info': (_) =>
             const ContractorAccountInfo(),
-        '/dashboards/contractor/contractor_jobs': (_) => const ContractorJobs(),
+        '/dashboards/contractor/contractor_jobs_screen': (_) => const ContractorJobsScreen(),
         '/dashboards/contractor/contractor_service_providers': (_) =>
             const ContractorServiceProviders(),
         '/dashboards/contractor/update_provider_screen': (_) =>

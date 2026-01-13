@@ -1,6 +1,23 @@
 {
   "indexes": [
     {
+      "collectionGroup": "jobRequest",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "clientId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "scheduledDate", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "jobRequest",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "selectedProviderUid", "order": "ASCENDING" },
+        { "fieldPath": "scheduledDate", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "timeBlocks",
       "queryScope": "COLLECTION",
       "fields": [
