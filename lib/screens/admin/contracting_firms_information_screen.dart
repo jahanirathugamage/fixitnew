@@ -20,6 +20,7 @@ class ContractingFirmsInformationScreen extends StatelessWidget {
           icon: const Icon(Icons.arrow_back_ios, color: Colors.black),
           onPressed: () => Navigator.pop(context),
         ),
+        centerTitle: true,
         title: const Text(
           'Contracting Firms',
           style: TextStyle(
@@ -57,7 +58,7 @@ class ContractingFirmsInformationScreen extends StatelessWidget {
 
           return ListView.separated(
             itemCount: firms.length,
-            separatorBuilder: (_, __) => const Divider(height: 1),
+            separatorBuilder: (_, _) => const Divider(height: 1), // ✅ FIXED
             itemBuilder: (context, i) {
               final firm = firms[i];
 
@@ -84,7 +85,6 @@ class ContractingFirmsInformationScreen extends StatelessWidget {
 
                 // ✅ single reliable tap handler
                 onTap: () {
-                  
                   final id = firm.id.trim();
 
                   if (id.isEmpty) {

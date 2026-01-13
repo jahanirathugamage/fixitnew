@@ -128,7 +128,7 @@ class ContractorFirmInformationScreen extends StatelessWidget {
           icon: const Icon(Icons.arrow_back_ios, color: Colors.black),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text('Contractor Firm Information', style: _titleStyle),
+        title: const Text('Firm Info', style: _titleStyle),
         centerTitle: true,
       ),
       body: StreamBuilder<ContractorFirmInformation?>(
