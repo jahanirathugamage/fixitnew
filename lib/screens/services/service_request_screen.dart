@@ -665,7 +665,7 @@ class _ServiceRequestScreenState extends State<ServiceRequestScreen> {
             (total, item) => total + item.unitPrice * item.quantity,
           );
 
-          final int platformFee = (serviceTotal * 0.20).round();
+          final int platformFee = (serviceTotal * 0.02).round();
           final int totalAmount = serviceTotal + visitationFee + platformFee;
 
           void updateQuantity(int index, int delta) {

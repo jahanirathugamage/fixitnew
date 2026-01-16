@@ -48,7 +48,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
       final uid = cred.user!.uid;
 
-      // Get role from Firestore
       final userDoc =
           await FirebaseFirestore.instance.collection("users").doc(uid).get();
 
@@ -62,7 +61,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
       final role = userDoc["role"];
 
-      // Redirect based on role
       switch (role) {
         case "client":
           Navigator.pushReplacementNamed(
@@ -72,7 +70,6 @@ class _LoginScreenState extends State<LoginScreen> {
           break;
 
         case "contractor":
-          // 🔍 Check contractor approval status
           final contractorDoc = await FirebaseFirestore.instance
               .collection('contractors')
               .doc(uid)
@@ -90,10 +87,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
           final data = contractorDoc.data()!;
           final bool verified = data['verified'] == true;
-          // 🔴 use 'status' field (set by admin approval screen)
           final String status = (data['status'] ?? 'pending').toString();
 
-          // ❌ Not approved → show error and block login
           if (!verified || status != 'approved') {
             setState(() {
               _loading = false;
@@ -104,7 +99,6 @@ class _LoginScreenState extends State<LoginScreen> {
             return;
           }
 
-          // ✅ Approved contractor → dashboard
           Navigator.pushReplacementNamed(
             context,
             "/dashboards/home_contractor",
@@ -257,14 +251,18 @@ class _LoginScreenState extends State<LoginScreen> {
 
               const SizedBox(height: 20),
 
-              // FORGOT PASSWORD
-              TextButton(
-                onPressed: () {
+              // ✅ FORGOT PASSWORD (plain text, no button look)
+              GestureDetector(
+                onTap: () {
                   Navigator.pushNamed(context, "/forgot_password");
                 },
                 child: const Text(
                   'Forgot Password?',
-                  style: TextStyle(fontSize: 16, color: Colors.black),
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.black,
+                    decoration: TextDecoration.underline,
+                  ),
                 ),
               ),
 

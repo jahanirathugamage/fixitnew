@@ -10,6 +10,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 
 import 'package:fixitnew/firebase_options.dart';
 import 'package:fixitnew/services/push_notifications.dart';
+import 'package:fixitnew/services/notification_router.dart';
 
 // AUTH SCREENS
 import 'package:fixitnew/screens/welcome_screen.dart';
@@ -30,11 +31,12 @@ import 'package:fixitnew/screens/dashboards/client/client_jobs.dart';
 import 'package:fixitnew/screens/dashboards/client/change_client_password.dart';
 import 'package:fixitnew/screens/dashboards/client/update_client_profile.dart';
 import 'package:fixitnew/screens/dashboards/client/client_job_requests.dart';
+import 'package:fixitnew/screens/dashboards/client/client_job_details_screen.dart';
 
 // DASHBOARDS – CONTRACTOR
 import 'package:fixitnew/screens/dashboards/home_contractor.dart';
 import 'package:fixitnew/screens/dashboards/contractor/contractor_account_info.dart';
-import 'package:fixitnew/screens/dashboards/contractor/contractor_jobs.dart';
+import 'package:fixitnew/screens/dashboards/contractor/contractor_jobs_screen.dart';
 import 'package:fixitnew/screens/dashboards/contractor/contractor_service_providers.dart';
 import 'package:fixitnew/screens/dashboards/contractor/change_contractor_password_screen.dart';
 import 'package:fixitnew/screens/dashboards/contractor/update_contractor_profile.dart';
@@ -44,6 +46,11 @@ import 'package:fixitnew/screens/dashboards/contractor/update_provider_screen.da
 import 'package:fixitnew/screens/dashboards/provider_home_screen.dart';
 import 'package:fixitnew/screens/dashboards/provider/provider_jobs.dart';
 import 'package:fixitnew/screens/dashboards/provider/job_requests_screen.dart';
+import 'package:fixitnew/screens/dashboards/provider/job_details_screen.dart';
+
+// ✅ NEW SCREENS (already in your file)
+import 'package:fixitnew/screens/quotations/client_quotation_screen.dart';
+import 'package:fixitnew/screens/invoices/client_invoice_review_screen.dart';
 
 // ADMIN SCREENS
 import 'package:fixitnew/screens/admin/create_admin_account_screen.dart';
@@ -55,6 +62,11 @@ import 'package:fixitnew/screens/admin/contractor_approval_detail_screen.dart'
 import 'package:fixitnew/screens/admin/contractor_approval_screen.dart';
 import 'package:fixitnew/screens/admin/contracting_firms_information_screen.dart'
     as admin_firms;
+import 'package:fixitnew/screens/admin/contractor_firm_information_screen.dart'
+    as admin_firm_info;
+
+// ✅ ADMIN AUDIT LOGS (NEW)
+import 'package:fixitnew/screens/admin/admin_logs_screen.dart';
 
 // MATCHING
 import 'package:fixitnew/screens/services/matching_screen.dart';
@@ -63,13 +75,11 @@ import 'package:fixitnew/screens/services/matching_screen.dart';
 import 'package:fixitnew/screens/services/service_request_screen.dart';
 import 'package:fixitnew/screens/services/service_request_wrapper.dart';
 
-/// ✅ Needed for background FCM handling
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  // No UI work here.
 }
 
 Future<void> main() async {
@@ -79,10 +89,8 @@ Future<void> main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // ✅ Register background handler
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
-  // ✅ Ensure Functions region is set (if you call callable functions)
   FirebaseFunctions.instanceFor(region: 'us-central1');
 
   runApp(const MyApp());
@@ -128,6 +136,132 @@ class MyApp extends StatelessWidget {
           settings: settings,
         );
 
+      case '/admin/contractor_firm_information_screen':
+        final args = settings.arguments;
+        if (args is String && args.trim().isNotEmpty) {
+          return MaterialPageRoute(
+            builder: (_) => admin_firm_info.ContractorFirmInformationScreen(
+              contractorId: args,
+            ),
+            settings: settings,
+          );
+        }
+        return MaterialPageRoute(
+          builder: (_) => const _RouteErrorScreen(
+            message:
+                "Missing or invalid contractorId for '/admin/contractor_firm_information_screen'.\n\n"
+                "Fix:\nNavigator.pushNamed(context, '/admin/contractor_firm_information_screen', arguments: contractorId);",
+          ),
+          settings: settings,
+        );
+
+      case '/dashboards/client/job_details':
+        final args = settings.arguments;
+        if (args is String && args.trim().isNotEmpty) {
+          return MaterialPageRoute(
+            builder: (_) => ClientJobDetailsScreen(jobId: args),
+            settings: settings,
+          );
+        }
+        return MaterialPageRoute(
+          builder: (_) => const _RouteErrorScreen(
+            message:
+                "Missing or invalid jobId for '/dashboards/client/job_details'.\n\n"
+                "Fix:\nNavigator.pushNamed(context, '/dashboards/client/job_details', arguments: jobId);",
+          ),
+          settings: settings,
+        );
+
+      case '/provider/job_details':
+        final args = settings.arguments;
+        if (args is String && args.trim().isNotEmpty) {
+          return MaterialPageRoute(
+            builder: (_) => ProviderJobDetailsScreen(jobId: args),
+            settings: settings,
+          );
+        }
+        return MaterialPageRoute(
+          builder: (_) => const _RouteErrorScreen(
+            message:
+                "Missing or invalid jobId for '/provider/job_details'.\n\n"
+                "Fix:\nNavigator.pushNamed(context, '/provider/job_details', arguments: jobId);",
+          ),
+          settings: settings,
+        );
+
+      // ✅ Client quotation screen
+      case '/client/quotation':
+        final args = settings.arguments;
+        if (args is String && args.trim().isNotEmpty) {
+          return MaterialPageRoute(
+            builder: (_) => ClientQuotationScreen(jobId: args),
+            settings: settings,
+          );
+        }
+        return MaterialPageRoute(
+          builder: (_) => const _RouteErrorScreen(
+            message:
+                "Missing or invalid jobId for '/client/quotation'.\n\n"
+                "Fix:\nNavigator.pushNamed(context, '/client/quotation', arguments: jobId);",
+          ),
+          settings: settings,
+        );
+
+      // ✅ Client invoice review
+      case '/client/invoice_review':
+        final args = settings.arguments;
+        if (args is String && args.trim().isNotEmpty) {
+          return MaterialPageRoute(
+            builder: (_) => ClientInvoiceReviewScreen(jobId: args),
+            settings: settings,
+          );
+        }
+        return MaterialPageRoute(
+          builder: (_) => const _RouteErrorScreen(
+            message:
+                "Missing or invalid jobId for '/client/invoice_review'.\n\n"
+                "Fix:\nNavigator.pushNamed(context, '/client/invoice_review', arguments: jobId);",
+          ),
+          settings: settings,
+        );
+
+      // ✅ FIX: Provider confirm visitation fee route (NO missing screen)
+      // Route it to ProviderJobDetailsScreen so notifications still open somewhere valid.
+      case '/provider/confirm_visitation_fee':
+        final args = settings.arguments;
+        if (args is String && args.trim().isNotEmpty) {
+          return MaterialPageRoute(
+            builder: (_) => ProviderJobDetailsScreen(jobId: args),
+            settings: settings,
+          );
+        }
+        return MaterialPageRoute(
+          builder: (_) => const _RouteErrorScreen(
+            message:
+                "Missing or invalid jobId for '/provider/confirm_visitation_fee'.\n\n"
+                "Fix:\nNavigator.pushNamed(context, '/provider/confirm_visitation_fee', arguments: jobId);",
+          ),
+          settings: settings,
+        );
+
+      // ✅ FIX: Provider confirm final payment route (NO missing screen)
+      case '/provider/confirm_final_payment':
+        final args = settings.arguments;
+        if (args is String && args.trim().isNotEmpty) {
+          return MaterialPageRoute(
+            builder: (_) => ProviderJobDetailsScreen(jobId: args),
+            settings: settings,
+          );
+        }
+        return MaterialPageRoute(
+          builder: (_) => const _RouteErrorScreen(
+            message:
+                "Missing or invalid jobId for '/provider/confirm_final_payment'.\n\n"
+                "Fix:\nNavigator.pushNamed(context, '/provider/confirm_final_payment', arguments: jobId);",
+          ),
+          settings: settings,
+        );
+
       default:
         return null;
     }
@@ -135,6 +269,8 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    NotificationRouter.instance.init(PushNotifications.navigatorKey);
+
     return MaterialApp(
       title: 'FixIt App',
       debugShowCheckedModeBanner: false,
@@ -142,21 +278,19 @@ class MyApp extends StatelessWidget {
         fontFamily: 'Montserrat',
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.black),
       ),
+      navigatorKey: PushNotifications.navigatorKey,
       home: const AuthWrapper(),
       routes: {
-        // AUTH
         '/welcome': (_) => const WelcomeScreen(),
         '/login': (_) => const LoginScreen(),
         '/forgot_password': (_) => const ForgotPasswordScreen(),
         '/register_select': (_) => const RegisterSelectScreen(),
         '/otp_verification': (_) => const OtpVerificationScreen(),
 
-        // PROFILE
         '/profile_client': (_) => const ProfileClientScreen(),
         '/profile_contractor_full': (_) => const ProfileContractorFullScreen(),
         '/profile/add_provider_screen': (_) => const AddProviderScreen(),
 
-        // CLIENT DASHBOARD
         '/dashboards/home_client': (_) => const HomeClient(),
         '/dashboards/client/home_screen': (_) => const HomeScreen(),
         '/dashboards/client/client_jobs': (_) => const ClientJobsScreen(),
@@ -167,11 +301,11 @@ class MyApp extends StatelessWidget {
         '/dashboards/client/change_client_password': (_) =>
             const ChangeClientPasswordScreen(),
 
-        // CONTRACTOR DASHBOARD
         '/dashboards/home_contractor': (_) => const HomeContractor(),
         '/dashboards/contractor/contractor_account_info': (_) =>
             const ContractorAccountInfo(),
-        '/dashboards/contractor/contractor_jobs': (_) => const ContractorJobs(),
+        '/dashboards/contractor/contractor_jobs_screen': (_) =>
+            const ContractorJobsScreen(),
         '/dashboards/contractor/contractor_service_providers': (_) =>
             const ContractorServiceProviders(),
         '/dashboards/contractor/update_provider_screen': (_) =>
@@ -181,18 +315,14 @@ class MyApp extends StatelessWidget {
         '/dashboards/contractor/update_contractor_profile': (_) =>
             const UpdateContractorProfile(),
 
-        // PROVIDER DASHBOARD
         '/dashboards/provider_home_screen': (_) => const ProviderHomeScreen(),
         '/provider/provider_jobs': (_) => const ProviderJobsScreen(),
-        '/provider/job_requests_screen': (_) =>
-            const ProviderJobRequestsScreen(),
+        '/provider/job_requests_screen': (_) => const ProviderJobRequestsScreen(),
 
-        // ADMIN
         '/admin/create_admin_account_screen': (_) =>
             const CreateAdminAccountScreen(),
         '/admin/admin_settings_screen': (_) => const AdminSettingsScreen(),
-        '/admin/admin_account_info_screen': (_) =>
-            const AdminAccountInfoScreen(),
+        '/admin/admin_account_info_screen': (_) => const AdminAccountInfoScreen(),
         '/admin/contractor_approval_screen': (_) =>
             const ContractorApprovalScreen(),
         '/admin/contracting_firms_information_screen': (_) =>
@@ -200,22 +330,23 @@ class MyApp extends StatelessWidget {
         '/admin/admin_change_password_screen': (_) =>
             const AdminChangePasswordScreen(),
 
-        // SERVICES
+        // ✅ ADDED: Admin Audit Logs Screen route
+        '/admin/admin_logs_screen': (_) => const AdminLogsScreen(),
+
         '/service/ac': (_) =>
             ServiceRequestScreen(config: ServiceRequestWrapper.acConfig),
         '/service/plumbing': (_) =>
             ServiceRequestScreen(config: ServiceRequestWrapper.plumbingConfig),
-        '/service/electrical': (_) => ServiceRequestScreen(
-            config: ServiceRequestWrapper.electricalConfig),
+        '/service/electrical': (_) =>
+            ServiceRequestScreen(config: ServiceRequestWrapper.electricalConfig),
         '/service/carpentry': (_) =>
             ServiceRequestScreen(config: ServiceRequestWrapper.carpentryConfig),
         '/service/gardening': (_) =>
             ServiceRequestScreen(config: ServiceRequestWrapper.gardeningConfig),
-        '/service/pest': (_) => ServiceRequestScreen(
-              config: ServiceRequestWrapper.pestControlConfig,
-            ),
-        '/service/appliances': (_) => ServiceRequestScreen(
-            config: ServiceRequestWrapper.appliancesConfig),
+        '/service/pest': (_) =>
+            ServiceRequestScreen(config: ServiceRequestWrapper.pestControlConfig),
+        '/service/appliances': (_) =>
+            ServiceRequestScreen(config: ServiceRequestWrapper.appliancesConfig),
         '/service/cleaning': (_) =>
             ServiceRequestScreen(config: ServiceRequestWrapper.cleaningConfig),
       },
@@ -231,16 +362,15 @@ class MyApp extends StatelessWidget {
   }
 }
 
+// ✅ Your AuthWrapper + VerifyEmail + Pending/Rejected + RouteError stay unchanged below.
 class AuthWrapper extends StatelessWidget {
   const AuthWrapper({super.key});
 
   Future<Widget> _getUserHome(User user) async {
     final uid = user.uid;
 
-    // ✅ Refresh user to ensure emailVerified is up-to-date
     await user.reload();
     final refreshedUser = FirebaseAuth.instance.currentUser;
-
     if (refreshedUser == null) return const WelcomeScreen();
 
     if (!refreshedUser.emailVerified) {
@@ -251,7 +381,6 @@ class AuthWrapper extends StatelessWidget {
         await FirebaseFirestore.instance.collection('users').doc(uid).get();
     if (!userDoc.exists) return const WelcomeScreen();
 
-    // ✅ Subscribe user to push notifications (guard inside PushNotifications)
     await PushNotifications.initForUser(uid);
 
     final role = userDoc.data()?['role'];
@@ -299,11 +428,8 @@ class AuthWrapper extends StatelessWidget {
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snap) {
-        // ✅ Prevent welcome screen flicker
         if (snap.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
+          return const Scaffold(body: Center(child: CircularProgressIndicator()));
         }
 
         if (!snap.hasData) return const WelcomeScreen();
@@ -314,8 +440,7 @@ class AuthWrapper extends StatelessWidget {
           builder: (context, roleSnap) {
             if (!roleSnap.hasData) {
               return const Scaffold(
-                body: Center(child: CircularProgressIndicator()),
-              );
+                  body: Center(child: CircularProgressIndicator()));
             }
             return roleSnap.data!;
           },
@@ -335,10 +460,7 @@ class VerifyEmailScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.black,
-        title: const Text(
-          'Verify Email',
-          style: TextStyle(color: Colors.white),
-        ),
+        title: const Text('Verify Email', style: TextStyle(color: Colors.white)),
       ),
       body: Center(
         child: Column(
@@ -519,10 +641,8 @@ class _RouteErrorScreen extends StatelessWidget {
       backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.black,
-        title: const Text(
-          'Navigation Error',
-          style: TextStyle(color: Colors.white),
-        ),
+        title:
+            const Text('Navigation Error', style: TextStyle(color: Colors.white)),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),

@@ -1,60 +1,50 @@
+// firestore.rules
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Allow signed-in users to read provider profiles
-    match /serviceProviders/{providerDocId} {
-      allow read: if request.auth != null;
-    }
 
     // ----------------- HELPERS -----------------
     function isSignedIn() {
       return request.auth != null;
     }
 
-    // ✅ Safe role lookup (won't crash if users doc missing)
-    function userRole() {
+    function userDocExists() {
       return isSignedIn()
-        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function userRole() {
+      return userDocExists()
         ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
         : "unknown";
     }
 
     function isAdmin() {
-      return isSignedIn() && userRole() == "admin";
+      return isSignedIn() && (
+        userRole() == "admin"
+        || exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
     }
 
-    function isClient() {
-      return isSignedIn() && userRole() == "client";
+    function isContractor() {
+      return isSignedIn() && (
+        userRole() == "contractor"
+        || exists(/databases/$(database)/documents/contractors/$(request.auth.uid))
+      );
     }
 
     function isProvider() {
-      return isSignedIn() && userRole() == "provider";
+      return isSignedIn() && (
+        userRole() == "provider"
+        || exists(/databases/$(database)/documents/serviceProviders/$(request.auth.uid))
+      );
     }
 
-    // ✅ Provider access should NOT rely on role lookup
-    function isSelectedProvider() {
-      return isSignedIn()
-        && resource.data.selectedProviderUid == request.auth.uid;
+    function contractorRef() {
+      return /databases/$(database)/documents/contractors/$(request.auth.uid);
     }
 
-    // Optional matched list support (no role check)
-    function isMatchedProvider() {
-      return isSignedIn()
-        && (resource.data.matchedProviderIds is list)
-        && (request.auth.uid in resource.data.matchedProviderIds);
-    }
-
-    // ✅ Provider can accept/decline only on selected jobs (field whitelist)
-    function providerCanRespondToJob() {
-      return isSignedIn()
-        && resource.data.selectedProviderUid == request.auth.uid
-        && request.resource.data.diff(resource.data).changedKeys()
-            .hasOnly(["status", "providerDecisionAt", "updatedAt"])
-        && (request.resource.data.status in ["accepted", "declined"]);
-    }
-
-    // ----------------- USERS (role store) -----------------
+    // ----------------- USERS -----------------
     match /users/{uid} {
       allow create: if isSignedIn() && request.auth.uid == uid;
       allow read, update: if isSignedIn() && request.auth.uid == uid;
@@ -67,7 +57,6 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // Admin invitations (Admin SDK only)
     match /adminInvites/{inviteId} {
       allow read, write: if false;
     }
@@ -82,48 +71,41 @@ service cloud.firestore {
     // ----------------- CONTRACTORS -----------------
     match /contractors/{uid} {
       allow create: if isSignedIn() && request.auth.uid == uid;
-
-      // (kept as you had) any signed-in user can read contractors
       allow read: if isSignedIn();
-
-      // contractor self OR admin can update
       allow update: if isSignedIn() && (request.auth.uid == uid || isAdmin());
-
       allow delete: if false;
     }
 
-    // ----------------- SERVICE PROVIDERS (top-level) -----------------
+    // ----------------- SERVICE PROVIDERS (GLOBAL MIRROR) -----------------
     match /serviceProviders/{uid} {
       allow create: if isSignedIn() && request.auth.uid == uid;
 
-      // provider can read/update their own provider doc
-      allow read, update: if isSignedIn() && request.auth.uid == uid;
+      // app queries this
+      allow read: if isSignedIn();
 
-      // admin access
-      allow read, update: if isAdmin();
+      allow update: if isAdmin()
+        || (isSignedIn() && request.auth.uid == uid);
 
       allow delete: if false;
     }
 
-    // ----------------- CONTRACTOR -> providers subcollection -----------------
+    // Contractor-owned subcollection providers
     match /contractors/{contractorId}/providers/{providerId} {
-      // contractor creates provider docs
+      // ✅ allow signed-in reads so client can resolve provider names if needed
+      allow read: if isSignedIn();
+
       allow create: if isSignedIn() && request.auth.uid == contractorId;
 
-      // provider can read/update their own info
-      allow read, update: if isSignedIn() && request.auth.uid == providerId;
-
-      // contractor can read/update providers under them
-      allow read, update: if isSignedIn() && request.auth.uid == contractorId;
-
-      // admins can also read/update
-      allow read, update: if isAdmin();
+      allow update: if isSignedIn() && (
+        request.auth.uid == providerId
+        || request.auth.uid == contractorId
+        || isAdmin()
+      );
 
       allow delete: if false;
     }
 
-    // ----------------- PUBLIC / CATALOG DATA -----------------
-    // Your UI loads these lists; allow read without auth issues.
+    // ----------------- PUBLIC DATA -----------------
     match /services/{serviceId} {
       allow read: if true;
       allow write: if false;
@@ -134,13 +116,11 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // ✅ You have this collection in your DB list
     match /serviceTasks/{taskId} {
       allow read: if true;
       allow write: if false;
     }
 
-    // optional aliases (keep if your teammate uses these names)
     match /serviceCategories/{id} {
       allow read: if true;
       allow write: if false;
@@ -159,42 +139,189 @@ service cloud.firestore {
     // ----------------- JOB REQUESTS -----------------
     match /jobRequest/{jobId} {
 
-      // Clients can create jobs for themselves
       allow create: if isSignedIn()
         && request.resource.data.clientId == request.auth.uid;
 
-      // READ:
-      // - client owner
-      // - admin
-      // - selected provider
-      // - matched provider
-      allow read: if (isClient() && resource.data.clientId == request.auth.uid)
-        || isAdmin()
-        || isSelectedProvider()
-        || isMatchedProvider();
+      function isCancelledState() {
+        return (resource.data.status is string) && (resource.data.status in [
+          "cancelled",
+          "cancelled_by_client",
+          "cancelled_by_provider"
+        ]);
+      }
 
-      // UPDATE:
-      // - client owner
-      // - admin
-      // - selected provider accept/decline only
-      allow update: if (isClient() && resource.data.clientId == request.auth.uid)
-        || isAdmin()
-        || providerCanRespondToJob();
+      function isClientOwner() {
+        return isSignedIn()
+          && (resource.data.clientId is string)
+          && resource.data.clientId == request.auth.uid;
+      }
+
+      function isSelectedProvider() {
+        return isSignedIn()
+          && (resource.data.selectedProviderUid is string)
+          && resource.data.selectedProviderUid == request.auth.uid;
+      }
+
+      function isMatchedProvider() {
+        return isSignedIn()
+          && (resource.data.matchedProviderIds is list)
+          && (request.auth.uid in resource.data.matchedProviderIds);
+      }
+
+      // ✅ Contractor owns if jobRequest has contractorId (string) matching uid
+      function contractorOwnsByJobField() {
+        return isContractor()
+          && (resource.data.contractorId is string)
+          && resource.data.contractorId == request.auth.uid;
+      }
+
+      // ✅ Contractor owns if provider.managedBy points to contractor doc OR managedBy is contractor uid string
+      function contractorOwnsByProviderManagedBy() {
+        return isContractor()
+          && (resource.data.selectedProviderUid is string)
+          && exists(/databases/$(database)/documents/serviceProviders/$(resource.data.selectedProviderUid))
+          && (
+            // managedBy stored as DocumentReference
+            (
+              get(/databases/$(database)/documents/serviceProviders/$(resource.data.selectedProviderUid)).data.managedBy
+              == contractorRef()
+            )
+            ||
+            // managedBy stored as contractor uid string
+            (
+              get(/databases/$(database)/documents/serviceProviders/$(resource.data.selectedProviderUid)).data.managedBy is string
+              && get(/databases/$(database)/documents/serviceProviders/$(resource.data.selectedProviderUid)).data.managedBy
+                 == request.auth.uid
+            )
+            ||
+            // contractorId stored as string on provider doc
+            (
+              get(/databases/$(database)/documents/serviceProviders/$(resource.data.selectedProviderUid)).data.contractorId is string
+              && get(/databases/$(database)/documents/serviceProviders/$(resource.data.selectedProviderUid)).data.contractorId
+                 == request.auth.uid
+            )
+          );
+      }
+
+      function contractorOwnsThisJob() {
+        return contractorOwnsByJobField() || contractorOwnsByProviderManagedBy();
+      }
+
+      function providerCanRespondToJob() {
+        return isSignedIn()
+          && (resource.data.selectedProviderUid is string)
+          && resource.data.selectedProviderUid == request.auth.uid
+          && request.resource.data.diff(resource.data).changedKeys()
+              .hasOnly(["status", "providerDecisionAt", "providerResponseAt", "updatedAt"])
+          && (request.resource.data.status in ["accepted", "declined"]);
+      }
+
+      function clientCanCancelJob() {
+        return isSignedIn()
+          && (resource.data.clientId is string)
+          && resource.data.clientId == request.auth.uid
+          && request.resource.data.diff(resource.data).changedKeys()
+              .hasOnly(["status", "cancelledAt", "stoppedAt", "updatedAt"])
+          && (request.resource.data.status in ["cancelled"]);
+      }
+
+      function clientCanCancelAcceptedJob() {
+        return isSignedIn()
+          && (resource.data.clientId is string)
+          && resource.data.clientId == request.auth.uid
+          && request.resource.data.diff(resource.data).changedKeys()
+              .hasOnly(["status", "cancelledAt", "updatedAt"])
+          && (request.resource.data.status in ["cancelled_by_client"]);
+      }
+
+      // ✅ READ:
+      // IMPORTANT: allow involved parties to read ALWAYS (even if "hidden"),
+      // otherwise queries will throw permission-denied when hidden docs exist.
+      allow read: if isAdmin()
+        || isClientOwner()
+        || isSelectedProvider()
+        || contractorOwnsThisJob()
+        || (isMatchedProvider() && !isCancelledState());
+
+      // ✅ UPDATE:
+      // Only strict client/provider actions from app.
+      // Everything else happens via backend (Admin SDK bypasses rules).
+      allow update: if isAdmin()
+        || providerCanRespondToJob()
+        || clientCanCancelJob()
+        || clientCanCancelAcceptedJob();
 
       allow delete: if false;
     }
 
+    // ----------------- QUOTATIONS -----------------
+    match /quotations/{quotationId} {
+
+      allow create: if isContractor()
+        && request.resource.data.contractorId == request.auth.uid
+        && request.resource.data.jobId is string
+        && request.resource.data.pricing is map
+        && request.resource.data.tasks is list;
+
+      allow read: if isAdmin()
+        || (isContractor() && resource.data.contractorId == request.auth.uid)
+        || (
+          isSignedIn()
+          && resource.data.jobId is string
+          && exists(/databases/$(database)/documents/jobRequest/$(resource.data.jobId))
+          && get(/databases/$(database)/documents/jobRequest/$(resource.data.jobId)).data.clientId
+              == request.auth.uid
+        )
+        || (
+          isProvider()
+          && resource.data.jobId is string
+          && exists(/databases/$(database)/documents/jobRequest/$(resource.data.jobId))
+          && get(/databases/$(database)/documents/jobRequest/$(resource.data.jobId)).data.selectedProviderUid
+              == request.auth.uid
+        );
+
+      allow update, delete: if false;
+    }
+
+    // ----------------- INVOICES -----------------
+    match /invoices/{invoiceId} {
+
+      allow create: if isContractor()
+        && request.resource.data.contractorId == request.auth.uid
+        && request.resource.data.jobId is string;
+
+      allow read: if isAdmin()
+        || (isContractor() && resource.data.contractorId == request.auth.uid)
+        || (
+          isSignedIn()
+          && resource.data.jobId is string
+          && exists(/databases/$(database)/documents/jobRequest/$(resource.data.jobId))
+          && get(/databases/$(database)/documents/jobRequest/$(resource.data.jobId)).data.clientId
+              == request.auth.uid
+        )
+        || (
+          isProvider()
+          && resource.data.jobId is string
+          && exists(/databases/$(database)/documents/jobRequest/$(resource.data.jobId))
+          && get(/databases/$(database)/documents/jobRequest/$(resource.data.jobId)).data.selectedProviderUid
+              == request.auth.uid
+        );
+
+      allow update, delete: if false;
+    }
+
+    // ----------------- PAYMENTS -----------------
+    match /payments/{paymentId} {
+      allow create: if isAdmin();
+      allow read: if isAdmin();
+      allow update, delete: if false;
+    }
+
     // ----------------- JOBS -----------------
-    // ✅ Needed because your ClientJobs screen reads from /jobs
     match /jobs/{jobId} {
+      allow read: if isAdmin()
+        || (isSignedIn() && resource.data.clientId == request.auth.uid);
 
-      // READ:
-      // - client owner (based on clientId on the job doc)
-      // - admin
-      allow read: if (isClient() && resource.data.clientId == request.auth.uid)
-        || isAdmin();
-
-      // Keep writes locked (since you didn't specify any write logic here)
       allow create, update, delete: if false;
     }
   }

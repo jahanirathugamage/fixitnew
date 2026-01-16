@@ -19,6 +19,16 @@ class JobRequestModel {
   final List<Map<String, dynamic>> tasks;
   final GeoPoint? location;
 
+  // ✅ pricing map (Subtotal/Fees/Total)
+  final Map<String, dynamic> pricing;
+
+  // ✅ optional fields used in your flow
+  final int visitationFeeLkr;
+
+  // ✅ NEW: for filtering “stopped by client” logic
+  final Timestamp? cancelledAt;
+  final Timestamp? stoppedAt;
+
   JobRequestModel({
     required this.id,
     required this.clientId,
@@ -30,7 +40,31 @@ class JobRequestModel {
     required this.scheduledDate,
     required this.tasks,
     required this.location,
+    required this.pricing,
+    required this.visitationFeeLkr,
+    this.cancelledAt,
+    this.stoppedAt,
   });
+
+  String _norm(String v) => v.trim().toLowerCase();
+
+  // ✅ Keep as-is if you still use it somewhere, but make it safer
+  bool get isQuotationDeclined {
+    final s = _norm(status);
+    return s == 'quotation_declined' ||
+        s == 'quotation_declined_pending_visitation' ||
+        s == 'awaiting_visitation_fee_confirmation' ||
+        s == 'awaiting_visitation_confirmation' ||
+        s == 'terminated_after_quotation_decline';
+  }
+
+  // ✅ IMPORTANT: Provider button should show for ANY “awaiting visitation” variant
+  bool get isAwaitingVisitationConfirmation {
+    final s = _norm(status);
+    return s == 'awaiting_visitation_fee_confirmation' ||
+        s == 'quotation_declined_pending_visitation' ||
+        s == 'awaiting_visitation_confirmation';
+  }
 
   factory JobRequestModel.fromDoc(
     DocumentSnapshot<Map<String, dynamic>> doc,
@@ -53,9 +87,29 @@ class JobRequestModel {
       return '';
     }
 
-    final scheduled = (data['scheduledDate'] is Timestamp) ? data['scheduledDate'] as Timestamp : null;
+    int readInt(dynamic v) {
+      if (v is int) return v;
+      if (v is num) return v.toInt();
+      if (v is String) return int.tryParse(v) ?? 0;
+      return 0;
+    }
 
+    final scheduled =
+        (data['scheduledDate'] is Timestamp) ? data['scheduledDate'] as Timestamp : null;
     final gp = (data['location'] is GeoPoint) ? data['location'] as GeoPoint : null;
+
+    final pricingMap = (data['pricing'] is Map)
+        ? Map<String, dynamic>.from(data['pricing'])
+        : <String, dynamic>{};
+
+    final visitationFee =
+        readInt(pricingMap['visitationFee'] ?? data['visitationFee'] ?? 0);
+
+    final cancelledAt =
+        (data['cancelledAt'] is Timestamp) ? data['cancelledAt'] as Timestamp : null;
+
+    final stoppedAt =
+        (data['stoppedAt'] is Timestamp) ? data['stoppedAt'] as Timestamp : null;
 
     return JobRequestModel(
       id: doc.id,
@@ -73,6 +127,10 @@ class JobRequestModel {
       scheduledDate: scheduled,
       tasks: mappedTasks,
       location: gp,
+      pricing: pricingMap,
+      visitationFeeLkr: visitationFee,
+      cancelledAt: cancelledAt,
+      stoppedAt: stoppedAt,
     );
   }
 }

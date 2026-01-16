@@ -17,7 +17,7 @@ class ProviderRepository {
   String? get contractorId => _auth.currentUser?.uid;
 
   // -------------------------
-  // FETCH PROVIDER
+  // FETCH PROVIDER (subcollection: contractors/{contractorId}/providers/{providerId})
   // -------------------------
   Future<ServiceProviderModel?> getProvider(String providerId) async {
     if (contractorId == null) return null;
@@ -30,15 +30,13 @@ class ProviderRepository {
         .get();
 
     if (!doc.exists) return null;
-
     return ServiceProviderModel.fromFirestore(doc.id, doc.data()!);
   }
 
   // -------------------------
-  // UPDATE PROVIDER
+  // UPDATE PROVIDER (subcollection)
   // -------------------------
-  Future<String?> updateProvider(
-      String providerId, Map<String, dynamic> data) async {
+  Future<String?> updateProvider(String providerId, Map<String, dynamic> data) async {
     try {
       if (contractorId == null) return "Not authenticated";
 
@@ -56,7 +54,7 @@ class ProviderRepository {
   }
 
   // -------------------------
-  // DELETE PROVIDER
+  // DELETE PROVIDER (mirror + subcollection)
   // -------------------------
   Future<String?> deleteProvider(String providerId) async {
     try {
@@ -70,16 +68,12 @@ class ProviderRepository {
           .collection("providers")
           .doc(providerId);
 
-      final mirrorRef = _firestore
-          .collection("serviceProviders")
-          .doc(providerId);
+      final mirrorRef = _firestore.collection("serviceProviders").doc(providerId);
 
-      // Delete mirror + subcollection doc together
       batch.delete(mirrorRef);
       batch.delete(subDocRef);
 
       await batch.commit();
-
       return null;
     } catch (e) {
       return e.toString();
@@ -87,11 +81,10 @@ class ProviderRepository {
   }
 
   // -------------------------
-  // PROVIDER LIST STREAM
+  // PROVIDER LIST STREAM (subcollection)
   // -------------------------
   Stream<QuerySnapshot> providerStream() {
     if (contractorId == null) {
-      // Empty stream if not authenticated
       return const Stream.empty();
     }
 
@@ -100,5 +93,26 @@ class ProviderRepository {
         .doc(contractorId)
         .collection("providers")
         .snapshots();
+  }
+
+  // ============================================================
+  // ✅ FIXED: provider UID list via serviceProviders.managedBy (DocumentReference)
+  // ============================================================
+
+  /// Watches provider doc IDs in `serviceProviders` where managedBy == /contractors/{contractorUid}
+  Stream<List<String>> watchProviderUidsForContractor(String contractorUid) {
+    final contractorRef = _firestore.doc('contractors/$contractorUid');
+
+    return _firestore
+        .collection('serviceProviders')
+        .where('managedBy', isEqualTo: contractorRef)
+        .snapshots()
+        .map((snap) => snap.docs.map((d) => d.id).toList());
+  }
+
+  Stream<List<String>> watchMyProviderUids() {
+    final cid = contractorId;
+    if (cid == null) return const Stream.empty();
+    return watchProviderUidsForContractor(cid);
   }
 }

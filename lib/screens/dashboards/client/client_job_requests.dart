@@ -1,13 +1,12 @@
 // lib/screens/dashboards/client/client_job_requests.dart
 
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-
 import 'package:fixitnew/controllers/client/client_job_requests_controller.dart';
 import 'package:fixitnew/models/jobs/job_request_model.dart';
 import 'package:fixitnew/widgets/nav/client_bottom_nav.dart';
+import 'package:fixitnew/widgets/sheets/confirm_cancel_sheet.dart';
+import 'package:fixitnew/screens/dashboards/client/client_job_details_screen.dart';
 
 class ClientJobRequestsScreen extends StatefulWidget {
   const ClientJobRequestsScreen({super.key});
@@ -27,41 +26,15 @@ class _ClientJobRequestsScreenState extends State<ClientJobRequestsScreen> {
 
   void _toast(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg)),
-    );
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
-  Future<void> _confirmAndRun({
-    required String title,
-    required String message,
-    required String confirmText,
-    required Future<void> Function() action,
-  }) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(title, style: const TextStyle(fontFamily: "Montserrat", fontWeight: FontWeight.w800)),
-        content: Text(message, style: const TextStyle(fontFamily: "Montserrat")),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text("No", style: TextStyle(fontFamily: "Montserrat")),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.black, foregroundColor: Colors.white),
-            child: Text(confirmText, style: const TextStyle(fontFamily: "Montserrat", fontWeight: FontWeight.w800)),
-          ),
-        ],
-      ),
-    );
-
+  Future<void> _confirmCancelAndRun(Future<void> Function() action) async {
+    final ok = await ConfirmCancelSheet.show(context: context);
     if (ok != true) return;
 
     try {
       await action();
-      _toast("Updated.");
     } catch (e) {
       _toast("Action failed: $e");
     }
@@ -79,9 +52,6 @@ class _ClientJobRequestsScreenState extends State<ClientJobRequestsScreen> {
     }
 
     final uid = user.uid;
-
-    debugPrint("ClientJobRequestsScreen UID = $uid");
-    debugPrint("Firestore projectId = ${FirebaseFirestore.instance.app.options.projectId}");
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -143,21 +113,19 @@ class _ClientJobRequestsScreenState extends State<ClientJobRequestsScreen> {
                 final whenText = controller.formatPretty(j.scheduledDate);
                 final category = j.category.trim().isEmpty ? "—" : j.category.trim();
 
-                final isHolding = controller.isHolding(j);
                 final isPending = controller.isPending(j);
+                final isDeclined = controller.isDeclined(j);
 
                 return Column(
                   children: [
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Left info
                         Expanded(
                           child: FutureBuilder<String>(
                             future: controller.resolveProviderName(j),
                             builder: (context, nameSnap) {
                               final name = (nameSnap.data ?? "Service Provider").trim();
-
                               return Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -175,32 +143,29 @@ class _ClientJobRequestsScreenState extends State<ClientJobRequestsScreen> {
                                   const SizedBox(height: 8),
                                   _MetaRow(icon: Icons.schedule, text: whenText),
                                   const SizedBox(height: 6),
-                                  _MetaRow(icon: Icons.home_repair_service, text: category),
+                                  _MetaRow(
+                                    icon: Icons.home_repair_service,
+                                    text: category,
+                                  ),
                                 ],
                               );
                             },
                           ),
                         ),
-
                         const SizedBox(width: 12),
-
-                        // Right-side controls (match your mock)
                         SizedBox(
                           width: 120,
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
-                              if (isHolding) ...[
+                              if (isDeclined) ...[
                                 SizedBox(
                                   width: 120,
                                   height: 36,
                                   child: ElevatedButton(
-                                    onPressed: () => _confirmAndRun(
-                                      title: "Rematch?",
-                                      message: "This will remove the current service provider and try matching again.",
-                                      confirmText: "Rematch",
-                                      action: () => controller.rematch(j.id),
-                                    ),
+                                    onPressed: () {
+                                      // as requested: rematch does nothing for now
+                                    },
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: Colors.black,
                                       foregroundColor: Colors.white,
@@ -224,11 +189,8 @@ class _ClientJobRequestsScreenState extends State<ClientJobRequestsScreen> {
                                   width: 120,
                                   height: 36,
                                   child: OutlinedButton(
-                                    onPressed: () => _confirmAndRun(
-                                      title: "Stop job?",
-                                      message: "This will cancel the job request.",
-                                      confirmText: "Stop",
-                                      action: () => controller.stopJob(j.id),
+                                    onPressed: () => _confirmCancelAndRun(
+                                      () => controller.stopJob(j.id),
                                     ),
                                     style: OutlinedButton.styleFrom(
                                       foregroundColor: Colors.black,
@@ -248,20 +210,24 @@ class _ClientJobRequestsScreenState extends State<ClientJobRequestsScreen> {
                                   ),
                                 ),
                               ] else if (isPending) ...[
-                                // Pending pill
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFE5E5E5),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: const Text(
-                                    "Pending",
-                                    style: TextStyle(
-                                      fontFamily: "Montserrat",
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 12,
-                                      color: Colors.black,
+                                // ✅ Pending tag now matches button width + height
+                                SizedBox(
+                                  width: 120,
+                                  height: 36,
+                                  child: Container(
+                                    alignment: Alignment.center,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFE5E5E5),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: const Text(
+                                      "Pending",
+                                      style: TextStyle(
+                                        fontFamily: "Montserrat",
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 12,
+                                        color: Colors.black,
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -270,11 +236,8 @@ class _ClientJobRequestsScreenState extends State<ClientJobRequestsScreen> {
                                   width: 120,
                                   height: 36,
                                   child: OutlinedButton(
-                                    onPressed: () => _confirmAndRun(
-                                      title: "Cancel request?",
-                                      message: "This will cancel the job request.",
-                                      confirmText: "Cancel",
-                                      action: () => controller.cancelRequest(j.id),
+                                    onPressed: () => _confirmCancelAndRun(
+                                      () => controller.cancelRequest(j.id),
                                     ),
                                     style: OutlinedButton.styleFrom(
                                       foregroundColor: Colors.black,
@@ -293,40 +256,24 @@ class _ClientJobRequestsScreenState extends State<ClientJobRequestsScreen> {
                                     ),
                                   ),
                                 ),
-                              ] else ...[
-                                // Fallback: if some other status sneaks in, keep UI clean.
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFE5E5E5),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Text(
-                                    j.status.trim().isEmpty ? "—" : j.status.trim(),
-                                    style: const TextStyle(
-                                      fontFamily: "Montserrat",
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 12,
-                                      color: Colors.black,
-                                    ),
-                                  ),
-                                ),
                               ],
                             ],
                           ),
                         ),
                       ],
                     ),
-
                     const SizedBox(height: 14),
-
-                    // View Job Details (not built yet)
                     SizedBox(
                       width: double.infinity,
                       height: 44,
                       child: ElevatedButton(
                         onPressed: () {
-                          _toast("Job details screen not added yet.");
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => ClientJobDetailsScreen(jobId: j.id),
+                            ),
+                          );
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.black,
@@ -345,7 +292,6 @@ class _ClientJobRequestsScreenState extends State<ClientJobRequestsScreen> {
                         ),
                       ),
                     ),
-
                     const SizedBox(height: 12),
                     const Divider(height: 1, thickness: 1, color: Color(0xFFE9E9E9)),
                   ],
@@ -355,16 +301,13 @@ class _ClientJobRequestsScreenState extends State<ClientJobRequestsScreen> {
           },
         ),
       ),
-      bottomNavigationBar: const ClientBottomNav(
-        currentIndex: 2,
-      ),
+      bottomNavigationBar: const ClientBottomNav(currentIndex: 2),
     );
   }
 }
 
 class _MetaRow extends StatelessWidget {
   const _MetaRow({required this.icon, required this.text});
-
   final IconData icon;
   final String text;
 

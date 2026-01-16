@@ -31,7 +31,7 @@ class ContractorBottomNav extends StatelessWidget {
         onTap: (index) {
           switch (index) {
             case 0:
-              _go(context, "/dashboards/contractor/contractor_jobs");
+              _go(context, "/dashboards/contractor/contractor_jobs_screen");
               break;
             case 1:
               _go(context, "/dashboards/contractor/contractor_service_providers");

@@ -25,7 +25,7 @@ class ProviderJobsController {
       a.year == b.year && a.month == b.month && a.day == b.day;
 
   bool isTodayOrFuture(Timestamp? scheduledDate, DateTime nowLocal) {
-    if (scheduledDate == null) return false;
+    if (scheduledDate == null) return false; // ✅ no scheduled date => do not show
     final jobLocal = scheduledDate.toDate().toLocal();
     final startOfTodayLocal = DateTime(nowLocal.year, nowLocal.month, nowLocal.day);
     return !jobLocal.isBefore(startOfTodayLocal);
@@ -63,13 +63,12 @@ class ProviderJobsController {
         final show = _isAccepted(j.status) || _isCancelled(j.status);
         if (!show) continue;
 
-        // navigation requires location, skip safely if missing
-        if (j.location == null) continue;
-
+        // ✅ Do NOT filter out jobs with null location.
+        // Navigation button already checks null safely.
         filtered.add(j);
       }
 
-      // soonest first
+      // ✅ soonest first
       filtered.sort((a, b) {
         final am = a.scheduledDate?.millisecondsSinceEpoch ?? 0;
         final bm = b.scheduledDate?.millisecondsSinceEpoch ?? 0;
@@ -84,10 +83,7 @@ class ProviderJobsController {
     if (ts == null) return "—";
     final d = ts.toDate().toLocal();
 
-    const months = [
-      "Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec",
-    ];
-
+    const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
     final month = months[d.month - 1];
     final day = d.day;
 

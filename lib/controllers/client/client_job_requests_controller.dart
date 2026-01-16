@@ -71,7 +71,6 @@ class ClientJobRequestsController {
       }
       return "Service Provider";
     } catch (e) {
-      // This is where permission-denied will show up.
       debugPrint("resolveProviderName failed for uid=$uid: $e");
       return "Service Provider";
     } finally {
@@ -80,7 +79,6 @@ class ClientJobRequestsController {
   }
 
   Future<String> _fetchProviderNameSuperRobust(String providerUid) async {
-    // 1) Try docId == uid
     try {
       final docById =
           await _db.collection('serviceProviders').doc(providerUid).get();
@@ -89,10 +87,8 @@ class ClientJobRequestsController {
       }
     } catch (e) {
       debugPrint("serviceProviders.doc($providerUid) read failed: $e");
-      // keep going; could be permission denied or just not found
     }
 
-    // 2) Try where providerUid == uid
     try {
       final q1 = await _db
           .collection('serviceProviders')
@@ -106,8 +102,6 @@ class ClientJobRequestsController {
       debugPrint("serviceProviders where providerUid==$providerUid failed: $e");
     }
 
-    // 3) Try where providerId reference == /users/{uid}
-    // Your sample provider doc has providerId: /users/TDgsg...
     try {
       final userRef = _db.doc('users/$providerUid');
       final q2 = await _db
@@ -138,8 +132,12 @@ class ClientJobRequestsController {
 
   Future<void> cancelRequest(String jobRequestId) => _repo.cancelByClient(jobRequestId);
   Future<void> stopJob(String jobRequestId) => _repo.stopJobByClient(jobRequestId);
-  Future<void> rematch(String jobRequestId) => _repo.rematchByClient(jobRequestId);
 
-  bool isHolding(JobRequestModel m) => m.status.trim().toLowerCase() == 'holding';
-  bool isPending(JobRequestModel m) => m.status.trim().toLowerCase() == 'pending';
+  bool isDeclined(JobRequestModel m) => m.status.trim().toLowerCase() == 'declined';
+
+  /// Pending means: waiting for provider response
+  bool isPending(JobRequestModel m) {
+    final s = m.status.trim().toLowerCase();
+    return s == 'pending' || s == 'requested' || s == 'holding';
+  }
 }
