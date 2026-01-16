@@ -279,7 +279,7 @@ class AdminSettingsScreen extends StatelessWidget {
             ),
 
             // ✅ Re-usable bottom nav
-            const AdminBottomNav(currentIndex: 1),
+            const AdminBottomNav(currentIndex: 2),
           ],
         ),
       ),

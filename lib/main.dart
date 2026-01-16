@@ -48,11 +48,9 @@ import 'package:fixitnew/screens/dashboards/provider/provider_jobs.dart';
 import 'package:fixitnew/screens/dashboards/provider/job_requests_screen.dart';
 import 'package:fixitnew/screens/dashboards/provider/job_details_screen.dart';
 
-// ✅ NEW SCREENS
+// ✅ NEW SCREENS (already in your file)
 import 'package:fixitnew/screens/quotations/client_quotation_screen.dart';
 import 'package:fixitnew/screens/invoices/client_invoice_review_screen.dart';
-import 'package:fixitnew/screens/dashboards/provider/provider_confirm_visitation_fee_screen.dart';
-import 'package:fixitnew/screens/dashboards/provider/provider_confirm_final_payment_screen.dart';
 
 // ADMIN SCREENS
 import 'package:fixitnew/screens/admin/create_admin_account_screen.dart';
@@ -66,6 +64,9 @@ import 'package:fixitnew/screens/admin/contracting_firms_information_screen.dart
     as admin_firms;
 import 'package:fixitnew/screens/admin/contractor_firm_information_screen.dart'
     as admin_firm_info;
+
+// ✅ ADMIN AUDIT LOGS (NEW)
+import 'package:fixitnew/screens/admin/admin_logs_screen.dart';
 
 // MATCHING
 import 'package:fixitnew/screens/services/matching_screen.dart';
@@ -188,7 +189,7 @@ class MyApp extends StatelessWidget {
           settings: settings,
         );
 
-      // ✅ NEW: Client quotation screen
+      // ✅ Client quotation screen
       case '/client/quotation':
         final args = settings.arguments;
         if (args is String && args.trim().isNotEmpty) {
@@ -206,7 +207,7 @@ class MyApp extends StatelessWidget {
           settings: settings,
         );
 
-      // ✅ NEW: Client invoice review
+      // ✅ Client invoice review
       case '/client/invoice_review':
         final args = settings.arguments;
         if (args is String && args.trim().isNotEmpty) {
@@ -224,12 +225,13 @@ class MyApp extends StatelessWidget {
           settings: settings,
         );
 
-      // ✅ NEW: Provider confirm visitation fee
+      // ✅ FIX: Provider confirm visitation fee route (NO missing screen)
+      // Route it to ProviderJobDetailsScreen so notifications still open somewhere valid.
       case '/provider/confirm_visitation_fee':
         final args = settings.arguments;
         if (args is String && args.trim().isNotEmpty) {
           return MaterialPageRoute(
-            builder: (_) => ProviderConfirmVisitationFeeScreen(jobId: args),
+            builder: (_) => ProviderJobDetailsScreen(jobId: args),
             settings: settings,
           );
         }
@@ -242,12 +244,12 @@ class MyApp extends StatelessWidget {
           settings: settings,
         );
 
-      // ✅ NEW: Provider confirm final payment
+      // ✅ FIX: Provider confirm final payment route (NO missing screen)
       case '/provider/confirm_final_payment':
         final args = settings.arguments;
         if (args is String && args.trim().isNotEmpty) {
           return MaterialPageRoute(
-            builder: (_) => ProviderConfirmFinalPaymentScreen(jobId: args),
+            builder: (_) => ProviderJobDetailsScreen(jobId: args),
             settings: settings,
           );
         }
@@ -292,38 +294,61 @@ class MyApp extends StatelessWidget {
         '/dashboards/home_client': (_) => const HomeClient(),
         '/dashboards/client/home_screen': (_) => const HomeScreen(),
         '/dashboards/client/client_jobs': (_) => const ClientJobsScreen(),
-        '/dashboards/client/client_job_requests': (_) => const ClientJobRequestsScreen(),
-        '/dashboards/client/update_client_profile': (_) => const UpdateClientProfile(),
-        '/dashboards/client/change_client_password': (_) => const ChangeClientPasswordScreen(),
+        '/dashboards/client/client_job_requests': (_) =>
+            const ClientJobRequestsScreen(),
+        '/dashboards/client/update_client_profile': (_) =>
+            const UpdateClientProfile(),
+        '/dashboards/client/change_client_password': (_) =>
+            const ChangeClientPasswordScreen(),
 
         '/dashboards/home_contractor': (_) => const HomeContractor(),
-        '/dashboards/contractor/contractor_account_info': (_) => const ContractorAccountInfo(),
-        '/dashboards/contractor/contractor_jobs_screen': (_) => const ContractorJobsScreen(),
-        '/dashboards/contractor/contractor_service_providers': (_) => const ContractorServiceProviders(),
-        '/dashboards/contractor/update_provider_screen': (_) => const UpdateProviderScreen(),
-        '/dashboards/contractor/change_contractor_password': (_) => const ChangeContractorPasswordScreen(),
-        '/dashboards/contractor/update_contractor_profile': (_) => const UpdateContractorProfile(),
+        '/dashboards/contractor/contractor_account_info': (_) =>
+            const ContractorAccountInfo(),
+        '/dashboards/contractor/contractor_jobs_screen': (_) =>
+            const ContractorJobsScreen(),
+        '/dashboards/contractor/contractor_service_providers': (_) =>
+            const ContractorServiceProviders(),
+        '/dashboards/contractor/update_provider_screen': (_) =>
+            const UpdateProviderScreen(),
+        '/dashboards/contractor/change_contractor_password': (_) =>
+            const ChangeContractorPasswordScreen(),
+        '/dashboards/contractor/update_contractor_profile': (_) =>
+            const UpdateContractorProfile(),
 
         '/dashboards/provider_home_screen': (_) => const ProviderHomeScreen(),
         '/provider/provider_jobs': (_) => const ProviderJobsScreen(),
         '/provider/job_requests_screen': (_) => const ProviderJobRequestsScreen(),
 
-        '/admin/create_admin_account_screen': (_) => const CreateAdminAccountScreen(),
+        '/admin/create_admin_account_screen': (_) =>
+            const CreateAdminAccountScreen(),
         '/admin/admin_settings_screen': (_) => const AdminSettingsScreen(),
         '/admin/admin_account_info_screen': (_) => const AdminAccountInfoScreen(),
-        '/admin/contractor_approval_screen': (_) => const ContractorApprovalScreen(),
+        '/admin/contractor_approval_screen': (_) =>
+            const ContractorApprovalScreen(),
         '/admin/contracting_firms_information_screen': (_) =>
             const admin_firms.ContractingFirmsInformationScreen(),
-        '/admin/admin_change_password_screen': (_) => const AdminChangePasswordScreen(),
+        '/admin/admin_change_password_screen': (_) =>
+            const AdminChangePasswordScreen(),
 
-        '/service/ac': (_) => ServiceRequestScreen(config: ServiceRequestWrapper.acConfig),
-        '/service/plumbing': (_) => ServiceRequestScreen(config: ServiceRequestWrapper.plumbingConfig),
-        '/service/electrical': (_) => ServiceRequestScreen(config: ServiceRequestWrapper.electricalConfig),
-        '/service/carpentry': (_) => ServiceRequestScreen(config: ServiceRequestWrapper.carpentryConfig),
-        '/service/gardening': (_) => ServiceRequestScreen(config: ServiceRequestWrapper.gardeningConfig),
-        '/service/pest': (_) => ServiceRequestScreen(config: ServiceRequestWrapper.pestControlConfig),
-        '/service/appliances': (_) => ServiceRequestScreen(config: ServiceRequestWrapper.appliancesConfig),
-        '/service/cleaning': (_) => ServiceRequestScreen(config: ServiceRequestWrapper.cleaningConfig),
+        // ✅ ADDED: Admin Audit Logs Screen route
+        '/admin/admin_logs_screen': (_) => const AdminLogsScreen(),
+
+        '/service/ac': (_) =>
+            ServiceRequestScreen(config: ServiceRequestWrapper.acConfig),
+        '/service/plumbing': (_) =>
+            ServiceRequestScreen(config: ServiceRequestWrapper.plumbingConfig),
+        '/service/electrical': (_) =>
+            ServiceRequestScreen(config: ServiceRequestWrapper.electricalConfig),
+        '/service/carpentry': (_) =>
+            ServiceRequestScreen(config: ServiceRequestWrapper.carpentryConfig),
+        '/service/gardening': (_) =>
+            ServiceRequestScreen(config: ServiceRequestWrapper.gardeningConfig),
+        '/service/pest': (_) =>
+            ServiceRequestScreen(config: ServiceRequestWrapper.pestControlConfig),
+        '/service/appliances': (_) =>
+            ServiceRequestScreen(config: ServiceRequestWrapper.appliancesConfig),
+        '/service/cleaning': (_) =>
+            ServiceRequestScreen(config: ServiceRequestWrapper.cleaningConfig),
       },
       onGenerateRoute: _onGenerateRoute,
       onUnknownRoute: (settings) {
@@ -352,7 +377,8 @@ class AuthWrapper extends StatelessWidget {
       return const VerifyEmailScreen();
     }
 
-    final userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+    final userDoc =
+        await FirebaseFirestore.instance.collection('users').doc(uid).get();
     if (!userDoc.exists) return const WelcomeScreen();
 
     await PushNotifications.initForUser(uid);
@@ -370,8 +396,10 @@ class AuthWrapper extends StatelessWidget {
     }
 
     if (role == 'contractor') {
-      final contractorDoc =
-          await FirebaseFirestore.instance.collection('contractors').doc(uid).get();
+      final contractorDoc = await FirebaseFirestore.instance
+          .collection('contractors')
+          .doc(uid)
+          .get();
 
       if (!contractorDoc.exists) {
         return const ProfileContractorFullScreen();
@@ -411,7 +439,8 @@ class AuthWrapper extends StatelessWidget {
           future: _getUserHome(user),
           builder: (context, roleSnap) {
             if (!roleSnap.hasData) {
-              return const Scaffold(body: Center(child: CircularProgressIndicator()));
+              return const Scaffold(
+                  body: Center(child: CircularProgressIndicator()));
             }
             return roleSnap.data!;
           },
@@ -612,7 +641,8 @@ class _RouteErrorScreen extends StatelessWidget {
       backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.black,
-        title: const Text('Navigation Error', style: TextStyle(color: Colors.white)),
+        title:
+            const Text('Navigation Error', style: TextStyle(color: Colors.white)),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),

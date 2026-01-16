@@ -9,7 +9,6 @@ class AdminBottomNav extends StatelessWidget {
   });
 
   void _go(BuildContext context, String route) {
-    // Avoid useless replacement to same route
     if (ModalRoute.of(context)?.settings.name == route) return;
     Navigator.pushReplacementNamed(context, route);
   }
@@ -26,7 +25,7 @@ class AdminBottomNav extends StatelessWidget {
           ),
         ),
         child: SizedBox(
-          height: 62, // ✅ fixed height so it will not cover the body
+          height: 64, // matches screenshot proportions
           child: BottomNavigationBar(
             type: BottomNavigationBarType.fixed,
             backgroundColor: Colors.white,
@@ -36,26 +35,31 @@ class AdminBottomNav extends StatelessWidget {
             unselectedFontSize: 12,
             selectedItemColor: Colors.black,
             unselectedItemColor: Colors.black,
+            iconSize: 22,
             onTap: (index) {
               switch (index) {
                 case 0:
-                  _go(context, '/admin/admin_analytics_screen');
+                  _go(context, '/admin/admin_logs_screen');
                   break;
                 case 1:
-                  // Settings screen
-                  // If you're already on settings, do nothing.
-                  // Otherwise navigate to settings.
+                  _go(context, '/admin/admin_analytics_screen');
+                  break;
+                case 2:
                   _go(context, '/admin/admin_settings_screen');
                   break;
               }
             },
             items: const [
               BottomNavigationBarItem(
-                icon: Icon(Icons.bar_chart),
+                icon: Icon(Icons.menu_book_outlined),
+                label: 'Logs',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.bar_chart_outlined),
                 label: 'Analytics',
               ),
               BottomNavigationBarItem(
-                icon: Icon(Icons.settings),
+                icon: Icon(Icons.settings_outlined),
                 label: 'Settings',
               ),
             ],

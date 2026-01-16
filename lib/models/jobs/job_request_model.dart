@@ -48,9 +48,23 @@ class JobRequestModel {
 
   String _norm(String v) => v.trim().toLowerCase();
 
-  bool get isQuotationDeclined => _norm(status) == 'quotation_declined';
-  bool get isAwaitingVisitationConfirmation =>
-      _norm(status) == 'awaiting_visitation_fee_confirmation';
+  // ✅ Keep as-is if you still use it somewhere, but make it safer
+  bool get isQuotationDeclined {
+    final s = _norm(status);
+    return s == 'quotation_declined' ||
+        s == 'quotation_declined_pending_visitation' ||
+        s == 'awaiting_visitation_fee_confirmation' ||
+        s == 'awaiting_visitation_confirmation' ||
+        s == 'terminated_after_quotation_decline';
+  }
+
+  // ✅ IMPORTANT: Provider button should show for ANY “awaiting visitation” variant
+  bool get isAwaitingVisitationConfirmation {
+    final s = _norm(status);
+    return s == 'awaiting_visitation_fee_confirmation' ||
+        s == 'quotation_declined_pending_visitation' ||
+        s == 'awaiting_visitation_confirmation';
+  }
 
   factory JobRequestModel.fromDoc(
     DocumentSnapshot<Map<String, dynamic>> doc,
