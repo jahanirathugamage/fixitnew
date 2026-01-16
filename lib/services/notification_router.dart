@@ -11,7 +11,6 @@ class NotificationRouter {
   GlobalKey<NavigatorState>? _navKey;
   bool _initialized = false;
 
-  /// If a tap arrives before navigator is ready, store it and retry later.
   RemoteMessage? _pending;
 
   void init(GlobalKey<NavigatorState> navigatorKey) {
@@ -20,22 +19,18 @@ class NotificationRouter {
     if (_initialized) return;
     _initialized = true;
 
-    // App opened from background by tapping notification
     FirebaseMessaging.onMessageOpenedApp.listen(_handleTap);
 
-    // App launched from terminated by tapping notification
     FirebaseMessaging.instance.getInitialMessage().then((msg) {
       if (msg != null) _handleTap(msg);
     });
 
-    // Try pending after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _flushPendingIfPossible();
     });
   }
 
   void _handleTap(RemoteMessage message) {
-    // If navigator isn't ready yet, store and retry
     if (_navKey?.currentState == null) {
       _pending = message;
       _scheduleRetry();
@@ -59,7 +54,6 @@ class NotificationRouter {
   }
 
   void _scheduleRetry() {
-    // Retry shortly (AuthWrapper/FutureBuilders may still be building)
     Timer(const Duration(milliseconds: 250), _flushPendingIfPossible);
   }
 
@@ -74,31 +68,61 @@ class NotificationRouter {
     final data = message.data;
     final type = (data['type'] ?? '').toString().trim();
     final jobId = (data['jobId'] ?? '').toString().trim();
+    final route = (data['route'] ?? '').toString().trim();
 
-    // 1) Provider: client sent job request → open provider job details of that jobRequest
+    // ✅ Prefer explicit route from backend
+    if (route.isNotEmpty) {
+      if (jobId.isNotEmpty) {
+        nav.pushNamed(route, arguments: jobId);
+      } else {
+        nav.pushNamed(route);
+      }
+      return;
+    }
+
+    // ✅ Existing
     if (type == 'provider_job_request' && jobId.isNotEmpty) {
       nav.pushNamed('/provider/job_details', arguments: jobId);
       return;
     }
 
-    // 2) Client: provider accepted → go to Jobs page
     if (type == 'client_job_accepted') {
-      nav.pushNamedAndRemoveUntil(
-        '/dashboards/client/client_jobs',
-        (route) => false,
-      );
+      nav.pushNamedAndRemoveUntil('/dashboards/client/client_jobs', (r) => false);
       return;
     }
 
-    // 3) Client: provider declined → go to Job Requests page
     if (type == 'client_job_declined') {
-      nav.pushNamedAndRemoveUntil(
-        '/dashboards/client/client_job_requests',
-        (route) => false,
-      );
+      nav.pushNamedAndRemoveUntil('/dashboards/client/client_job_requests', (r) => false);
       return;
     }
 
-    // Unknown payload → do nothing safely
+    // ✅ Quotation created → Client opens quotation screen
+    if (type == 'client_quotation_created' && jobId.isNotEmpty) {
+      nav.pushNamed('/client/quotation', arguments: jobId);
+      return;
+    }
+
+    // ✅ Invoice created → Client opens invoice review screen
+    if (type == 'client_invoice_created' && jobId.isNotEmpty) {
+      nav.pushNamed('/client/invoice_review', arguments: jobId);
+      return;
+    }
+
+    // ✅ Provider needs to confirm visitation fee / final payment
+    if (type == 'provider_confirm_visitation_fee' && jobId.isNotEmpty) {
+      nav.pushNamed('/provider/confirm_visitation_fee', arguments: jobId);
+      return;
+    }
+
+    if (type == 'provider_confirm_final_payment' && jobId.isNotEmpty) {
+      nav.pushNamed('/provider/confirm_final_payment', arguments: jobId);
+      return;
+    }
+
+    // ✅ Contractor informational routing back to jobs list you already have
+    if (type == 'contractor_quotation_accepted' || type == 'contractor_quotation_declined') {
+      nav.pushNamedAndRemoveUntil('/dashboards/contractor/contractor_jobs_screen', (r) => false);
+      return;
+    }
   }
 }

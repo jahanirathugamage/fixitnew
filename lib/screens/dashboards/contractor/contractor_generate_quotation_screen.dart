@@ -40,7 +40,7 @@ class _ContractorGenerateQuotationScreenState
   // ✅ keep insertion order (so table rows appear in the order you selected)
   final LinkedHashMap<String, _SelectedLine> _selected = LinkedHashMap();
 
-  static const int visitationFee = 250;
+  static const int visitationFee = 350;
 
   // cache icon lookup by "category::taskName"
   final Map<String, IconData> _iconCache = {};

@@ -32,14 +32,21 @@ class ProviderJobRequestsController {
     });
   }
 
-  /// ✅ Backend-powered respond: sends notifications to client
+  /// ✅ Respond (Accept / Decline)
+  /// This calls backend so it can send notifications.
+  /// If backend rejects due to missing auth, ApiClient now attaches Firebase token.
   Future<void> respond({
     required String jobId,
     required String status, // accepted | declined
   }) async {
+    final s = _norm(status);
+    if (s != "accepted" && s != "declined") {
+      throw Exception("Invalid status: $status");
+    }
+
     await ApiClient.postJson(
       "/api/job-respond",
-      body: {"jobId": jobId, "status": status},
+      body: {"jobId": jobId, "status": s},
     );
   }
 

@@ -1,3 +1,6 @@
+// lib/controllers/contractor/contractor_generate_quotation_controller.dart
+
+import '../../backend/api_client.dart';
 import '../../models/quotations/quotation_model.dart';
 import '../../models/service_tasks/service_task_model.dart';
 import '../../repositories/quotations/quotation_repository.dart';
@@ -36,11 +39,18 @@ class ContractorGenerateQuotationController {
       visitationFee: visitationFee,
     );
 
+    // 1) Create quotation in Firestore
     await _quotationRepo.createQuotation(
       jobId: jobId,
       contractorId: contractorId,
       pricing: pricing,
       tasks: lines,
+    );
+
+    // 2) Notify client via backend (push notification)
+    await ApiClient.postJson(
+      "/api/quotation-created",
+      body: {"jobId": jobId},
     );
   }
 }

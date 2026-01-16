@@ -97,6 +97,26 @@ class ProviderJobRequestsScreen extends StatelessWidget {
               final status = j.status.trim().toLowerCase();
               final canRespond = status == "holding" || status == "requested";
 
+              Future<void> doRespond(String newStatus) async {
+                try {
+                  await controller.respond(jobId: j.id, status: newStatus);
+                  if (!context.mounted) return;
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(newStatus == "accepted" ? "✅ Accepted" : "❌ Declined"),
+                    ),
+                  );
+                } catch (e) {
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text("Failed: $e"),
+                    ),
+                  );
+                }
+              }
+
               return Column(
                 children: [
                   Row(
@@ -172,15 +192,7 @@ class ProviderJobRequestsScreen extends StatelessWidget {
                             width: 100,
                             height: 34,
                             child: ElevatedButton(
-                              onPressed: canRespond
-                                  ? () async {
-                                      await controller.respond(jobId: j.id, status: "accepted");
-                                      if (!context.mounted) return;
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text("✅ Accepted")),
-                                      );
-                                    }
-                                  : null,
+                              onPressed: canRespond ? () => doRespond("accepted") : null,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.black,
                                 disabledBackgroundColor: Colors.black.withValues(alpha: 0.35),
@@ -211,15 +223,7 @@ class ProviderJobRequestsScreen extends StatelessWidget {
                             width: 100,
                             height: 34,
                             child: OutlinedButton(
-                              onPressed: canRespond
-                                  ? () async {
-                                      await controller.respond(jobId: j.id, status: "declined");
-                                      if (!context.mounted) return;
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text("❌ Declined")),
-                                      );
-                                    }
-                                  : null,
+                              onPressed: canRespond ? () => doRespond("declined") : null,
                               style: OutlinedButton.styleFrom(
                                 side: const BorderSide(color: Colors.black, width: 1.2),
                                 padding: EdgeInsets.zero,

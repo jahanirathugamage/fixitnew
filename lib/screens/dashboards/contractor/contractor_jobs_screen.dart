@@ -8,11 +8,22 @@ import '../../../models/jobs/job_request_model.dart';
 import 'contractor_job_details_screen.dart';
 import 'contractor_generate_quotation_screen.dart';
 
+// ✅ NEW
+import 'package:fixitnew/screens/dashboards/contractor/contractor_generate_invoice_screen.dart';
+
 // ✅ reusable nav
 import 'package:fixitnew/widgets/nav/contractor_bottom_nav.dart';
 
 class ContractorJobsScreen extends StatelessWidget {
   const ContractorJobsScreen({super.key});
+
+  String _norm(String v) => v.trim().toLowerCase();
+
+  bool _showInvoiceButton(JobRequestModel j) {
+    final s = _norm(j.status);
+    // once quotation accepted, contractor should be able to invoice later
+    return s == 'quotation_accepted' || s == 'in_progress' || s == 'started' || s == 'completed_pending_payment';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -32,7 +43,6 @@ class ContractorJobsScreen extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        // ✅ keep back button if you want (optional for bottom-nav pages)
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black),
           onPressed: () => Navigator.pop(context),
@@ -87,9 +97,7 @@ class ContractorJobsScreen extends StatelessWidget {
             return ListView.separated(
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
               itemCount: jobs.length,
-              // ✅ Lint-safe: named params, not underscores
-              separatorBuilder: (context, index) =>
-                  const SizedBox(height: 18),
+              separatorBuilder: (context, index) => const SizedBox(height: 18),
               itemBuilder: (context, index) {
                 final j = jobs[index];
 
@@ -100,6 +108,8 @@ class ContractorJobsScreen extends StatelessWidget {
                 final dateText = controller.formatDateText(j.scheduledDate);
                 final categoryText =
                     j.category.trim().isEmpty ? "—" : j.category.trim();
+
+                final showInvoice = _showInvoiceButton(j);
 
                 return Column(
                   children: [
@@ -137,28 +147,35 @@ class ContractorJobsScreen extends StatelessWidget {
                           height: 36,
                           child: ElevatedButton(
                             onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      ContractorGenerateQuotationScreen(
-                                    jobId: j.id,
+                              if (showInvoice) {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        ContractorGenerateInvoiceScreen(jobId: j.id),
                                   ),
-                                ),
-                              );
+                                );
+                              } else {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        ContractorGenerateQuotationScreen(jobId: j.id),
+                                  ),
+                                );
+                              }
                             },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.black,
                               elevation: 0,
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 18),
+                              padding: const EdgeInsets.symmetric(horizontal: 18),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8),
                               ),
                             ),
-                            child: const Text(
-                              "Quotation",
-                              style: TextStyle(
+                            child: Text(
+                              showInvoice ? "Invoice" : "Quotation",
+                              style: const TextStyle(
                                 fontFamily: "Montserrat",
                                 fontWeight: FontWeight.w800,
                                 fontSize: 12,
@@ -178,8 +195,7 @@ class ContractorJobsScreen extends StatelessWidget {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) =>
-                                  ContractorJobDetailsScreen(jobId: j.id),
+                              builder: (context) => ContractorJobDetailsScreen(jobId: j.id),
                             ),
                           );
                         },
@@ -213,10 +229,8 @@ class ContractorJobsScreen extends StatelessWidget {
           },
         ),
       ),
-
-      // ✅ Re-usable contractor bottom nav
       bottomNavigationBar: const ContractorBottomNav(
-        currentIndex: 0, // Jobs selected on this screen
+        currentIndex: 0,
       ),
     );
   }

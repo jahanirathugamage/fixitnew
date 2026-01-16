@@ -48,7 +48,7 @@ class ServiceRequestRepository {
       (total, item) => total + item.lineTotal,
     );
 
-    final int platformFee = (serviceTotal * 0.20).round();
+    final int platformFee = (serviceTotal * 0.02).round();
     final int totalAmount = serviceTotal + visitationFee + platformFee;
 
     final docRef = _firestore.collection('jobRequest').doc();
