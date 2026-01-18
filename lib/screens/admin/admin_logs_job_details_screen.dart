@@ -1,3 +1,5 @@
+// lib/screens/admin/admin_logs_job_details_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -36,6 +38,99 @@ class AdminLogsJobDetailsScreen extends StatelessWidget {
   }
 
   String _lkr(int v) => "LKR ${v.toString()}.00";
+
+  String _safeStr(dynamic v) => (v ?? "").toString().trim();
+
+  // ============================
+  // ✅ FIX: Resolve Provider Name
+  // ============================
+  Future<String> _resolveProviderName(Map<String, dynamic> job) async {
+    // 1) If job already has providerName, use it
+    final fromJob = _readStr(
+      job,
+      ["providerName", "selectedProviderName", "serviceProviderName", "providerFullName"],
+      fallback: "",
+    );
+    if (fromJob.trim().isNotEmpty) return fromJob.trim();
+
+    // 2) Else: selectedProviderUid -> serviceProviders/{uid}
+    final uid = _safeStr(job["selectedProviderUid"]);
+    if (uid.isEmpty) return "—";
+
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection("serviceProviders")
+          .doc(uid)
+          .get();
+
+      if (!doc.exists) return "—";
+      final data = doc.data() ?? <String, dynamic>{};
+
+      final displayName = _safeStr(data["displayName"]);
+      if (displayName.isNotEmpty && displayName.toLowerCase() != "null") {
+        return displayName;
+      }
+
+      final first = _safeStr(data["firstName"]);
+      final last = _safeStr(data["lastName"]);
+      final full = "$first $last".trim();
+      if (full.isNotEmpty) return full;
+
+      final fallback = _safeStr(data["providerName"]);
+      return fallback.isNotEmpty ? fallback : "—";
+    } catch (_) {
+      return "—";
+    }
+  }
+
+  // ==============================
+  // ✅ FIX: Resolve Contractor Name
+  // ==============================
+  Future<String> _resolveContractorName(AdminAuditLogsController controller) async {
+    String contractorId = "";
+
+    // Try latest quotation first (your quotations definitely have contractorId)
+    try {
+      final q = await controller.getLatestQuotation(jobId);
+      if (q.docs.isNotEmpty) {
+        contractorId = _safeStr(q.docs.first.data()["contractorId"]);
+      }
+    } catch (_) {}
+
+    // Fallback: try invoices (in case invoices store contractorId)
+    if (contractorId.isEmpty) {
+      try {
+        final i = await controller.getLatestInvoice(jobId);
+        if (i.docs.isNotEmpty) {
+          contractorId = _safeStr(i.docs.first.data()["contractorId"]);
+        }
+      } catch (_) {}
+    }
+
+    if (contractorId.isEmpty) return "—";
+
+    try {
+      final cDoc = await FirebaseFirestore.instance
+          .collection("contractors")
+          .doc(contractorId)
+          .get();
+
+      if (!cDoc.exists) return "—";
+      final c = cDoc.data() ?? <String, dynamic>{};
+
+      // Prefer companyName if available
+      final company = _safeStr(c["companyName"]);
+      if (company.isNotEmpty) return company;
+
+      // else: first + last
+      final first = _safeStr(c["firstName"]);
+      final last = _safeStr(c["lastName"]);
+      final full = "$first $last".trim();
+      return full.isNotEmpty ? full : "—";
+    } catch (_) {
+      return "—";
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -81,12 +176,6 @@ class AdminLogsJobDetailsScreen extends StatelessWidget {
 
           final clientName =
               _readStr(job, ["clientName", "clientFullName"], fallback: "—");
-          final providerName = _readStr(
-            job,
-            ["providerName", "selectedProviderName", "serviceProviderName"],
-            fallback: "—",
-          );
-          final contractorName = _readStr(job, ["contractorName"], fallback: "—");
 
           final createdAt = (job["createdAt"] is Timestamp)
               ? job["createdAt"] as Timestamp
@@ -113,11 +202,9 @@ class AdminLogsJobDetailsScreen extends StatelessWidget {
           Future<Timestamp?> loadPaidAt() async {
             if (type != AdminAuditLogType.invoice) return null;
 
-            // try job field first
             final paidAt = job["invoicePaidAt"];
             if (paidAt is Timestamp) return paidAt;
 
-            // else try invoices collection doc field "paidAt"
             final inv = await controller.getLatestInvoice(jobId);
             if (inv.docs.isEmpty) return null;
             final invData = inv.docs.first.data();
@@ -144,148 +231,179 @@ class AdminLogsJobDetailsScreen extends StatelessWidget {
                   final paidAt = paidSnap.data;
                   final invoiceImageUrl = imgSnap.data;
 
-                  return SingleChildScrollView(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _InfoBlock(title: "Client", value: clientName),
-                        const SizedBox(height: 14),
-                        _InfoBlock(
-                            title: "Assigned Service Provider", value: providerName),
-                        const SizedBox(height: 14),
-                        _InfoBlock(title: "Contractor", value: contractorName),
-                        const SizedBox(height: 18),
+                  // ✅ NEW: resolve provider + contractor properly
+                  return FutureBuilder<String>(
+                    future: _resolveProviderName(job),
+                    builder: (context, providerSnap) {
+                      final providerName = providerSnap.data ?? "—";
 
-                        _TimeRow(
-                          title: "Created At",
-                          value: controller.formatDateTime(createdAt),
-                        ),
+                      return FutureBuilder<String>(
+                        future: _resolveContractorName(controller),
+                        builder: (context, contractorSnap) {
+                          final contractorName = contractorSnap.data ?? "—";
 
-                        if (type == AdminAuditLogType.invoice) ...[
-                          const SizedBox(height: 12),
-                          _TimeRow(
-                            title: "Paid At",
-                            value: controller.formatDateTime(paidAt),
-                          ),
-                        ],
+                          return SingleChildScrollView(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 18, vertical: 14),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _InfoBlock(title: "Client", value: clientName),
+                                const SizedBox(height: 14),
+                                _InfoBlock(
+                                  title: "Assigned Service Provider",
+                                  value: providerName,
+                                ),
+                                const SizedBox(height: 14),
+                                _InfoBlock(
+                                  title: "Contractor",
+                                  value: contractorName,
+                                ),
+                                const SizedBox(height: 18),
 
-                        const SizedBox(height: 22),
+                                _TimeRow(
+                                  title: "Created At",
+                                  value: controller.formatDateTime(createdAt),
+                                ),
 
-                        const Text(
-                          "Task Details",
-                          style: TextStyle(
-                            fontFamily: "Montserrat",
-                            fontWeight: FontWeight.w800,
-                            fontSize: 14,
-                            color: Colors.black,
-                          ),
-                        ),
-                        const SizedBox(height: 10),
+                                if (type == AdminAuditLogType.invoice) ...[
+                                  const SizedBox(height: 12),
+                                  _TimeRow(
+                                    title: "Paid At",
+                                    value: controller.formatDateTime(paidAt),
+                                  ),
+                                ],
 
-                        _TaskTable(tasks: tasks),
+                                const SizedBox(height: 22),
 
-                        const SizedBox(height: 18),
-                        const Divider(
-                            height: 1, thickness: 1, color: Color(0xFFE9E9E9)),
-                        const SizedBox(height: 14),
+                                const Text(
+                                  "Task Details",
+                                  style: TextStyle(
+                                    fontFamily: "Montserrat",
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 14,
+                                    color: Colors.black,
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
 
-                        _SummaryRow(label: "Subtotal", value: _lkr(serviceTotal)),
-                        const SizedBox(height: 10),
+                                _TaskTable(tasks: tasks),
 
-                        if (type == AdminAuditLogType.invoice) ...[
-                          _SummaryRow(label: "Material Cost", value: _lkr(materialCost)),
-                          const SizedBox(height: 10),
-                        ],
+                                const SizedBox(height: 18),
+                                const Divider(
+                                    height: 1,
+                                    thickness: 1,
+                                    color: Color(0xFFE9E9E9)),
+                                const SizedBox(height: 14),
 
-                        _SummaryRow(
-                            label: "Visitation Fees", value: _lkr(visitationFee)),
-                        const SizedBox(height: 10),
-                        _SummaryRow(
-                            label: "Platform Fees", value: _lkr(platformFee)),
+                                _SummaryRow(
+                                    label: "Subtotal", value: _lkr(serviceTotal)),
+                                const SizedBox(height: 10),
 
-                        const SizedBox(height: 16),
-                        const Divider(
-                            height: 1, thickness: 1, color: Color(0xFFE9E9E9)),
-                        const SizedBox(height: 14),
+                                if (type == AdminAuditLogType.invoice) ...[
+                                  _SummaryRow(
+                                      label: "Material Cost",
+                                      value: _lkr(materialCost)),
+                                  const SizedBox(height: 10),
+                                ],
 
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text(
-                              "Total",
-                              style: TextStyle(
-                                fontFamily: "Montserrat",
-                                fontWeight: FontWeight.w800,
-                                fontSize: 16,
-                                color: Colors.black,
-                              ),
-                            ),
-                            Text(
-                              _lkr(
-                                totalAmount > 0
-                                    ? totalAmount
-                                    : (serviceTotal +
-                                        materialCost +
-                                        visitationFee +
-                                        platformFee),
-                              ),
-                              style: const TextStyle(
-                                fontFamily: "Montserrat",
-                                fontWeight: FontWeight.w800,
-                                fontSize: 16,
-                                color: Colors.black,
-                              ),
-                            ),
-                          ],
-                        ),
+                                _SummaryRow(
+                                    label: "Visitation Fees",
+                                    value: _lkr(visitationFee)),
+                                const SizedBox(height: 10),
+                                _SummaryRow(
+                                    label: "Platform Fees",
+                                    value: _lkr(platformFee)),
 
-                        if (type == AdminAuditLogType.invoice) ...[
-                          const SizedBox(height: 22),
-                          const Text(
-                            "Material Invoice",
-                            style: TextStyle(
-                              fontFamily: "Montserrat",
-                              fontWeight: FontWeight.w800,
-                              fontSize: 16,
-                              color: Colors.black,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          Container(
-                            width: double.infinity,
-                            height: 240,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(12),
-                              color: const Color(0xFFE6E6E6),
-                            ),
-                            child: invoiceImageUrl == null
-                                ? const SizedBox.shrink()
-                                : ClipRRect(
-                                    borderRadius: BorderRadius.circular(12),
-                                    child: Image.network(
-                                      invoiceImageUrl,
-                                      fit: BoxFit.cover,
-                                      // ✅ FIX: no multiple underscores
-                                      errorBuilder: (context, error, stackTrace) =>
-                                          const Center(
-                                        child: Text(
-                                          "Failed to load image.",
-                                          style: TextStyle(
-                                            fontFamily: "Montserrat",
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
+                                const SizedBox(height: 16),
+                                const Divider(
+                                    height: 1,
+                                    thickness: 1,
+                                    color: Color(0xFFE9E9E9)),
+                                const SizedBox(height: 14),
+
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text(
+                                      "Total",
+                                      style: TextStyle(
+                                        fontFamily: "Montserrat",
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 16,
+                                        color: Colors.black,
                                       ),
                                     ),
-                                  ),
-                          ),
-                        ],
+                                    Text(
+                                      _lkr(
+                                        totalAmount > 0
+                                            ? totalAmount
+                                            : (serviceTotal +
+                                                materialCost +
+                                                visitationFee +
+                                                platformFee),
+                                      ),
+                                      style: const TextStyle(
+                                        fontFamily: "Montserrat",
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 16,
+                                        color: Colors.black,
+                                      ),
+                                    ),
+                                  ],
+                                ),
 
-                        const SizedBox(height: 30),
-                      ],
-                    ),
+                                if (type == AdminAuditLogType.invoice) ...[
+                                  const SizedBox(height: 22),
+                                  const Text(
+                                    "Material Invoice",
+                                    style: TextStyle(
+                                      fontFamily: "Montserrat",
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 16,
+                                      color: Colors.black,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Container(
+                                    width: double.infinity,
+                                    height: 240,
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(12),
+                                      color: const Color(0xFFE6E6E6),
+                                    ),
+                                    child: invoiceImageUrl == null
+                                        ? const SizedBox.shrink()
+                                        : ClipRRect(
+                                            borderRadius:
+                                                BorderRadius.circular(12),
+                                            child: Image.network(
+                                              invoiceImageUrl,
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (context, error,
+                                                      stackTrace) =>
+                                                  const Center(
+                                                child: Text(
+                                                  "Failed to load image.",
+                                                  style: TextStyle(
+                                                    fontFamily: "Montserrat",
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                  ),
+                                ],
+
+                                const SizedBox(height: 30),
+                              ],
+                            ),
+                          );
+                        },
+                      );
+                    },
                   );
                 },
               );
@@ -460,7 +578,8 @@ class _TaskTable extends StatelessWidget {
             final qty = _readInt(m["quantity"] ?? 1);
             final lineTotal = _readInt(m["lineTotal"] ?? 0);
             final unitPrice = _readInt(m["unitPrice"] ?? 0);
-            final price = lineTotal > 0 ? lineTotal : unitPrice * (qty <= 0 ? 1 : qty);
+            final price =
+                lineTotal > 0 ? lineTotal : unitPrice * (qty <= 0 ? 1 : qty);
 
             return Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),

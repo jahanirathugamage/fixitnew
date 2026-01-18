@@ -1,3 +1,4 @@
+// lib/screens/dashboards/contractor/contractor_job_details_screen.dart
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -13,7 +14,8 @@ class ContractorJobDetailsScreen extends StatelessWidget {
     final d = ts.toDate().toLocal();
 
     const months = [
-      "Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec",
+      "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
     ];
     final month = months[d.month - 1];
 
@@ -33,6 +35,50 @@ class ContractorJobDetailsScreen extends StatelessWidget {
   }
 
   String _lkr(int amount) => "LKR $amount";
+
+  String _safeStr(dynamic v) => (v ?? "").toString().trim();
+
+  Future<String> _resolveProviderName(JobRequestModel job) async {
+    // 1) If job already has a provider name, use it.
+    final fromJob = job.providerName.trim();
+    if (fromJob.isNotEmpty) return fromJob;
+
+    // 2) Otherwise resolve from serviceProviders/{selectedProviderUid}
+    final uid = job.selectedProviderUid.trim();
+    if (uid.isEmpty) return "Service Provider";
+
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('serviceProviders')
+          .doc(uid)
+          .get();
+
+      if (!doc.exists) return "Service Provider";
+
+      // ✅ FIX: no unnecessary cast
+      final data = doc.data() ?? <String, dynamic>{};
+
+      // Prefer displayName if you ever set it
+      final displayName = _safeStr(data['displayName']);
+      if (displayName.isNotEmpty && displayName.toLowerCase() != "null") {
+        return displayName;
+      }
+
+      // Otherwise build from firstName + lastName
+      final first = _safeStr(data['firstName']);
+      final last = _safeStr(data['lastName']);
+      final full = "$first $last".trim();
+      if (full.isNotEmpty) return full;
+
+      // Other possible keys (just in case)
+      final providerName = _safeStr(data['providerName']);
+      if (providerName.isNotEmpty) return providerName;
+
+      return "Service Provider";
+    } catch (_) {
+      return "Service Provider";
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -94,9 +140,6 @@ class ContractorJobDetailsScreen extends StatelessWidget {
           final client =
               job.clientName.trim().isNotEmpty ? job.clientName.trim() : "Client";
 
-          final provider =
-              job.providerName.trim().isNotEmpty ? job.providerName.trim() : "Service Provider";
-
           final dateText = _formatDate(job.scheduledDate);
           final tasks = job.tasks;
 
@@ -105,7 +148,7 @@ class ContractorJobDetailsScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ✅ Top header like mockup: avatar + client + View Profile
+                // ✅ Top header: avatar + client + View Profile
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -168,7 +211,7 @@ class ContractorJobDetailsScreen extends StatelessWidget {
 
                 const SizedBox(height: 22),
 
-                // Assigned Service Provider
+                // ✅ Assigned Service Provider
                 const Text(
                   "Assigned Service Provider",
                   style: TextStyle(
@@ -184,16 +227,23 @@ class ContractorJobDetailsScreen extends StatelessWidget {
                     const Icon(Icons.person_outline, size: 18, color: Colors.black),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: Text(
-                        provider,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontFamily: "Montserrat",
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
-                          color: Colors.black,
-                        ),
+                      child: FutureBuilder<String>(
+                        future: _resolveProviderName(job),
+                        builder: (context, nameSnap) {
+                          final provider =
+                              (nameSnap.data ?? "Service Provider").trim();
+                          return Text(
+                            provider.isEmpty ? "Service Provider" : provider,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontFamily: "Montserrat",
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                              color: Colors.black,
+                            ),
+                          );
+                        },
                       ),
                     ),
                   ],
@@ -242,7 +292,6 @@ class ContractorJobDetailsScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 10),
 
-                // ✅ Table: Service | Qty | Price
                 Container(
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(10),
@@ -303,7 +352,6 @@ class ContractorJobDetailsScreen extends StatelessWidget {
                           ],
                         ),
                       ),
-
                       ...tasks.map((m) {
                         final label = (m['label'] ?? m['taskName'] ?? '').toString().trim();
                         final qty = _readInt(m['quantity'] ?? 1);
