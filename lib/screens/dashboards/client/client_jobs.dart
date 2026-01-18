@@ -10,6 +10,9 @@ import 'package:fixitnew/widgets/sheets/confirm_cancel_sheet.dart';
 import 'package:fixitnew/screens/dashboards/client/client_job_details_screen.dart';
 import 'package:fixitnew/controllers/client/client_job_requests_controller.dart';
 
+// ✅ quotation screen
+import 'package:fixitnew/screens/quotations/client_quotation_screen.dart';
+
 class ClientJobsScreen extends StatefulWidget {
   const ClientJobsScreen({super.key});
 
@@ -43,6 +46,54 @@ class _ClientJobsScreenState extends State<ClientJobsScreen> {
       if (!mounted) return;
       _toast("Action failed: $e");
     }
+  }
+
+  String _norm(String v) => v.trim().toLowerCase();
+
+  bool _isAfterQuotationAccepted(JobRequestModel j) {
+    final s = _norm(j.status);
+
+    // quotation accepted and onwards
+    return s == 'quotation_accepted' ||
+        s == 'in_progress' ||
+        s == 'started' ||
+        s == 'completed_pending_payment' ||
+        s == 'awaiting_final_payment_confirmation' ||
+        s == 'invoice_paid' ||
+        s == 'job_completed';
+  }
+
+  // ✅ Only show quotation button while it's relevant to view/decide.
+  // ❌ Do NOT show after quotation is accepted.
+  bool _shouldShowQuotationButton(JobRequestModel j) {
+    final s = _norm(j.status);
+
+    if (!j.hasQuotation) return false;
+
+    return s == 'quotation_created' ||
+        s == 'quotation_declined_pending_visitation' ||
+        s == 'awaiting_visitation_fee_confirmation' ||
+        s == 'awaiting_visitation_confirmation';
+  }
+
+  void _openJobDetails(JobRequestModel j) {
+    if (_isAfterQuotationAccepted(j)) {
+      // ✅ Updated job details screen (quotation-driven)
+      Navigator.pushNamed(
+        context,
+        '/updated_job_details_client',
+        arguments: {'jobId': j.id},
+      );
+      return;
+    }
+
+    // ✅ Old job details screen (jobRequest-driven)
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ClientJobDetailsScreen(jobId: j.id),
+      ),
+    );
   }
 
   @override
@@ -120,10 +171,12 @@ class _ClientJobsScreenState extends State<ClientJobsScreen> {
                 final j = jobs[index];
 
                 final dateText = controller.formatDateText(j.scheduledDate);
-                final category = (j.category).toString().trim();
+                final category = j.category.toString().trim();
                 final categoryText = category.isEmpty ? "—" : category;
 
                 final rightType = controller.rightType(j);
+
+                final showQuotation = _shouldShowQuotationButton(j);
 
                 return Column(
                   children: [
@@ -153,32 +206,49 @@ class _ClientJobsScreenState extends State<ClientJobsScreen> {
                                   ),
                                   const SizedBox(height: 8),
                                   _MetaRow(
-                                      icon: Icons.access_time, text: dateText),
+                                    icon: Icons.access_time,
+                                    text: dateText,
+                                  ),
                                   const SizedBox(height: 6),
                                   _MetaRow(
-                                      icon: Icons.build_outlined,
-                                      text: categoryText),
+                                    icon: Icons.build_outlined,
+                                    text: categoryText,
+                                  ),
                                 ],
                               );
                             },
                           ),
                         ),
                         const SizedBox(width: 12),
-                        _ClientRightWidget(
-                          type: rightType,
-                          onCancelAccepted: () => _confirmCancelAndRun(
-                            () => controller.cancelAcceptedJob(j.id),
-                          ),
-                          onRematch: () {
-                            // as requested: do nothing for now
-                          },
-                          onStop: () => _confirmCancelAndRun(
-                            () async {
-                              // keep behavior consistent: stop job = cancel from client
-                              await controller.cancelAcceptedJob(j.id);
+
+                        if (showQuotation)
+                          _BlackPillButton(
+                            text: "Quotation",
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      ClientQuotationScreen(jobId: j.id),
+                                ),
+                              );
                             },
+                          )
+                        else
+                          _ClientRightWidget(
+                            type: rightType,
+                            onCancelAccepted: () => _confirmCancelAndRun(
+                              () => controller.cancelAcceptedJob(j.id),
+                            ),
+                            onRematch: () {
+                              // no-op for now
+                            },
+                            onStop: () => _confirmCancelAndRun(
+                              () async {
+                                await controller.cancelAcceptedJob(j.id);
+                              },
+                            ),
                           ),
-                        ),
                       ],
                     ),
                     const SizedBox(height: 14),
@@ -186,15 +256,7 @@ class _ClientJobsScreenState extends State<ClientJobsScreen> {
                       width: double.infinity,
                       height: 44,
                       child: ElevatedButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  ClientJobDetailsScreen(jobId: j.id),
-                            ),
-                          );
-                        },
+                        onPressed: () => _openJobDetails(j),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.black,
                           elevation: 0,
@@ -365,6 +427,40 @@ class _OutlinedPillButton extends StatelessWidget {
             fontFamily: "Montserrat",
             color: Colors.black,
             fontWeight: FontWeight.w800,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BlackPillButton extends StatelessWidget {
+  const _BlackPillButton({required this.text, required this.onPressed});
+
+  final String text;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 120,
+      height: 36,
+      child: ElevatedButton(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.black,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(6),
+          ),
+        ),
+        child: Text(
+          text,
+          style: const TextStyle(
+            fontFamily: "Montserrat",
+            fontWeight: FontWeight.w800,
+            fontSize: 12,
           ),
         ),
       ),

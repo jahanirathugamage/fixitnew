@@ -53,7 +53,6 @@ class _AdminLogsScreenState extends State<AdminLogsScreen> {
   }
 
   Widget _rowIcon(AdminAuditLogType type) {
-    // match your mockups: invoices look like money, quotations like list/receipt
     return Icon(
       type == AdminAuditLogType.invoice
           ? Icons.payments_outlined
@@ -63,19 +62,20 @@ class _AdminLogsScreenState extends State<AdminLogsScreen> {
     );
   }
 
-  Future<String> _resolveClientName(String jobId) async {
+  Future<Map<String, dynamic>> _loadJob(String jobId) async {
     final snap = await controller.getJob(jobId);
-    final data = snap.data() ?? {};
+    return snap.data() ?? <String, dynamic>{};
+  }
+
+  String _clientNameFromJob(Map<String, dynamic> job) {
     final name =
-        (data['clientName'] ?? data['clientFullName'] ?? '').toString().trim();
-    if (name.isNotEmpty) return name;
-    return "Client";
+        (job['clientName'] ?? job['clientFullName'] ?? '').toString().trim();
+    return name.isNotEmpty ? name : "Client";
   }
 
   Future<int> _resolveAmountIfMissing(AdminAuditLogEntry e) async {
     if (e.amountLkr > 0) return e.amountLkr;
 
-    // If invoice/quotation doc didn’t include amount, try to read from jobRequest.pricing.totalAmount
     final jobSnap = await controller.getJob(e.jobId);
     final job = jobSnap.data() ?? {};
     final pricing = (job['pricing'] is Map) ? (job['pricing'] as Map) : {};
@@ -85,7 +85,6 @@ class _AdminLogsScreenState extends State<AdminLogsScreen> {
     if (total is num) return total.toInt();
     if (total is String) return int.tryParse(total) ?? 0;
 
-    // fallback for quotation: pricing.serviceTotal + fees if present
     final serviceTotal = pricing['serviceTotal'];
     final visitationFee = pricing['visitationFee'] ?? job['visitationFee'];
     final platformFee = pricing['platformFee'];
@@ -97,9 +96,7 @@ class _AdminLogsScreenState extends State<AdminLogsScreen> {
       return 0;
     }
 
-    final computed =
-        read(serviceTotal) + read(visitationFee) + read(platformFee);
-    return computed;
+    return read(serviceTotal) + read(visitationFee) + read(platformFee);
   }
 
   List<AdminAuditLogEntry> _mergeSort(
@@ -138,18 +135,75 @@ class _AdminLogsScreenState extends State<AdminLogsScreen> {
         itemBuilder: (context, i) {
           final e = entries[i];
 
-          return FutureBuilder<String>(
-            future: _resolveClientName(e.jobId),
-            builder: (context, nameSnap) {
-              final name = nameSnap.data ?? "Client";
+          return FutureBuilder<Map<String, dynamic>>(
+            future: _loadJob(e.jobId),
+            builder: (context, jobSnap) {
+              final job = jobSnap.data ?? <String, dynamic>{};
+              final name = _clientNameFromJob(job);
+
+              final status = (job['status'] ?? '').toString().trim();
+
+              final isQuotation = e.type == AdminAuditLogType.quotation;
+              final isDeclined =
+                  isQuotation && controller.isQuotationDeclinedStatus(status);
+              final isAccepted =
+                  isQuotation && controller.isQuotationAcceptedStatus(status);
 
               return FutureBuilder<int>(
                 future: _resolveAmountIfMissing(e),
                 builder: (context, amtSnap) {
                   final amount = amtSnap.data ?? e.amountLkr;
-
                   final dateText = controller.formatDateTime(e.createdAt);
-                  final isPlus = amount > 0;
+
+                  Widget rightWidget;
+
+                  // ✅ Image 6 behaviour: quotations show Accepted / Declined
+                  if (isQuotation) {
+                    if (isDeclined) {
+                      rightWidget = const Text(
+                        "Declined",
+                        style: TextStyle(
+                          fontFamily: "Montserrat",
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16,
+                          color: Colors.black,
+                        ),
+                      );
+                    } else if (isAccepted) {
+                      rightWidget = const Text(
+                        "Accepted",
+                        style: TextStyle(
+                          fontFamily: "Montserrat",
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16,
+                          color: Colors.black,
+                        ),
+                      );
+                    } else {
+                      // fallback if a quotation exists but not yet decided
+                      rightWidget = Text(
+                        _lkr(amount, showPlus: false),
+                        style: const TextStyle(
+                          fontFamily: "Montserrat",
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16,
+                          color: Colors.black,
+                        ),
+                      );
+                    }
+                  } else {
+                    // invoices keep money
+                    final isPlus = amount > 0;
+                    rightWidget = Text(
+                      _lkr(amount, showPlus: isPlus),
+                      style: const TextStyle(
+                        fontFamily: "Montserrat",
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                        color: Colors.black,
+                      ),
+                    );
+                  }
 
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -190,15 +244,7 @@ class _AdminLogsScreenState extends State<AdminLogsScreen> {
                             ),
                           ),
                           const SizedBox(width: 10),
-                          Text(
-                            _lkr(amount, showPlus: isPlus),
-                            style: const TextStyle(
-                              fontFamily: "Montserrat",
-                              fontWeight: FontWeight.w800,
-                              fontSize: 16,
-                              color: Colors.black,
-                            ),
-                          ),
+                          rightWidget,
                         ],
                       ),
                       const SizedBox(height: 14),
@@ -270,7 +316,6 @@ class _AdminLogsScreenState extends State<AdminLogsScreen> {
         );
       }
 
-      // ALL: merge both streams
       return StreamBuilder<List<AdminAuditLogEntry>>(
         stream: controller.watchQuotations(),
         builder: (context, qSnap) {
@@ -322,15 +367,14 @@ class _AdminLogsScreenState extends State<AdminLogsScreen> {
                 _filterPill(
                   text: "All",
                   selected: _filter == AdminAuditLogFilter.all,
-                  onTap: () =>
-                      setState(() => _filter = AdminAuditLogFilter.all),
+                  onTap: () => setState(() => _filter = AdminAuditLogFilter.all),
                 ),
                 const SizedBox(width: 12),
                 _filterPill(
                   text: "Quotations",
                   selected: _filter == AdminAuditLogFilter.quotations,
-                  onTap: () => setState(
-                      () => _filter = AdminAuditLogFilter.quotations),
+                  onTap: () =>
+                      setState(() => _filter = AdminAuditLogFilter.quotations),
                 ),
                 const SizedBox(width: 12),
                 _filterPill(
@@ -347,8 +391,6 @@ class _AdminLogsScreenState extends State<AdminLogsScreen> {
           Expanded(child: buildBody()),
         ],
       ),
-
-      // ✅ EXACT SAME PATTERN AS YOUR ADMIN SETTINGS SCREEN
       bottomNavigationBar: const AdminBottomNav(currentIndex: 0),
     );
   }

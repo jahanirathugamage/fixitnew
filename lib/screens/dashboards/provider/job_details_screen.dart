@@ -12,32 +12,30 @@ class ProviderJobDetailsScreen extends StatefulWidget {
   const ProviderJobDetailsScreen({super.key, required this.jobId});
 
   @override
-  State<ProviderJobDetailsScreen> createState() =>
-      _ProviderJobDetailsScreenState();
+  State<ProviderJobDetailsScreen> createState() => _ProviderJobDetailsScreenState();
 }
 
 class _ProviderJobDetailsScreenState extends State<ProviderJobDetailsScreen> {
   final controller = ProviderJobDetailsController();
 
+  bool _autoVisitationSheetShown = false;
+
   String _norm(String v) => v.trim().toLowerCase();
+
+  bool _isAwaitingVisitationStatus(String status) {
+    final s = _norm(status);
+    return s == "quotation_declined_pending_visitation" ||
+        s == "awaiting_visitation_fee_confirmation" ||
+        s == "awaiting_visitation_confirmation" ||
+        s == "quotation_declined_pending_visitation_fee";
+  }
 
   String _formatDateTime(Timestamp? ts) {
     if (ts == null) return "—";
     final d = ts.toDate().toLocal();
 
     const months = [
-      "Jan",
-      "Feb",
-      "Mar",
-      "Apr",
-      "May",
-      "Jun",
-      "Jul",
-      "Aug",
-      "Sep",
-      "Oct",
-      "Nov",
-      "Dec",
+      "Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec",
     ];
 
     final month = months[d.month - 1];
@@ -47,7 +45,6 @@ class _ProviderJobDetailsScreenState extends State<ProviderJobDetailsScreen> {
     final ampm = d.hour >= 12 ? "pm" : "am";
     final mm = d.minute.toString().padLeft(2, "0");
 
-    // Match mockup: Nov 12  ·  9.00am (dot, no colon)
     return "$month $day  ·  $hour12.$mm$ampm";
   }
 
@@ -60,16 +57,41 @@ class _ProviderJobDetailsScreenState extends State<ProviderJobDetailsScreen> {
 
   String _lkrInt(int amount) => "LKR $amount";
 
-  bool _showFinalPaymentButton(JobRequestModel job) {
-    final s = _norm(job.status);
+  Future<void> _maybeAutoShowVisitationSheet(JobRequestModel job, int visitationFee) async {
+    if (_autoVisitationSheetShown) return;
+    if (!_isAwaitingVisitationStatus(job.status)) return;
 
-    // show once quotation accepted by client (and onwards)
-    return s == "quotation_accepted" ||
-        s == "in_progress" ||
-        s == "started" ||
-        s == "completed_pending_payment" ||
-        s == "awaiting_final_payment_confirmation" ||
-        s == "invoice_paid";
+    _autoVisitationSheetShown = true;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+
+      final ok = await _showConfirmSheet(
+        context,
+        title: "Confirm Visitation Payment",
+        message: visitationFee > 0
+            ? "Please confirm that you have received the visitation fee payment of LKR $visitationFee.00 from the client."
+            : "Please confirm that you have received the visitation fee payment from the client.",
+        buttonText: "Confirm Payment Received",
+      );
+      if (ok != true) return;
+
+      try {
+        await controller.confirmVisitationFeeReceived(jobId: widget.jobId);
+
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Visitation fee confirmed. Job closed.")),
+        );
+
+        Navigator.pop(context);
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString())),
+        );
+      }
+    });
   }
 
   @override
@@ -113,21 +135,17 @@ class _ProviderJobDetailsScreenState extends State<ProviderJobDetailsScreen> {
             );
           }
 
-          final clientName =
-              job.clientName.trim().isNotEmpty ? job.clientName.trim() : "Client";
+          final clientName = job.clientName.trim().isNotEmpty ? job.clientName.trim() : "Client";
 
-          // Pricing (safe)
           final pricing = job.pricing;
           final serviceTotal = _readInt(pricing["serviceTotal"]);
           final materialCost = _readInt(pricing["materialCost"]);
-          final visitationFee =
-              _readInt(pricing["visitationFee"] ?? job.visitationFeeLkr);
+          final visitationFee = _readInt(pricing["visitationFee"] ?? job.visitationFeeLkr);
           final platformFee = _readInt(pricing["platformFee"]);
           final totalAmount = _readInt(pricing["totalAmount"]);
 
           final tasks = job.tasks;
 
-          // Fallback subtotal if pricing missing
           final computedSubtotal = tasks.fold<int>(0, (subtotal, m) {
             final lineTotal = _readInt(m["lineTotal"]);
             if (lineTotal > 0) return subtotal + lineTotal;
@@ -146,15 +164,14 @@ class _ProviderJobDetailsScreenState extends State<ProviderJobDetailsScreen> {
                   visitationFee +
                   platformFee);
 
-          final showVisitationConfirm = job.isAwaitingVisitationConfirmation;
-          final showFinalPaymentConfirm = _showFinalPaymentButton(job);
+          // ✅ Only visitation confirmation remains here.
+          _maybeAutoShowVisitationSheet(job, visitationFee);
 
           return SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header: avatar + name + View Profile
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -188,9 +205,7 @@ class _ProviderJobDetailsScreenState extends State<ProviderJobDetailsScreen> {
                             width: double.infinity,
                             height: 40,
                             child: ElevatedButton(
-                              onPressed: () {
-                                // later: navigate to client profile
-                              },
+                              onPressed: () {},
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.black,
                                 foregroundColor: Colors.white,
@@ -217,7 +232,6 @@ class _ProviderJobDetailsScreenState extends State<ProviderJobDetailsScreen> {
 
                 const SizedBox(height: 22),
 
-                // Date & Time
                 const Text(
                   "Date & Time",
                   style: TextStyle(
@@ -246,7 +260,6 @@ class _ProviderJobDetailsScreenState extends State<ProviderJobDetailsScreen> {
 
                 const SizedBox(height: 22),
 
-                // Task Details
                 const Text(
                   "Task Details",
                   style: TextStyle(
@@ -258,7 +271,6 @@ class _ProviderJobDetailsScreenState extends State<ProviderJobDetailsScreen> {
                 ),
                 const SizedBox(height: 10),
 
-                // Table: Service | Qty | Price
                 Container(
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(10),
@@ -267,13 +279,10 @@ class _ProviderJobDetailsScreenState extends State<ProviderJobDetailsScreen> {
                   child: Column(
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 10),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                         decoration: const BoxDecoration(
                           color: Color(0xFF3A3A3A),
-                          borderRadius: BorderRadius.vertical(
-                            top: Radius.circular(10),
-                          ),
+                          borderRadius: BorderRadius.vertical(top: Radius.circular(10)),
                         ),
                         child: const Row(
                           children: [
@@ -323,8 +332,7 @@ class _ProviderJobDetailsScreenState extends State<ProviderJobDetailsScreen> {
                         ),
                       ),
                       ...tasks.map((m) {
-                        final label =
-                            (m["label"] ?? m["taskName"] ?? "").toString().trim();
+                        final label = (m["label"] ?? m["taskName"] ?? "").toString().trim();
                         final qty = _readInt(m["quantity"] ?? 1);
 
                         final price = _readInt(m["lineTotal"] ?? 0) > 0
@@ -332,14 +340,10 @@ class _ProviderJobDetailsScreenState extends State<ProviderJobDetailsScreen> {
                             : _readInt(m["unitPrice"]) * (qty <= 0 ? 1 : qty);
 
                         return Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 12),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                           decoration: BoxDecoration(
                             border: Border(
-                              top: BorderSide(
-                                color: Colors.grey.shade200,
-                                width: 1,
-                              ),
+                              top: BorderSide(color: Colors.grey.shade200, width: 1),
                             ),
                           ),
                           child: Row(
@@ -397,7 +401,6 @@ class _ProviderJobDetailsScreenState extends State<ProviderJobDetailsScreen> {
 
                 const SizedBox(height: 18),
 
-                // Totals (like mockup)
                 const Divider(height: 1, thickness: 1, color: Color(0xFFE9E9E9)),
                 const SizedBox(height: 14),
 
@@ -405,11 +408,9 @@ class _ProviderJobDetailsScreenState extends State<ProviderJobDetailsScreen> {
                 const SizedBox(height: 10),
                 _SummaryRow(label: "Material Cost", value: _lkrInt(materialCost)),
                 const SizedBox(height: 10),
-                _SummaryRow(
-                    label: "Visitation Fees", value: _lkrInt(visitationFee)),
+                _SummaryRow(label: "Visitation Fees", value: _lkrInt(visitationFee)),
                 const SizedBox(height: 10),
-                _SummaryRow(
-                    label: "Platform Fees", value: _lkrInt(platformFee)),
+                _SummaryRow(label: "Platform Fees", value: _lkrInt(platformFee)),
 
                 const SizedBox(height: 16),
                 const Divider(height: 1, thickness: 1, color: Color(0xFFE9E9E9)),
@@ -439,102 +440,6 @@ class _ProviderJobDetailsScreenState extends State<ProviderJobDetailsScreen> {
                   ],
                 ),
 
-                const SizedBox(height: 22),
-
-                // ✅ Image 2 behaviour: show slide-up ONLY when confirming visitation payment
-                if (showVisitationConfirm) ...[
-                  SizedBox(
-                    width: double.infinity,
-                    height: 52,
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        final ok = await _showVisitationConfirmSheet(
-                          context,
-                          amountLkr: visitationFee,
-                        );
-                        if (ok != true) return;
-
-                        try {
-                          await controller.confirmVisitationFeeReceived(
-                              jobId: widget.jobId);
-
-                          if (!mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: Text(
-                                    "Visitation fee confirmed. Job closed.")),
-                          );
-                          Navigator.pop(context);
-                        } catch (e) {
-                          if (!mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text(e.toString())),
-                          );
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.black,
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10)),
-                      ),
-                      child: const Text(
-                        "Confirm Payment Received",
-                        style: TextStyle(
-                          fontFamily: "Montserrat",
-                          fontWeight: FontWeight.w800,
-                          fontSize: 15,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ),
-                ] else if (showFinalPaymentConfirm) ...[
-                  // ✅ Image 3 behaviour: final payment confirm button shown after quotation accepted
-                  SizedBox(
-                    width: double.infinity,
-                    height: 52,
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        try {
-                          await controller.confirmFinalPaymentReceived(
-                              jobId: widget.jobId);
-
-                          if (!mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: Text(
-                                    "Final payment confirmed. Job completed.")),
-                          );
-                          Navigator.pop(context);
-                        } catch (e) {
-                          if (!mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text(e.toString())),
-                          );
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.black,
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10)),
-                      ),
-                      child: const Text(
-                        "Confirm Payment Received",
-                        style: TextStyle(
-                          fontFamily: "Montserrat",
-                          fontWeight: FontWeight.w800,
-                          fontSize: 15,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-
                 const SizedBox(height: 24),
               ],
             ),
@@ -544,13 +449,12 @@ class _ProviderJobDetailsScreenState extends State<ProviderJobDetailsScreen> {
     );
   }
 
-  // ✅ Sheet: matches Image 2 copy + style
-  static Future<bool?> _showVisitationConfirmSheet(
+  static Future<bool?> _showConfirmSheet(
     BuildContext context, {
-    required int amountLkr,
+    required String title,
+    required String message,
+    required String buttonText,
   }) async {
-    final amountText = "LKR $amountLkr.00";
-
     return showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
@@ -581,9 +485,9 @@ class _ProviderJobDetailsScreenState extends State<ProviderJobDetailsScreen> {
                     ),
                   ),
                   const SizedBox(height: 22),
-                  const Text(
-                    "Confirm Visitation Payment",
-                    style: TextStyle(
+                  Text(
+                    title,
+                    style: const TextStyle(
                       fontFamily: "Montserrat",
                       fontSize: 24,
                       fontWeight: FontWeight.w800,
@@ -593,9 +497,7 @@ class _ProviderJobDetailsScreenState extends State<ProviderJobDetailsScreen> {
                   ),
                   const SizedBox(height: 14),
                   Text(
-                    amountLkr > 0
-                        ? "Please confirm that you have received the visitation fee payment of $amountText from the client."
-                        : "Please confirm that you have received the visitation fee payment from the client.",
+                    message,
                     style: const TextStyle(
                       fontFamily: "Montserrat",
                       fontSize: 14,
@@ -618,9 +520,9 @@ class _ProviderJobDetailsScreenState extends State<ProviderJobDetailsScreen> {
                         ),
                         elevation: 0,
                       ),
-                      child: const Text(
-                        "Confirm Payment Received",
-                        style: TextStyle(
+                      child: Text(
+                        buttonText,
+                        style: const TextStyle(
                           fontFamily: "Montserrat",
                           fontSize: 16,
                           fontWeight: FontWeight.w800,

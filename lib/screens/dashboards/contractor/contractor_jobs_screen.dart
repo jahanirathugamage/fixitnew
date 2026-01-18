@@ -21,8 +21,21 @@ class ContractorJobsScreen extends StatelessWidget {
 
   bool _showInvoiceButton(JobRequestModel j) {
     final s = _norm(j.status);
-    // once quotation accepted, contractor should be able to invoice later
-    return s == 'quotation_accepted' || s == 'in_progress' || s == 'started' || s == 'completed_pending_payment';
+    return s == 'quotation_accepted' ||
+        s == 'in_progress' ||
+        s == 'started' ||
+        s == 'completed_pending_payment';
+  }
+
+  bool _isAfterQuotationAccepted(JobRequestModel j) {
+    final s = _norm(j.status);
+    return s == 'quotation_accepted' ||
+        s == 'in_progress' ||
+        s == 'started' ||
+        s == 'completed_pending_payment' ||
+        s == 'awaiting_final_payment_confirmation' ||
+        s == 'invoice_paid' ||
+        s == 'job_completed';
   }
 
   @override
@@ -101,15 +114,24 @@ class ContractorJobsScreen extends StatelessWidget {
               itemBuilder: (context, index) {
                 final j = jobs[index];
 
-                final clientName = j.clientName.trim().isNotEmpty
-                    ? j.clientName.trim()
-                    : "Client";
+                final clientName =
+                    j.clientName.trim().isNotEmpty ? j.clientName.trim() : "Client";
 
                 final dateText = controller.formatDateText(j.scheduledDate);
                 final categoryText =
                     j.category.trim().isEmpty ? "—" : j.category.trim();
 
                 final showInvoice = _showInvoiceButton(j);
+
+                // ✅ NEW: quotation exists based on jobRequest itself (reliable)
+                final hasQuotation = j.hasQuotation;
+
+                // ✅ Disable quotation button if quotation already created
+                final bool disabled = !showInvoice && hasQuotation;
+
+                final String label = showInvoice
+                    ? "Invoice"
+                    : (hasQuotation ? "Quotation Sent" : "Quotation");
 
                 return Column(
                   children: [
@@ -146,27 +168,35 @@ class ContractorJobsScreen extends StatelessWidget {
                         SizedBox(
                           height: 36,
                           child: ElevatedButton(
-                            onPressed: () {
-                              if (showInvoice) {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) =>
-                                        ContractorGenerateInvoiceScreen(jobId: j.id),
-                                  ),
-                                );
-                              } else {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) =>
-                                        ContractorGenerateQuotationScreen(jobId: j.id),
-                                  ),
-                                );
-                              }
-                            },
+                            onPressed: disabled
+                                ? null
+                                : () {
+                                    if (showInvoice) {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) =>
+                                              ContractorGenerateInvoiceScreen(
+                                            jobId: j.id,
+                                          ),
+                                        ),
+                                      );
+                                    } else {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) =>
+                                              ContractorGenerateQuotationScreen(
+                                            jobId: j.id,
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.black,
+                              disabledBackgroundColor:
+                                  Colors.black.withValues(alpha: 0.35),
                               elevation: 0,
                               padding: const EdgeInsets.symmetric(horizontal: 18),
                               shape: RoundedRectangleBorder(
@@ -174,7 +204,7 @@ class ContractorJobsScreen extends StatelessWidget {
                               ),
                             ),
                             child: Text(
-                              showInvoice ? "Invoice" : "Quotation",
+                              label,
                               style: const TextStyle(
                                 fontFamily: "Montserrat",
                                 fontWeight: FontWeight.w800,
@@ -192,10 +222,20 @@ class ContractorJobsScreen extends StatelessWidget {
                       height: 44,
                       child: ElevatedButton(
                         onPressed: () {
+                          if (_isAfterQuotationAccepted(j)) {
+                            Navigator.pushNamed(
+                              context,
+                              '/updated_job_details_contractor',
+                              arguments: {'jobId': j.id},
+                            );
+                            return;
+                          }
+
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => ContractorJobDetailsScreen(jobId: j.id),
+                              builder: (context) =>
+                                  ContractorJobDetailsScreen(jobId: j.id),
                             ),
                           );
                         },

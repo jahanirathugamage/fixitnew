@@ -14,6 +14,9 @@ import '../../services/service_request_wrapper.dart';
 // ✅ reusable client bottom nav
 import 'package:fixitnew/widgets/nav/client_bottom_nav.dart';
 
+// ✅ NEW: for Image 5 "Thank you" trigger (from notification)
+import 'package:fixitnew/services/notification_router.dart';
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -23,6 +26,8 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final _homeController = ClientHomeController();
+
+  bool _thankYouShownOnce = false;
 
   // ✅ DEBUG (remove later)
   Future<void> _debugFirebaseWiring() async {
@@ -81,6 +86,128 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _debugFirebaseWiring(); // debug only
     _probeHomeCollections(); // probe only
+
+    // ✅ Image 5: show thank you sheet if NotificationRouter set a pending flag
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _maybeShowThankYouFromRouter();
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    // ✅ also allow route arguments (safe)
+    final args = ModalRoute.of(context)?.settings.arguments;
+    if (args is Map) {
+      final show = args['showThankYou'] == true ||
+          (args['showThankYou']?.toString().toLowerCase() == 'true');
+      if (show) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _showThankYouSheet();
+        });
+      }
+    }
+  }
+
+  void _maybeShowThankYouFromRouter() {
+    if (!mounted) return;
+    if (_thankYouShownOnce) return;
+
+    final pending = NotificationRouter.instance.consumeClientThankYou();
+    if (pending == true) {
+      _thankYouShownOnce = true;
+      _showThankYouSheet();
+    }
+  }
+
+  Future<void> _showThankYouSheet() async {
+    if (!mounted) return;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.42,
+          minChildSize: 0.34,
+          maxChildSize: 0.70,
+          expand: false,
+          builder: (context, scrollController) {
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: Column(
+                children: [
+                  Center(
+                    child: Container(
+                      width: 70,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(100),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 22),
+                  const Text(
+                    "Thank You",
+                    style: TextStyle(
+                      fontFamily: "Montserrat",
+                      fontSize: 26,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.black,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 14),
+                  const Text(
+                    "Your service provider has confirmed the visitation fee. The job has been closed successfully.",
+                    style: TextStyle(
+                      fontFamily: "Montserrat",
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.black87,
+                      height: 1.35,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const Spacer(),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.of(sheetContext).pop(),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.black,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: const Text(
+                        "Done",
+                        style: TextStyle(
+                          fontFamily: "Montserrat",
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   // --------------------- HELPERS ---------------------
@@ -517,11 +644,6 @@ class _ServiceCardState extends State<ServiceCard> {
 
   @override
   Widget build(BuildContext context) {
-    // ✅ Only the icon "button" UI is adjusted to match the screenshot:
-    // - black filled rounded square
-    // - white icon
-    // - no border
-    // - subtle press feedback (slight opacity) but same look
     return GestureDetector(
       onTapDown: (_) => setState(() => _pressed = true),
       onTapUp: (_) {

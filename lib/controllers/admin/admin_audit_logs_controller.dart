@@ -42,8 +42,7 @@ class AdminAuditLogsController {
         final jobId = (data['jobId'] ?? '').toString().trim();
 
         final pricing = (data['pricing'] is Map) ? (data['pricing'] as Map) : {};
-        final total =
-            _readInt(pricing['totalAmount'] ?? data['totalAmount'] ?? 0);
+        final total = _readInt(pricing['totalAmount'] ?? data['totalAmount'] ?? 0);
 
         final createdAt = (data['createdAt'] is Timestamp)
             ? data['createdAt'] as Timestamp
@@ -73,7 +72,6 @@ class AdminAuditLogsController {
             ? data['createdAt'] as Timestamp
             : Timestamp.now();
 
-        // amount might not exist on invoice doc (your current API doesn’t write it)
         final amount = _readInt(data['totalAmount'] ?? data['amount'] ?? 0);
 
         final paidAt = (data['paidAt'] is Timestamp) ? data['paidAt'] as Timestamp : null;
@@ -95,22 +93,48 @@ class AdminAuditLogsController {
     return _db.collection('jobRequest').doc(jobId).get();
   }
 
+  // ✅ NO composite index needed: remove orderBy
   Future<QuerySnapshot<Map<String, dynamic>>> getLatestQuotation(String jobId) {
     return _db
         .collection('quotations')
         .where('jobId', isEqualTo: jobId)
-        .orderBy('createdAt', descending: true)
         .limit(1)
         .get();
   }
 
+  // ✅ NO composite index needed: remove orderBy
   Future<QuerySnapshot<Map<String, dynamic>>> getLatestInvoice(String jobId) {
     return _db
         .collection('invoices')
         .where('jobId', isEqualTo: jobId)
-        .orderBy('createdAt', descending: true)
         .limit(1)
         .get();
+  }
+
+  bool isQuotationDeclinedStatus(String status) {
+    final s = status.trim().toLowerCase();
+    return s == 'quotation_declined' ||
+        s == 'quotation_declined_pending_visitation' ||
+        s == 'quotation_declined_pending_visitation_fee' ||
+        s == 'awaiting_visitation_fee_confirmation' ||
+        s == 'awaiting_visitation_confirmation' ||
+        s == 'terminated_after_quotation_decline';
+  }
+
+  bool isQuotationAcceptedStatus(String status) {
+    final s = status.trim().toLowerCase();
+    if (s == 'quotation_accepted') return true;
+
+    if (s == 'in_progress' ||
+        s == 'started' ||
+        s == 'completed_pending_payment' ||
+        s == 'awaiting_final_payment_confirmation' ||
+        s == 'invoice_paid' ||
+        s == 'job_completed') {
+      return true;
+    }
+
+    return false;
   }
 
   String formatDateTime(Timestamp? ts) {
@@ -127,9 +151,8 @@ class AdminAuditLogsController {
 
     final hour12 = d.hour % 12 == 0 ? 12 : d.hour % 12;
     final mm = d.minute.toString().padLeft(2, "0");
-    final suffix = d.hour >= 12 ? "pm" : "am"; // lowercase like mockups
+    final suffix = d.hour >= 12 ? "pm" : "am";
 
-    // mockup style: Nov 16  ·  9.00am (dot, no colon)
     return "$month $day  ·  $hour12.$mm$suffix";
   }
 

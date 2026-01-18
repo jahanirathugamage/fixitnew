@@ -25,6 +25,10 @@ class JobRequestModel {
   // ✅ optional fields used in your flow
   final int visitationFeeLkr;
 
+  // ✅ NEW: quotation linkage (THIS FIXES YOUR UI RELIABLY)
+  final String quotationId;
+  final Timestamp? quotationCreatedAt;
+
   // ✅ NEW: for filtering “stopped by client” logic
   final Timestamp? cancelledAt;
   final Timestamp? stoppedAt;
@@ -42,11 +46,15 @@ class JobRequestModel {
     required this.location,
     required this.pricing,
     required this.visitationFeeLkr,
+    required this.quotationId,
+    required this.quotationCreatedAt,
     this.cancelledAt,
     this.stoppedAt,
   });
 
   String _norm(String v) => v.trim().toLowerCase();
+
+  bool get hasQuotation => quotationId.trim().isNotEmpty || _norm(status) == 'quotation_created';
 
   // ✅ Keep as-is if you still use it somewhere, but make it safer
   bool get isQuotationDeclined {
@@ -81,7 +89,7 @@ class JobRequestModel {
         final v = data[k];
         if (v != null) {
           final s = v.toString().trim();
-          if (s.isNotEmpty) return s;
+          if (s.isNotEmpty && s.toLowerCase() != 'null') return s;
         }
       }
       return '';
@@ -111,6 +119,11 @@ class JobRequestModel {
     final stoppedAt =
         (data['stoppedAt'] is Timestamp) ? data['stoppedAt'] as Timestamp : null;
 
+    // ✅ quotation linkage (from your screenshot)
+    final quotationId = readString(['quotationId']);
+    final quotationCreatedAt =
+        (data['quotationCreatedAt'] is Timestamp) ? data['quotationCreatedAt'] as Timestamp : null;
+
     return JobRequestModel(
       id: doc.id,
       clientId: readString(['clientId']),
@@ -129,6 +142,8 @@ class JobRequestModel {
       location: gp,
       pricing: pricingMap,
       visitationFeeLkr: visitationFee,
+      quotationId: quotationId,
+      quotationCreatedAt: quotationCreatedAt,
       cancelledAt: cancelledAt,
       stoppedAt: stoppedAt,
     );

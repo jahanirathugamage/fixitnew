@@ -1,17 +1,22 @@
-// lib/widgets/sheets/quotation_sent_sheet.dart
+// lib\widgets\sheets\final_payment_confirm_sheet.dart
 import 'package:flutter/material.dart';
 
-class QuotationSentSheet {
-  static Future<void> show(BuildContext context) async {
-    await showModalBottomSheet(
+class FinalPaymentConfirmSheet {
+  static Future<bool?> show({
+    required BuildContext context,
+    required String title,
+    required String message,
+    required String buttonText,
+  }) {
+    return showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (sheetContext) {
         return DraggableScrollableSheet(
-          initialChildSize: 0.55,
-          minChildSize: 0.45,
-          maxChildSize: 0.8,
+          initialChildSize: 0.34,
+          minChildSize: 0.30,
+          maxChildSize: 0.55,
           expand: false,
           builder: (context, scrollController) {
             return Container(
@@ -21,7 +26,6 @@ class QuotationSentSheet {
                 borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
               ),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Center(
                     child: Container(
@@ -33,38 +37,35 @@ class QuotationSentSheet {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 40),
-                  Center(
-                    child: Icon(Icons.receipt_long, size: 64, color: Colors.black),
-                  ),
-                  const SizedBox(height: 18),
-                  const Center(
-                    child: Text(
-                      "Quotation Sent",
-                      style: TextStyle(
-                        fontFamily: "Montserrat",
-                        fontSize: 26,
-                        fontWeight: FontWeight.w800,
-                      ),
+                  const SizedBox(height: 22),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontFamily: "Montserrat",
+                      fontSize: 24,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.black,
                     ),
+                    textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 14),
-                  const Text(
-                    "Please wait while the client reviews the quotation. You'll get an alert regarding the job soon.",
-                    style: TextStyle(
+                  Text(
+                    message,
+                    style: const TextStyle(
                       fontFamily: "Montserrat",
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
                       color: Colors.black87,
                       height: 1.35,
                     ),
+                    textAlign: TextAlign.center,
                   ),
                   const Spacer(),
                   SizedBox(
                     width: double.infinity,
                     height: 52,
                     child: ElevatedButton(
-                      onPressed: () => Navigator.of(sheetContext).pop(),
+                      onPressed: () => Navigator.of(sheetContext).pop(true),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.black,
                         shape: RoundedRectangleBorder(
@@ -72,18 +73,18 @@ class QuotationSentSheet {
                         ),
                         elevation: 0,
                       ),
-                      child: const Text(
-                        "Done",
-                        style: TextStyle(
+                      child: Text(
+                        buttonText,
+                        style: const TextStyle(
                           fontFamily: "Montserrat",
                           fontSize: 16,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w800,
                           color: Colors.white,
                         ),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 6),
                 ],
               ),
             );
