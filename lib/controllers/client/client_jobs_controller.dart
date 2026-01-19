@@ -15,8 +15,20 @@ class ClientJobsController {
   String _norm(String v) => v.trim().toLowerCase();
 
   bool _isAccepted(String status) => _norm(status) == "accepted";
-  bool _isCancelledByProvider(String status) => _norm(status) == "cancelled_by_provider";
+  bool _isCancelledByProvider(String status) =>
+      _norm(status) == "cancelled_by_provider";
   bool _isCancelledByClient(String status) => _norm(status) == "cancelled_by_client";
+
+  // ✅ Quotation flow statuses that should appear in Jobs list (so Quotation button can show)
+  bool _isQuotationRelated(String status) {
+    final s = _norm(status);
+    return s == "quotation_created" ||
+        s == "quotation_accepted" ||
+        s == "awaiting_visitation_fee_confirmation" ||
+        s == "quotation_declined_pending_visitation" ||
+        s == "awaiting_visitation_confirmation" ||
+        s == "terminated_after_quotation_decline";
+  }
 
   DateTime _startOfTodayLocal(DateTime nowLocal) =>
       DateTime(nowLocal.year, nowLocal.month, nowLocal.day);
@@ -45,6 +57,12 @@ class ClientJobsController {
           continue;
         }
 
+        // ✅ show quotation-related jobs (so client can access Quotation)
+        if (_isQuotationRelated(s)) {
+          filtered.add(j);
+          continue;
+        }
+
         // ✅ show provider-cancelled jobs ONLY if client has not stopped it too
         if (_isCancelledByProvider(s)) {
           if (j.stoppedAt == null) {
@@ -53,7 +71,7 @@ class ClientJobsController {
           continue;
         }
 
-        // ✅ keep your existing behavior: still show cancelled_by_client (today/future only)
+        // ✅ keep existing behavior: still show cancelled_by_client (today/future only)
         if (_isCancelledByClient(s)) {
           filtered.add(j);
           continue;
@@ -81,11 +99,17 @@ class ClientJobsController {
   ClientRightType rightType(JobRequestModel j) {
     final s = _norm(j.status);
 
+    // ✅ quotation-related statuses should not show cancel/rematch/stop buttons here
+    // because the right side is replaced by "Quotation" button in your UI file.
+    if (_isQuotationRelated(s)) return ClientRightType.none;
+
     if (_isCancelledByProvider(s)) return ClientRightType.rematchStop;
 
     if (_isAccepted(s)) {
       // accepted future -> cancel, today -> none (matches your UI logic)
-      return isToday(j.scheduledDate) ? ClientRightType.none : ClientRightType.cancelButton;
+      return isToday(j.scheduledDate)
+          ? ClientRightType.none
+          : ClientRightType.cancelButton;
     }
 
     return ClientRightType.none;
@@ -97,7 +121,20 @@ class ClientJobsController {
     if (ts == null) return "—";
     final d = ts.toDate().toLocal();
 
-    const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const months = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec"
+    ];
     final month = months[d.month - 1];
     final day = d.day;
 
@@ -105,6 +142,7 @@ class ClientJobsController {
     final ampm = d.hour >= 12 ? "pm" : "am";
     final mm = d.minute.toString().padLeft(2, "0");
 
+    // ✅ keep your existing display format here
     return "$month $day  ·  $hour12:$mm$ampm";
   }
 }

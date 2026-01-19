@@ -13,6 +13,15 @@ class NotificationRouter {
 
   RemoteMessage? _pending;
 
+  // ✅ NEW: Image 5 trigger
+  bool _pendingClientThankYou = false;
+
+  bool consumeClientThankYou() {
+    final v = _pendingClientThankYou;
+    _pendingClientThankYou = false;
+    return v;
+  }
+
   void init(GlobalKey<NavigatorState> navigatorKey) {
     _navKey = navigatorKey;
 
@@ -119,7 +128,16 @@ class NotificationRouter {
       return;
     }
 
-    // ✅ Contractor informational routing back to jobs list you already have
+    // ✅ Client thank-you flow after provider confirms visitation fee
+    if (type == 'client_visitation_fee_confirmed' ||
+        type == 'visitation_fee_confirmed' ||
+        type == 'client_thank_you') {
+      _pendingClientThankYou = true;
+      nav.pushNamedAndRemoveUntil('/dashboards/client/home_screen', (r) => false);
+      return;
+    }
+
+    // ✅ Contractor routing back to jobs list
     if (type == 'contractor_quotation_accepted' || type == 'contractor_quotation_declined') {
       nav.pushNamedAndRemoveUntil('/dashboards/contractor/contractor_jobs_screen', (r) => false);
       return;

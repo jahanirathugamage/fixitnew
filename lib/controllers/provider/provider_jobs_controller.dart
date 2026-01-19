@@ -2,6 +2,7 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:latlong2/latlong.dart';
+
 import '../../models/jobs/job_request_model.dart';
 import '../../repositories/jobs/job_request_repository.dart';
 
@@ -14,20 +15,36 @@ class ProviderJobsController {
       : _repo = repo ?? JobRequestRepository();
 
   String _norm(String v) => v.trim().toLowerCase();
+
   bool _isAccepted(String status) => _norm(status) == "accepted";
+
+  // ✅ job should stay visible after quotation accepted
+  bool _isQuotationAccepted(String status) => _norm(status) == "quotation_accepted";
+
+  // ✅ job should stay visible after quotation is created (provider still has job)
+  bool _isQuotationCreated(String status) => _norm(status) == "quotation_created";
 
   bool _isCancelled(String status) {
     final s = _norm(status);
     return s == "cancelled_by_provider" || s == "cancelled_by_client";
   }
 
+  bool _isAwaitingVisitation(String status) {
+    final s = _norm(status);
+    return s == "quotation_declined_pending_visitation" ||
+        s == "awaiting_visitation_fee_confirmation" ||
+        s == "awaiting_visitation_confirmation" ||
+        s == "quotation_declined_pending_visitation_fee";
+  }
+
   bool _isSameLocalDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
 
   bool isTodayOrFuture(Timestamp? scheduledDate, DateTime nowLocal) {
-    if (scheduledDate == null) return false; // ✅ no scheduled date => do not show
+    if (scheduledDate == null) return false;
     final jobLocal = scheduledDate.toDate().toLocal();
-    final startOfTodayLocal = DateTime(nowLocal.year, nowLocal.month, nowLocal.day);
+    final startOfTodayLocal =
+        DateTime(nowLocal.year, nowLocal.month, nowLocal.day);
     return !jobLocal.isBefore(startOfTodayLocal);
   }
 
@@ -38,12 +55,14 @@ class ProviderJobsController {
   }) {
     if (_isCancelled(status)) return RightType.cancelledTag;
 
-    if (_isAccepted(status)) {
+    // ✅ Allow Navigate / Cancel logic for BOTH accepted + quotation_accepted
+    if (_isAccepted(status) || _isQuotationAccepted(status)) {
       final jobDate = scheduledDate?.toDate().toLocal();
       final isToday = jobDate != null && _isSameLocalDay(jobDate, now);
       return isToday ? RightType.navigate : RightType.cancelButton;
     }
 
+    // quotation_created: provider just sees job, no navigate button yet (matches your current behavior)
     return RightType.none;
   }
 
@@ -58,17 +77,30 @@ class ProviderJobsController {
 
       final filtered = <JobRequestModel>[];
       for (final j in list) {
-        if (!isTodayOrFuture(j.scheduledDate, now)) continue;
+        final awaitingVisitation = _isAwaitingVisitation(j.status);
 
-        final show = _isAccepted(j.status) || _isCancelled(j.status);
+        // ✅ If provider needs to confirm visitation fee, show regardless of date
+        if (!awaitingVisitation) {
+          if (!isTodayOrFuture(j.scheduledDate, now)) continue;
+        }
+
+        // ✅ Show rules:
+        // - accepted
+        // - quotation_created (job still active)
+        // - quotation_accepted (job still active)
+        // - awaiting visitation confirmation (declined flow)
+        // - cancelled tags
+        final show = _isAccepted(j.status) ||
+            _isQuotationCreated(j.status) ||
+            _isQuotationAccepted(j.status) ||
+            _isCancelled(j.status) ||
+            awaitingVisitation;
+
         if (!show) continue;
 
-        // ✅ Do NOT filter out jobs with null location.
-        // Navigation button already checks null safely.
         filtered.add(j);
       }
 
-      // ✅ soonest first
       filtered.sort((a, b) {
         final am = a.scheduledDate?.millisecondsSinceEpoch ?? 0;
         final bm = b.scheduledDate?.millisecondsSinceEpoch ?? 0;
@@ -83,7 +115,20 @@ class ProviderJobsController {
     if (ts == null) return "—";
     final d = ts.toDate().toLocal();
 
-    const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const months = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec"
+    ];
     final month = months[d.month - 1];
     final day = d.day;
 

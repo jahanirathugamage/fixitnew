@@ -1,223 +1,202 @@
-// lib/screens/quotations/client_quotation_screen.dart
+// lib/screens/dashboards/shared/updated_job_details.dart
+// ignore_for_file: use_build_context_synchronously
 
-import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
 
+import 'package:fixitnew/models/jobs/job_request_model.dart';
+import 'package:fixitnew/repositories/jobs/job_request_repository.dart';
 import 'package:fixitnew/repositories/quotations/quotation_repository.dart';
 import 'package:fixitnew/models/quotations/quotation_model.dart';
-import 'package:fixitnew/backend/api_client.dart';
-import 'package:fixitnew/repositories/jobs/job_request_repository.dart';
-import 'package:fixitnew/models/jobs/job_request_model.dart';
+import 'package:fixitnew/controllers/payments/final_payment_controller.dart';
+import 'package:fixitnew/widgets/sheets/final_payment_confirm_sheet.dart';
 
-class ClientQuotationScreen extends StatelessWidget {
+enum UpdatedJobDetailsRole { client, provider, contractor }
+
+class UpdatedJobDetailsScreen extends StatefulWidget {
   final String jobId;
-  const ClientQuotationScreen({super.key, required this.jobId});
+  final UpdatedJobDetailsRole role;
 
-  String _lkr(int v) => "LKR $v";
+  const UpdatedJobDetailsScreen({
+    super.key,
+    required this.jobId,
+    required this.role,
+  });
+
+  @override
+  State<UpdatedJobDetailsScreen> createState() => _UpdatedJobDetailsScreenState();
+}
+
+class _UpdatedJobDetailsScreenState extends State<UpdatedJobDetailsScreen> {
+  final _jobRepo = JobRequestRepository();
+  final _quotationRepo = QuotationRepository();
+  final _finalPaymentController = FinalPaymentController();
+
+  bool _autoClientFinalShown = false;
+  bool _autoProviderFinalShown = false;
+
+  String _norm(String v) => v.trim().toLowerCase();
+
+  bool _isAfterQuotationAccepted(String status) {
+    final s = _norm(status);
+    return s == "quotation_accepted" ||
+        s == "in_progress" ||
+        s == "started" ||
+        s == "completed_pending_payment" ||
+        s == "awaiting_final_payment_confirmation" ||
+        s == "completed";
+  }
 
   String _formatDateTime(Timestamp? ts) {
     if (ts == null) return "—";
     final d = ts.toDate().toLocal();
 
-    const months = [
-      "Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"
-    ];
-
+    const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
     final month = months[d.month - 1];
+    final day = d.day;
+
     final hour12 = d.hour % 12 == 0 ? 12 : d.hour % 12;
     final ampm = d.hour >= 12 ? "pm" : "am";
     final mm = d.minute.toString().padLeft(2, "0");
 
-    return "$month ${d.day}  ·  $hour12.$mm$ampm";
+    // dot format: 9.00am
+    return "$month $day  ·  $hour12.$mm$ampm";
   }
 
-  String _nameFromProviderData(Map<String, dynamic> data) {
-    final displayName = (data['displayName'] ?? '').toString().trim();
-    if (displayName.isNotEmpty && displayName.toLowerCase() != 'null') {
-      return displayName;
-    }
-    final first = (data['firstName'] ?? '').toString().trim();
-    final last = (data['lastName'] ?? '').toString().trim();
-    return ('$first $last').trim();
+  String _lkrInt(int amount) => "LKR $amount";
+
+  Future<String> _resolveUserNameFromUsers(String uid) async {
+    if (uid.trim().isEmpty) return "";
+    try {
+      final doc = await FirebaseFirestore.instance.collection("users").doc(uid).get();
+      final data = doc.data() ?? {};
+      final first = (data["firstName"] ?? data["first_name"] ?? "").toString().trim();
+      final last = (data["lastName"] ?? data["last_name"] ?? "").toString().trim();
+      final full = (data["fullName"] ?? data["name"] ?? "").toString().trim();
+
+      final built = ("$first $last").trim();
+      if (built.isNotEmpty) return built;
+      if (full.isNotEmpty) return full;
+    } catch (_) {}
+    return "";
   }
 
   Future<String> _resolveProviderName(JobRequestModel job) async {
-    final direct = job.providerName.trim();
-    if (direct.isNotEmpty) return direct;
-
+    if (job.providerName.trim().isNotEmpty) return job.providerName.trim();
     final uid = job.selectedProviderUid.trim();
-    if (uid.isEmpty) return "Service Provider";
+    if (uid.isEmpty) return "";
 
-    final db = FirebaseFirestore.instance;
-
+    // Try serviceProviders collection
     try {
-      final doc = await db.collection('serviceProviders').doc(uid).get();
-      if (doc.exists) {
-        final name = _nameFromProviderData(doc.data() ?? {});
-        if (name.trim().isNotEmpty) return name.trim();
-      }
+      final doc =
+          await FirebaseFirestore.instance.collection("serviceProviders").doc(uid).get();
+      final data = doc.data() ?? {};
+      final first = (data["firstName"] ?? "").toString().trim();
+      final last = (data["lastName"] ?? "").toString().trim();
+      final built = ("$first $last").trim();
+      if (built.isNotEmpty) return built;
+      final dn = (data["displayName"] ?? data["name"] ?? "").toString().trim();
+      if (dn.isNotEmpty) return dn;
     } catch (_) {}
 
+    // fallback: users
+    return _resolveUserNameFromUsers(uid);
+  }
+
+  Future<String> _resolveClientName(JobRequestModel job) async {
+    if (job.clientName.trim().isNotEmpty) return job.clientName.trim();
+    return _resolveUserNameFromUsers(job.clientId.trim());
+  }
+
+  Future<String> _resolveContractorName(String contractorId) async {
+    final uid = contractorId.trim();
+    if (uid.isEmpty) return "";
+
+    // Try contractors collection
     try {
-      final q1 = await db
-          .collection('serviceProviders')
-          .where('providerUid', isEqualTo: uid)
-          .limit(1)
-          .get();
-      if (q1.docs.isNotEmpty) {
-        final name = _nameFromProviderData(q1.docs.first.data());
-        if (name.trim().isNotEmpty) return name.trim();
-      }
+      final doc = await FirebaseFirestore.instance.collection("contractors").doc(uid).get();
+      final data = doc.data() ?? {};
+      final first = (data["firstName"] ?? "").toString().trim();
+      final last = (data["lastName"] ?? "").toString().trim();
+      final built = ("$first $last").trim();
+      if (built.isNotEmpty) return built;
+      final name = (data["name"] ?? data["fullName"] ?? "").toString().trim();
+      if (name.isNotEmpty) return name;
     } catch (_) {}
 
-    return "Service Provider";
+    // fallback: users
+    return _resolveUserNameFromUsers(uid);
   }
 
-  String _safeStr(dynamic v) => (v ?? "").toString().trim();
+  Future<void> _maybeAutoShowClientFinalSheet(String status, String jobId) async {
+    // Client sheet only when job is asking client to confirm they paid final
+    // (your flow: completed_pending_payment)
+    if (widget.role != UpdatedJobDetailsRole.client) return;
+    if (_autoClientFinalShown) return;
 
-  String _contractorNameFromMap(Map<String, dynamic> data) {
-    String pick(List<String> keys) {
-      for (final k in keys) {
-        final v = data[k];
-        if (v == null) continue;
-        final s = v.toString().trim();
-        if (s.isNotEmpty && s.toLowerCase() != 'null') return s;
-      }
-      return '';
-    }
+    final s = _norm(status);
+    if (s != "completed_pending_payment") return;
 
-    final direct = pick(['companyName', 'firmName', 'name', 'fullName', 'contractorName']);
-    if (direct.isNotEmpty) return direct;
+    _autoClientFinalShown = true;
 
-    final first = pick(['firstName']);
-    final last = pick(['lastName']);
-    final full = ('$first $last').trim();
-    if (full.isNotEmpty) return full;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
 
-    return "Contractor";
-  }
+      final ok = await FinalPaymentConfirmSheet.show(
+        context: context,
+        title: "Confirm Payment",
+        message:
+            "Please confirm that you have made the payment towards the service provider.",
+        buttonText: "Confirm Payment",
+      );
 
-  Future<String> _resolveContractorName({
-    required JobRequestModel job,
-    required QuotationModel quotation,
-  }) async {
-    final db = FirebaseFirestore.instance;
+      if (ok != true) return;
 
-    // 1) from quotation.contractorId
-    final qCid = quotation.contractorId.trim();
-    if (qCid.isNotEmpty) {
       try {
-        final doc = await db.collection('contractors').doc(qCid).get();
-        if (doc.exists) return _contractorNameFromMap(doc.data() ?? {});
-      } catch (_) {}
+        await _finalPaymentController.clientConfirmFinalPayment(jobId: jobId);
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("$e")));
+      }
+    });
+  }
+
+  Future<void> _maybeAutoShowProviderFinalSheet(String status, String jobId) async {
+    // Provider sheet only when waiting provider confirmation
+    if (widget.role != UpdatedJobDetailsRole.provider) return;
+    if (_autoProviderFinalShown) return;
+
+    final s = _norm(status);
+    if (s != "awaiting_final_payment_confirmation") return;
+
+    _autoProviderFinalShown = true;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+
+      final ok = await FinalPaymentConfirmSheet.show(
+        context: context,
+        title: "Confirm Payment",
+        message:
+            "Please confirm that you have received the final from the client.",
+        buttonText: "Confirm Payment Received",
+      );
+
+      if (ok != true) return;
 
       try {
-        final u = await db.collection('users').doc(qCid).get();
-        if (u.exists) return _contractorNameFromMap(u.data() ?? {});
-      } catch (_) {}
-    }
-
-    // 2) derive from provider
-    final providerUid = job.selectedProviderUid.trim();
-    if (providerUid.isEmpty) return "Contractor";
-
-    try {
-      final pDoc = await db.collection('serviceProviders').doc(providerUid).get();
-      if (pDoc.exists) {
-        final p = pDoc.data() ?? {};
-
-        final contractorId = _safeStr(p['contractorId']);
-        if (contractorId.isNotEmpty && contractorId.toLowerCase() != 'null') {
-          try {
-            final c = await db.collection('contractors').doc(contractorId).get();
-            if (c.exists) return _contractorNameFromMap(c.data() ?? {});
-          } catch (_) {}
-        }
-
-        final managedBy = p['managedBy'];
-        if (managedBy is DocumentReference) {
-          final id = managedBy.id.trim();
-          if (id.isNotEmpty) {
-            try {
-              final c = await db.collection('contractors').doc(id).get();
-              if (c.exists) return _contractorNameFromMap(c.data() ?? {});
-            } catch (_) {}
-          }
-        }
+        await _finalPaymentController.providerConfirmFinalPaymentReceived(jobId: jobId);
+        if (!mounted) return;
+        Navigator.pop(context);
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("$e")));
       }
-    } catch (_) {}
-
-    return "Contractor";
-  }
-
-  Future<void> _accept(BuildContext context) async {
-    try {
-      await ApiClient.postJson(
-        "/api/client-quotation-decision",
-        body: {"jobId": jobId, "decision": "accepted"},
-      );
-
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Quotation accepted.")),
-      );
-
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        '/dashboards/client/client_jobs',
-        (r) => false,
-      );
-    } catch (e) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
-      );
-    }
-  }
-
-  Future<void> _decline(BuildContext context, {required int visitationFee}) async {
-    final ok = await _showClientVisitationConfirmSheet(
-      context,
-      amountLkr: visitationFee,
-    );
-    if (ok != true) return;
-
-    try {
-      await ApiClient.postJson(
-        "/api/client-quotation-decision",
-        body: {
-          "jobId": jobId,
-          "decision": "declined",
-          "clientVisitationConfirmed": true,
-        },
-      );
-
-      if (!context.mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Quotation declined. Waiting for provider confirmation."),
-        ),
-      );
-
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        '/dashboards/client/client_jobs',
-        (r) => false,
-      );
-    } catch (e) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
-      );
-    }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final quotationRepo = QuotationRepository();
-    final jobRepo = JobRequestRepository();
-
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -230,7 +209,7 @@ class ClientQuotationScreen extends StatelessWidget {
         ),
         centerTitle: true,
         title: const Text(
-          "Quotation Details",
+          "Job Details",
           style: TextStyle(
             fontFamily: "Montserrat",
             fontWeight: FontWeight.w800,
@@ -238,7 +217,7 @@ class ClientQuotationScreen extends StatelessWidget {
         ),
       ),
       body: StreamBuilder<JobRequestModel?>(
-        stream: jobRepo.watchById(jobId),
+        stream: _jobRepo.watchById(widget.jobId),
         builder: (context, jobSnap) {
           if (jobSnap.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -257,79 +236,88 @@ class ClientQuotationScreen extends StatelessWidget {
             );
           }
 
-          final whenText = _formatDateTime(job.scheduledDate);
-          final quotationId = job.quotationId.trim();
-
-          if (quotationId.isEmpty) {
+          if (!_isAfterQuotationAccepted(job.status)) {
             return const Center(
-              child: Padding(
-                padding: EdgeInsets.all(18),
-                child: Text(
-                  "Quotation not available yet.",
-                  style: TextStyle(
-                    fontFamily: "Montserrat",
-                    fontWeight: FontWeight.w700,
-                  ),
-                  textAlign: TextAlign.center,
+              child: Text(
+                "Updated job details are available only after quotation is accepted.",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: "Montserrat",
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             );
           }
 
+          final quotationStream = job.quotationId.trim().isNotEmpty
+              ? _quotationRepo.watchById(job.quotationId)
+              : _quotationRepo.watchByJobId(job.id);
+
+          // final payment sheets now happen ONLY in this updated page
+          _maybeAutoShowClientFinalSheet(job.status, job.id);
+          _maybeAutoShowProviderFinalSheet(job.status, job.id);
+
           return StreamBuilder<QuotationModel?>(
-            // ✅ NO index needed
-            stream: quotationRepo.watchById(quotationId),
+            stream: quotationStream,
             builder: (context, qSnap) {
               if (qSnap.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
               }
 
-              if (qSnap.hasError) {
-                return Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(18),
-                    child: Text(
-                      "Failed to load quotation: ${qSnap.error}",
-                      style: const TextStyle(
-                        fontFamily: "Montserrat",
-                        fontWeight: FontWeight.w600,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                );
-              }
-
               final q = qSnap.data;
               if (q == null) {
                 return const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(18),
-                    child: Text(
-                      "Quotation not available yet.",
-                      style: TextStyle(
-                        fontFamily: "Montserrat",
-                        fontWeight: FontWeight.w700,
-                      ),
-                      textAlign: TextAlign.center,
+                  child: Text(
+                    "Quotation not found",
+                    style: TextStyle(
+                      fontFamily: "Montserrat",
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 );
               }
 
-              final pricing = q.pricing;
-              final tasks = q.tasks;
+              // Quotation is the source of truth for THIS page
+              final qPricing = q.pricing;
+              final qTasks = q.tasks;
 
-              final subtotal = pricing.serviceTotal;
-              final visitationFee = pricing.visitationFee;
-              final platformFee = pricing.platformFee;
-              final total = pricing.totalAmount;
+              final serviceTotal = qPricing.serviceTotal;
+              final visitationFee = qPricing.visitationFee;
+              final platformFee = qPricing.platformFee;
+              final totalAmount = qPricing.totalAmount;
+
+              final computedSubtotal = qTasks.fold<int>(0, (subtotal, t) {
+                final lineTotal = t.lineTotal;
+                if (lineTotal > 0) return subtotal + lineTotal;
+                final qty = t.quantity <= 0 ? 1 : t.quantity;
+                return subtotal + (t.unitPrice * qty);
+              });
+
+              final shownSubtotal = serviceTotal > 0 ? serviceTotal : computedSubtotal;
+
+              final computedTotal = totalAmount > 0
+                  ? totalAmount
+                  : (shownSubtotal + visitationFee + platformFee);
+
+              final whenText = _formatDateTime(job.scheduledDate);
+
+              // Header person:
+              // - client sees provider at top
+              // - provider sees client at top
+              // - contractor sees client at top (per your mock)
+              final headerNameFuture = (widget.role == UpdatedJobDetailsRole.client)
+                  ? _resolveProviderName(job)
+                  : _resolveClientName(job);
+
+              final providerNameFuture = _resolveProviderName(job);
+              final contractorNameFuture = _resolveContractorName(q.contractorId);
 
               return SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Header row
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -348,12 +336,15 @@ class ClientQuotationScreen extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               FutureBuilder<String>(
-                                future: _resolveProviderName(job),
+                                future: headerNameFuture,
                                 builder: (context, nameSnap) {
-                                  final providerName =
-                                      (nameSnap.data ?? "Service Provider").trim();
+                                  final name = (nameSnap.data ?? "").trim();
                                   return Text(
-                                    providerName.isEmpty ? "Service Provider" : providerName,
+                                    name.isEmpty
+                                        ? (widget.role == UpdatedJobDetailsRole.client
+                                            ? "Service Provider"
+                                            : "Client")
+                                        : name,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(
@@ -395,46 +386,80 @@ class ClientQuotationScreen extends StatelessWidget {
                       ],
                     ),
 
+                    // Role-specific middle section
                     const SizedBox(height: 22),
 
-                    const Text(
-                      "Contractor",
-                      style: TextStyle(
-                        fontFamily: "Montserrat",
-                        fontWeight: FontWeight.w800,
-                        fontSize: 14,
-                        color: Colors.black,
+                    if (widget.role == UpdatedJobDetailsRole.client) ...[
+                      const Text(
+                        "Contractor",
+                        style: TextStyle(
+                          fontFamily: "Montserrat",
+                          fontWeight: FontWeight.w800,
+                          fontSize: 14,
+                          color: Colors.black,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        const Icon(Icons.person_outline, size: 18, color: Colors.black),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: FutureBuilder<String>(
-                            future: _resolveContractorName(job: job, quotation: q),
-                            builder: (context, cSnap) {
-                              final name = (cSnap.data ?? "Contractor").trim();
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          const Icon(Icons.person_outline, size: 20, color: Colors.black),
+                          const SizedBox(width: 10),
+                          FutureBuilder<String>(
+                            future: contractorNameFuture,
+                            builder: (context, snap) {
+                              final name = (snap.data ?? "").trim();
                               return Text(
                                 name.isEmpty ? "Contractor" : name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
                                   fontFamily: "Montserrat",
-                                  fontWeight: FontWeight.w600,
+                                  fontWeight: FontWeight.w700,
                                   fontSize: 13,
                                   color: Colors.black,
                                 ),
                               );
                             },
                           ),
+                        ],
+                      ),
+                      const SizedBox(height: 22),
+                    ],
+
+                    if (widget.role == UpdatedJobDetailsRole.contractor) ...[
+                      const Text(
+                        "Assigned Service Provider",
+                        style: TextStyle(
+                          fontFamily: "Montserrat",
+                          fontWeight: FontWeight.w800,
+                          fontSize: 14,
+                          color: Colors.black,
                         ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          const Icon(Icons.person_outline, size: 20, color: Colors.black),
+                          const SizedBox(width: 10),
+                          FutureBuilder<String>(
+                            future: providerNameFuture,
+                            builder: (context, snap) {
+                              final name = (snap.data ?? "").trim();
+                              return Text(
+                                name.isEmpty ? "Service Provider" : name,
+                                style: const TextStyle(
+                                  fontFamily: "Montserrat",
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 13,
+                                  color: Colors.black,
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 22),
+                    ],
 
-                    const SizedBox(height: 22),
-
+                    // Date & Time
                     const Text(
                       "Date & Time",
                       style: TextStyle(
@@ -463,6 +488,7 @@ class ClientQuotationScreen extends StatelessWidget {
 
                     const SizedBox(height: 22),
 
+                    // Task Details
                     const Text(
                       "Task Details",
                       style: TextStyle(
@@ -474,6 +500,7 @@ class ClientQuotationScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 10),
 
+                    // Table
                     Container(
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(10),
@@ -534,7 +561,8 @@ class ClientQuotationScreen extends StatelessWidget {
                               ],
                             ),
                           ),
-                          ...tasks.map((t) {
+                          ...qTasks.map((t) {
+                            final label = t.label.trim().isEmpty ? "Service" : t.label.trim();
                             final qty = t.quantity <= 0 ? 1 : t.quantity;
                             final price = t.lineTotal > 0 ? t.lineTotal : (t.unitPrice * qty);
 
@@ -550,7 +578,7 @@ class ClientQuotationScreen extends StatelessWidget {
                                 children: [
                                   Expanded(
                                     child: Text(
-                                      t.label.trim().isEmpty ? "Service" : t.label.trim(),
+                                      label,
                                       style: const TextStyle(
                                         fontFamily: "Montserrat",
                                         fontWeight: FontWeight.w600,
@@ -580,7 +608,7 @@ class ClientQuotationScreen extends StatelessWidget {
                                     child: Align(
                                       alignment: Alignment.centerRight,
                                       child: Text(
-                                        _lkr(price),
+                                        _lkrInt(price),
                                         style: const TextStyle(
                                           fontFamily: "Montserrat",
                                           fontWeight: FontWeight.w700,
@@ -599,14 +627,15 @@ class ClientQuotationScreen extends StatelessWidget {
                     ),
 
                     const SizedBox(height: 18),
+
                     const Divider(height: 1, thickness: 1, color: Color(0xFFE9E9E9)),
                     const SizedBox(height: 14),
 
-                    _SummaryRow(label: "Subtotal", value: _lkr(subtotal)),
+                    _SummaryRow(label: "Subtotal", value: _lkrInt(shownSubtotal)),
                     const SizedBox(height: 10),
-                    _SummaryRow(label: "Visitation Fees", value: _lkr(visitationFee)),
+                    _SummaryRow(label: "Visitation Fees", value: _lkrInt(visitationFee)),
                     const SizedBox(height: 10),
-                    _SummaryRow(label: "Platform Fees", value: _lkr(platformFee)),
+                    _SummaryRow(label: "Platform Fees", value: _lkrInt(platformFee)),
 
                     const SizedBox(height: 16),
                     const Divider(height: 1, thickness: 1, color: Color(0xFFE9E9E9)),
@@ -625,7 +654,7 @@ class ClientQuotationScreen extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          _lkr(total),
+                          _lkrInt(computedTotal),
                           style: const TextStyle(
                             fontFamily: "Montserrat",
                             fontWeight: FontWeight.w800,
@@ -636,70 +665,6 @@ class ClientQuotationScreen extends StatelessWidget {
                       ],
                     ),
 
-                    const SizedBox(height: 22),
-
-                    SizedBox(
-                      width: double.infinity,
-                      height: 52,
-                      child: ElevatedButton(
-                        onPressed: () => _accept(context),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.black,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        child: const Text(
-                          "Accept & Continue Job",
-                          style: TextStyle(
-                            fontFamily: "Montserrat",
-                            fontWeight: FontWeight.w800,
-                            fontSize: 15,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 52,
-                      child: OutlinedButton(
-                        onPressed: () => _decline(context, visitationFee: visitationFee),
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Colors.black, width: 1.4),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        child: const Text(
-                          "Decline & Stop Job",
-                          style: TextStyle(
-                            fontFamily: "Montserrat",
-                            fontWeight: FontWeight.w800,
-                            fontSize: 15,
-                            color: Colors.black,
-                          ),
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 10),
-
-                    const Text(
-                      "Please note that the visitation fee remains due even if you choose not to proceed with the job.",
-                      style: TextStyle(
-                        fontFamily: "Montserrat",
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.black38,
-                        height: 1.35,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-
                     const SizedBox(height: 24),
                   ],
                 ),
@@ -708,100 +673,6 @@ class ClientQuotationScreen extends StatelessWidget {
           );
         },
       ),
-    );
-  }
-
-  static Future<bool?> _showClientVisitationConfirmSheet(
-    BuildContext context, {
-    required int amountLkr,
-  }) async {
-    final amountText = "LKR $amountLkr.00";
-
-    return showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (sheetContext) {
-        return DraggableScrollableSheet(
-          initialChildSize: 0.44,
-          minChildSize: 0.38,
-          maxChildSize: 0.70,
-          expand: false,
-          builder: (context, scrollController) {
-            return Container(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-              ),
-              child: Column(
-                children: [
-                  Center(
-                    child: Container(
-                      width: 70,
-                      height: 5,
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade300,
-                        borderRadius: BorderRadius.circular(100),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 22),
-                  const Text(
-                    "Confirm Visitation Payment",
-                    style: TextStyle(
-                      fontFamily: "Montserrat",
-                      fontSize: 24,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.black,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 14),
-                  Text(
-                    amountLkr > 0
-                        ? "Please confirm that you have made the visitation fee payment of $amountText towards the service provider."
-                        : "Please confirm that you have made the visitation fee payment towards the service provider.",
-                    style: const TextStyle(
-                      fontFamily: "Montserrat",
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.black87,
-                      height: 1.35,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const Spacer(),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 52,
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.of(sheetContext).pop(true),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.black,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 0,
-                      ),
-                      child: const Text(
-                        "Confirm Payment",
-                        style: TextStyle(
-                          fontFamily: "Montserrat",
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                ],
-              ),
-            );
-          },
-        );
-      },
     );
   }
 }

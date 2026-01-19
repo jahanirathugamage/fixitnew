@@ -141,6 +141,7 @@ class _ServiceRequestScreenState extends State<ServiceRequestScreen> {
         );
       },
     );
+
     if (picked != null) {
       setState(() {
         _selectedTime = picked;
@@ -207,7 +208,9 @@ class _ServiceRequestScreenState extends State<ServiceRequestScreen> {
                             bottom: 8,
                           ),
                           children: [
+                            // NOW
                             GestureDetector(
+                              behavior: HitTestBehavior.opaque,
                               onTap: () {
                                 setState(() {
                                   _isNowOptionSelected = true;
@@ -253,15 +256,21 @@ class _ServiceRequestScreenState extends State<ServiceRequestScreen> {
                                   ),
                                   const SizedBox(width: 12),
                                   Icon(
-                                    Icons.check_circle,
+                                    _isNowOptionSelected
+                                        ? Icons.check_circle
+                                        : Icons.circle_outlined,
                                     size: 22,
                                     color: Colors.black,
                                   ),
                                 ],
                               ),
                             ),
+
                             const SizedBox(height: 20),
+
+                            // LATER
                             GestureDetector(
+                              behavior: HitTestBehavior.opaque,
                               onTap: () {
                                 setState(() {
                                   _isNowOptionSelected = false;
@@ -307,107 +316,116 @@ class _ServiceRequestScreenState extends State<ServiceRequestScreen> {
                                   ),
                                   const SizedBox(width: 12),
                                   Icon(
-                                    Icons.circle_outlined,
+                                    !_isNowOptionSelected
+                                        ? Icons.check_circle
+                                        : Icons.circle_outlined,
                                     size: 22,
                                     color: Colors.black,
                                   ),
                                 ],
                               ),
                             ),
+
                             const SizedBox(height: 24),
-                            Container(
-                              decoration: BoxDecoration(
-                                border:
-                                    Border.all(color: Colors.black, width: 1),
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.all(12.0),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Theme(
-                                      data: Theme.of(context).copyWith(
-                                        colorScheme: const ColorScheme.light(
-                                          primary: Colors.black,
-                                          onPrimary: Colors.white,
-                                          surface: Colors.white,
-                                          onSurface: Colors.black,
-                                        ),
-                                      ),
-                                      child: CalendarDatePicker(
-                                        initialDate: _selectedDate,
-                                        firstDate: DateTime.now(),
-                                        lastDate: DateTime.now().add(
-                                          const Duration(days: 365),
-                                        ),
-                                        onDateChanged: (date) {
-                                          setState(() {
-                                            _selectedDate = date;
-                                          });
-                                          modalSetState(() {
-                                            _selectedDate = date;
-                                          });
-                                        },
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Row(
-                                      children: [
-                                        const Text(
-                                          'Time',
-                                          style: TextStyle(
-                                            fontFamily: 'Montserrat',
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w600,
+
+                            // Only show date/time when "Later" is selected
+                            if (!_isNowOptionSelected)
+                              Container(
+                                decoration: BoxDecoration(
+                                  border:
+                                      Border.all(color: Colors.black, width: 1),
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(12.0),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Theme(
+                                        data: Theme.of(context).copyWith(
+                                          colorScheme: const ColorScheme.light(
+                                            primary: Colors.black,
+                                            onPrimary: Colors.white,
+                                            surface: Colors.white,
+                                            onSurface: Colors.black,
                                           ),
                                         ),
-                                        const Spacer(),
-                                        GestureDetector(
-                                          onTap: () => _selectTime(
-                                            sheetContext,
-                                            modalSetState,
+                                        child: CalendarDatePicker(
+                                          initialDate: _selectedDate,
+                                          firstDate: DateTime.now(),
+                                          lastDate: DateTime.now().add(
+                                            const Duration(days: 365),
                                           ),
-                                          child: Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 12,
-                                              vertical: 8,
+                                          onDateChanged: (date) {
+                                            setState(() {
+                                              _selectedDate = date;
+                                            });
+                                            modalSetState(() {
+                                              _selectedDate = date;
+                                            });
+                                          },
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Row(
+                                        children: [
+                                          const Text(
+                                            'Time',
+                                            style: TextStyle(
+                                              fontFamily: 'Montserrat',
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w600,
                                             ),
-                                            decoration: BoxDecoration(
-                                              borderRadius:
-                                                  BorderRadius.circular(10),
-                                              border: Border.all(
-                                                color: Colors.grey.shade400,
-                                                width: 1,
+                                          ),
+                                          const Spacer(),
+                                          GestureDetector(
+                                            behavior: HitTestBehavior.opaque,
+                                            onTap: () => _selectTime(
+                                              sheetContext,
+                                              modalSetState,
+                                            ),
+                                            child: Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                horizontal: 12,
+                                                vertical: 8,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                borderRadius:
+                                                    BorderRadius.circular(10),
+                                                border: Border.all(
+                                                  color: Colors.grey.shade400,
+                                                  width: 1,
+                                                ),
+                                              ),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Text(
+                                                    _selectedTime
+                                                        .format(sheetContext),
+                                                    style: const TextStyle(
+                                                      fontFamily: 'Montserrat',
+                                                      fontSize: 14,
+                                                      fontWeight:
+                                                          FontWeight.w500,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 4),
+                                                  const Icon(
+                                                    Icons.keyboard_arrow_down,
+                                                    size: 18,
+                                                  ),
+                                                ],
                                               ),
                                             ),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Text(
-                                                  _selectedTime
-                                                      .format(sheetContext),
-                                                  style: const TextStyle(
-                                                    fontFamily: 'Montserrat',
-                                                    fontSize: 14,
-                                                    fontWeight: FontWeight.w500,
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 4),
-                                                const Icon(
-                                                  Icons.keyboard_arrow_down,
-                                                  size: 18,
-                                                ),
-                                              ],
-                                            ),
                                           ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
+                                        ],
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
-                            ),
                           ],
                         ),
                       ),
@@ -640,452 +658,453 @@ class _ServiceRequestScreenState extends State<ServiceRequestScreen> {
   }
 
   void _openRequestSummaryBottomSheet() {
-  final List<ServiceRequestItem> items = _selectedServices
-      .map(
-        (label) => ServiceRequestItem(
-          label: label,
-          quantity: 1,
-          unitPrice: _getPriceForService(label),
-        ),
-      )
-      .toList();
+    final List<ServiceRequestItem> items = _selectedServices
+        .map(
+          (label) => ServiceRequestItem(
+            label: label,
+            quantity: 1,
+            unitPrice: _getPriceForService(label),
+          ),
+        )
+        .toList();
 
-  const int visitationFee = 350;
-  bool isSaving = false;
+    const int visitationFee = 350;
+    bool isSaving = false;
 
-  showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    builder: (sheetContext) {
-      return StatefulBuilder(
-        builder: (BuildContext ctx, StateSetter modalSetState) {
-          final int serviceTotal = items.fold(
-            0,
-            (total, item) => total + item.unitPrice * item.quantity,
-          );
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (BuildContext ctx, StateSetter modalSetState) {
+            final int serviceTotal = items.fold(
+              0,
+              (total, item) => total + item.unitPrice * item.quantity,
+            );
 
-          final int platformFee = (serviceTotal * 0.02).round();
-          final int totalAmount = serviceTotal + visitationFee + platformFee;
+            final int platformFee = (serviceTotal * 0.20).round();
+            final int totalAmount = serviceTotal + visitationFee + platformFee;
 
-          void updateQuantity(int index, int delta) {
-            modalSetState(() {
-              final item = items[index];
-              if (delta > 0 && item.quantity >= 3) return;
+            void updateQuantity(int index, int delta) {
+              modalSetState(() {
+                final item = items[index];
+                if (delta > 0 && item.quantity >= 3) return;
 
-              item.quantity += delta;
+                item.quantity += delta;
 
-              if (item.quantity <= 0) {
-                final removedLabel = item.label;
-                items.removeAt(index);
+                if (item.quantity <= 0) {
+                  final removedLabel = item.label;
+                  items.removeAt(index);
 
-                setState(() {
-                  _selectedServices.remove(removedLabel);
-                });
+                  setState(() {
+                    _selectedServices.remove(removedLabel);
+                  });
 
-                if (items.isEmpty) {
-                  Navigator.of(sheetContext).pop();
+                  if (items.isEmpty) {
+                    Navigator.of(sheetContext).pop();
+                  }
                 }
-              }
-            });
-          }
+              });
+            }
 
-          TextStyle headerStyle = const TextStyle(
-            fontFamily: 'Montserrat',
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-          );
+            TextStyle headerStyle = const TextStyle(
+              fontFamily: 'Montserrat',
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            );
 
-          TextStyle valueStyle = const TextStyle(
-            fontFamily: 'Montserrat',
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-          );
+            TextStyle valueStyle = const TextStyle(
+              fontFamily: 'Montserrat',
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            );
 
-          return DraggableScrollableSheet(
-            initialChildSize: 0.8,
-            minChildSize: 0.5,
-            maxChildSize: 0.95,
-            expand: false,
-            builder: (context, scrollController) {
-              return Container(
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.vertical(
-                    top: Radius.circular(24),
+            return DraggableScrollableSheet(
+              initialChildSize: 0.8,
+              minChildSize: 0.5,
+              maxChildSize: 0.95,
+              expand: false,
+              builder: (context, scrollController) {
+                return Container(
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(24),
+                    ),
                   ),
-                ),
-                child: Column(
-                  children: [
-                    const SizedBox(height: 8),
-                    GestureDetector(
-                      onTap: () => Navigator.of(sheetContext).pop(),
-                      child: Center(
-                        child: Container(
-                          width: 80,
-                          height: 5,
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade300,
-                            borderRadius: BorderRadius.circular(20),
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 8),
+                      GestureDetector(
+                        onTap: () => Navigator.of(sheetContext).pop(),
+                        child: Center(
+                          child: Container(
+                            width: 80,
+                            height: 5,
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade300,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Request',
-                      style: TextStyle(
-                        fontFamily: 'Montserrat',
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Request',
+                        style: TextStyle(
+                          fontFamily: 'Montserrat',
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    Expanded(
-                      child: ListView(
-                        controller: scrollController,
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                flex: 2,
-                                child: Text('Service Task', style: headerStyle),
-                              ),
-                              const SizedBox(width: 8),
-                              SizedBox(
-                                width: 70,
-                                child: Center(
-                                  child: Text('Qty', style: headerStyle),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              SizedBox(
-                                width: 80,
-                                child: Align(
-                                  alignment: Alignment.centerRight,
-                                  child: Text('Price', style: headerStyle),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          ...List.generate(items.length, (index) {
-                            final item = items[index];
-                            return Column(
+                      const SizedBox(height: 16),
+                      Expanded(
+                        child: ListView(
+                          controller: scrollController,
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          children: [
+                            Row(
                               children: [
-                                const Divider(),
-                                const SizedBox(height: 4),
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                  children: [
-                                    Expanded(
-                                      flex: 2,
-                                      child: Text(
-                                        item.label,
-                                        style: const TextStyle(
-                                          fontFamily: 'Montserrat',
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    SizedBox(
-                                      width: 90,
-                                      child: Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          GestureDetector(
-                                            onTap: () =>
-                                                updateQuantity(index, -1),
-                                            child: Container(
-                                              width: 28,
-                                              height: 28,
-                                              decoration: BoxDecoration(
-                                                borderRadius:
-                                                    BorderRadius.circular(6),
-                                                border: Border.all(
-                                                  color: Colors.black,
-                                                  width: 1,
-                                                ),
-                                              ),
-                                              child: const Center(
-                                                child: Icon(Icons.remove,
-                                                    size: 16),
-                                              ),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Text(
-                                            '${item.quantity}',
-                                            style: const TextStyle(
-                                              fontFamily: 'Montserrat',
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          GestureDetector(
-                                            onTap: () =>
-                                                updateQuantity(index, 1),
-                                            child: Container(
-                                              width: 28,
-                                              height: 28,
-                                              decoration: BoxDecoration(
-                                                borderRadius:
-                                                    BorderRadius.circular(6),
-                                                border: Border.all(
-                                                  color: Colors.black,
-                                                  width: 1,
-                                                ),
-                                              ),
-                                              child: const Center(
-                                                child: Icon(Icons.add, size: 16),
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    SizedBox(
-                                      width: 80,
-                                      child: Align(
-                                        alignment: Alignment.centerRight,
-                                        child: Text(
-                                          'LKR ${item.unitPrice * item.quantity}',
-                                          style: valueStyle,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
+                                Expanded(
+                                  flex: 2,
+                                  child:
+                                      Text('Service Task', style: headerStyle),
                                 ),
-                                const SizedBox(height: 8),
-                              ],
-                            );
-                          }),
-                          if (items.isNotEmpty) const Divider(),
-                          const SizedBox(height: 24),
-                          const Text(
-                            'Payment Summary',
-                            style: TextStyle(
-                              fontFamily: 'Montserrat',
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          const Text(
-                            '* Please note that if the job was not completed, you will only need to pay the platform fee and visitation fee.',
-                            style: TextStyle(
-                              fontFamily: 'Montserrat',
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.grey,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text(
-                                'Service Total',
-                                style: TextStyle(
-                                  fontFamily: 'Montserrat',
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              Text('LKR $serviceTotal', style: valueStyle),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: const [
-                              Text(
-                                'Visitation Fee',
-                                style: TextStyle(
-                                  fontFamily: 'Montserrat',
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              Text(
-                                'LKR 350',
-                                style: TextStyle(
-                                  fontFamily: 'Montserrat',
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text(
-                                'Platform Fee',
-                                style: TextStyle(
-                                  fontFamily: 'Montserrat',
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              Text(
-                                'LKR $platformFee',
-                                style: const TextStyle(
-                                  fontFamily: 'Montserrat',
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          const Divider(),
-                          const SizedBox(height: 8),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text(
-                                'Total amount',
-                                style: TextStyle(
-                                  fontFamily: 'Montserrat',
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              Text(
-                                'LKR $totalAmount',
-                                style: const TextStyle(
-                                  fontFamily: 'Montserrat',
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 24),
-                        ],
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 16,
-                      ),
-                      child: SizedBox(
-                        width: double.infinity,
-                        height: 56,
-                        child: ElevatedButton(
-                          onPressed: isSaving
-                              ? null
-                              : () async {
-                                  modalSetState(() => isSaving = true);
-
-                                  final DateTime scheduledAt = DateTime(
-                                    _selectedDate.year,
-                                    _selectedDate.month,
-                                    _selectedDate.day,
-                                    _selectedTime.hour,
-                                    _selectedTime.minute,
-                                  );
-
-                                  final List<String> languages = [
-                                    if (_englishSelected) 'english',
-                                    if (_sinhalaSelected) 'sinhala',
-                                    if (_tamilSelected) 'tamil',
-                                  ];
-
-                                  try {
-                                    final lat = _pickedLatLng!.latitude;
-                                    final lng = _pickedLatLng!.longitude;
-
-                                    // ✅ IMPORTANT: get jobId back from Firestore
-                                    final String jobId =
-                                        await _controller.createPlumbingJob(
-                                      locationText:
-                                          locationController.text.trim(),
-                                      latitude: lat,
-                                      longitude: lng,
-                                      isNow: _isNowOptionSelected,
-                                      scheduledAt: scheduledAt,
-                                      languages: languages,
-                                      items: items,
-                                      visitationFee: visitationFee,
-                                      category: widget.config.category,
-                                    );
-
-                                    // modalSetState(() => isSaving = false);
-
-                                    if (!mounted) return;
-
-                                    Navigator.of(sheetContext).pop();
-
-                                    // ✅ Pass jobId into matching screen
-
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) => MatchingScreen(jobId: jobId,),
-                                      ),
-                                    );
-                                    
-                                  } catch (e) {
-                                    modalSetState(() => isSaving = false);
-
-                                    if (!mounted) return;
-
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text('Failed to create job: $e'),
-                                      ),
-                                    );
-                                  }
-                                },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.black,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            elevation: 0,
-                          ),
-                          child: isSaving
-                              ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
+                                const SizedBox(width: 8),
+                                SizedBox(
+                                  width: 70,
+                                  child: Center(
+                                    child: Text('Qty', style: headerStyle),
                                   ),
-                                )
-                              : const Text(
-                                  'Confirm',
+                                ),
+                                const SizedBox(width: 8),
+                                SizedBox(
+                                  width: 80,
+                                  child: Align(
+                                    alignment: Alignment.centerRight,
+                                    child: Text('Price', style: headerStyle),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            ...List.generate(items.length, (index) {
+                              final item = items[index];
+                              return Column(
+                                children: [
+                                  const Divider(),
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.center,
+                                    children: [
+                                      Expanded(
+                                        flex: 2,
+                                        child: Text(
+                                          item.label,
+                                          style: const TextStyle(
+                                            fontFamily: 'Montserrat',
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      SizedBox(
+                                        width: 90,
+                                        child: Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            GestureDetector(
+                                              onTap: () => updateQuantity(
+                                                  index, -1),
+                                              child: Container(
+                                                width: 28,
+                                                height: 28,
+                                                decoration: BoxDecoration(
+                                                  borderRadius:
+                                                      BorderRadius.circular(6),
+                                                  border: Border.all(
+                                                    color: Colors.black,
+                                                    width: 1,
+                                                  ),
+                                                ),
+                                                child: const Center(
+                                                  child: Icon(Icons.remove,
+                                                      size: 16),
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              '${item.quantity}',
+                                              style: const TextStyle(
+                                                fontFamily: 'Montserrat',
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            GestureDetector(
+                                              onTap: () =>
+                                                  updateQuantity(index, 1),
+                                              child: Container(
+                                                width: 28,
+                                                height: 28,
+                                                decoration: BoxDecoration(
+                                                  borderRadius:
+                                                      BorderRadius.circular(6),
+                                                  border: Border.all(
+                                                    color: Colors.black,
+                                                    width: 1,
+                                                  ),
+                                                ),
+                                                child: const Center(
+                                                  child: Icon(Icons.add,
+                                                      size: 16),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      SizedBox(
+                                        width: 80,
+                                        child: Align(
+                                          alignment: Alignment.centerRight,
+                                          child: Text(
+                                            'LKR ${item.unitPrice * item.quantity}',
+                                            style: valueStyle,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                ],
+                              );
+                            }),
+                            if (items.isNotEmpty) const Divider(),
+                            const SizedBox(height: 24),
+                            const Text(
+                              'Payment Summary',
+                              style: TextStyle(
+                                fontFamily: 'Montserrat',
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            const Text(
+                              '* Please note that if the job was not completed, you will only need to pay the platform fee and visitation fee.',
+                              style: TextStyle(
+                                fontFamily: 'Montserrat',
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.grey,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  'Service Total',
                                   style: TextStyle(
                                     fontFamily: 'Montserrat',
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.white,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
+                                Text('LKR $serviceTotal', style: valueStyle),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: const [
+                                Text(
+                                  'Visitation Fee',
+                                  style: TextStyle(
+                                    fontFamily: 'Montserrat',
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                Text(
+                                  'LKR 350',
+                                  style: TextStyle(
+                                    fontFamily: 'Montserrat',
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  'Platform Fee',
+                                  style: TextStyle(
+                                    fontFamily: 'Montserrat',
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                Text(
+                                  'LKR $platformFee',
+                                  style: const TextStyle(
+                                    fontFamily: 'Montserrat',
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            const Divider(),
+                            const SizedBox(height: 8),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  'Total amount',
+                                  style: TextStyle(
+                                    fontFamily: 'Montserrat',
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                Text(
+                                  'LKR $totalAmount',
+                                  style: const TextStyle(
+                                    fontFamily: 'Montserrat',
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 24),
+                          ],
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          );
-        },
-      );
-    },
-  );
-}
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 16,
+                        ),
+                        child: SizedBox(
+                          width: double.infinity,
+                          height: 56,
+                          child: ElevatedButton(
+                            onPressed: isSaving
+                                ? null
+                                : () async {
+                                    modalSetState(() => isSaving = true);
 
+                                    final DateTime scheduledAt = DateTime(
+                                      _selectedDate.year,
+                                      _selectedDate.month,
+                                      _selectedDate.day,
+                                      _selectedTime.hour,
+                                      _selectedTime.minute,
+                                    );
+
+                                    final List<String> languages = [
+                                      if (_englishSelected) 'english',
+                                      if (_sinhalaSelected) 'sinhala',
+                                      if (_tamilSelected) 'tamil',
+                                    ];
+
+                                    try {
+                                      final lat = _pickedLatLng!.latitude;
+                                      final lng = _pickedLatLng!.longitude;
+
+                                      // ✅ IMPORTANT: get jobId back from Firestore
+                                      final String jobId =
+                                          await _controller.createPlumbingJob(
+                                        locationText:
+                                            locationController.text.trim(),
+                                        latitude: lat,
+                                        longitude: lng,
+                                        isNow: _isNowOptionSelected,
+                                        scheduledAt: scheduledAt,
+                                        languages: languages,
+                                        items: items,
+                                        visitationFee: visitationFee,
+                                        category: widget.config.category,
+                                      );
+
+                                      if (!mounted) return;
+
+                                      Navigator.of(sheetContext).pop();
+
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => MatchingScreen(
+                                            jobId: jobId,
+                                          ),
+                                        ),
+                                      );
+                                    } catch (e) {
+                                      modalSetState(() => isSaving = false);
+
+                                      if (!mounted) return;
+
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        SnackBar(
+                                          content:
+                                              Text('Failed to create job: $e'),
+                                        ),
+                                      );
+                                    }
+                                  },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.black,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              elevation: 0,
+                            ),
+                            child: isSaving
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Text(
+                                    'Confirm',
+                                    style: TextStyle(
+                                      fontFamily: 'Montserrat',
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
 
   // ---------- MAIN BUILD ----------
 
@@ -1167,15 +1186,18 @@ class _ServiceRequestScreenState extends State<ServiceRequestScreen> {
                           ),
                           border: const OutlineInputBorder(
                             borderRadius: BorderRadius.all(Radius.circular(8)),
-                            borderSide: BorderSide(color: Colors.black, width: 1),
+                            borderSide:
+                                BorderSide(color: Colors.black, width: 1),
                           ),
                           enabledBorder: const OutlineInputBorder(
                             borderRadius: BorderRadius.all(Radius.circular(8)),
-                            borderSide: BorderSide(color: Colors.black, width: 1),
+                            borderSide:
+                                BorderSide(color: Colors.black, width: 1),
                           ),
                           focusedBorder: const OutlineInputBorder(
                             borderRadius: BorderRadius.all(Radius.circular(8)),
-                            borderSide: BorderSide(color: Colors.black, width: 2),
+                            borderSide:
+                                BorderSide(color: Colors.black, width: 2),
                           ),
                           contentPadding:
                               const EdgeInsets.symmetric(vertical: 16),
@@ -1229,7 +1251,8 @@ class _ServiceRequestScreenState extends State<ServiceRequestScreen> {
                           return ServiceOptionCard(
                             icon: option.icon,
                             label: option.label,
-                            isSelected: _selectedServices.contains(option.label),
+                            isSelected:
+                                _selectedServices.contains(option.label),
                             onTap: () => _onServiceTapped(option.label),
                           );
                         },

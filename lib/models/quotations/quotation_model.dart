@@ -19,6 +19,22 @@ class QuotationPricing {
         'totalAmount': totalAmount,
         'visitationFee': visitationFee,
       };
+
+  static int _readInt(dynamic v) {
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    if (v is String) return int.tryParse(v) ?? 0;
+    return 0;
+  }
+
+  factory QuotationPricing.fromMap(Map<String, dynamic> m) {
+    return QuotationPricing(
+      platformFee: _readInt(m['platformFee']),
+      serviceTotal: _readInt(m['serviceTotal']),
+      totalAmount: _readInt(m['totalAmount']),
+      visitationFee: _readInt(m['visitationFee']),
+    );
+  }
 }
 
 class QuotationTaskLine {
@@ -40,6 +56,22 @@ class QuotationTaskLine {
         'quantity': quantity,
         'unitPrice': unitPrice,
       };
+
+  static int _readInt(dynamic v) {
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    if (v is String) return int.tryParse(v) ?? 0;
+    return 0;
+  }
+
+  factory QuotationTaskLine.fromMap(Map<String, dynamic> m) {
+    return QuotationTaskLine(
+      label: (m['label'] ?? '').toString(),
+      lineTotal: _readInt(m['lineTotal']),
+      quantity: _readInt(m['quantity']),
+      unitPrice: _readInt(m['unitPrice']),
+    );
+  }
 }
 
 class QuotationModel {
@@ -61,28 +93,19 @@ class QuotationModel {
 
   factory QuotationModel.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data() ?? {};
-    final pricing = data['pricing'] is Map ? Map<String, dynamic>.from(data['pricing']) : {};
+    final pricingMap =
+        data['pricing'] is Map ? Map<String, dynamic>.from(data['pricing']) : <String, dynamic>{};
     final rawTasks = data['tasks'] is List ? (data['tasks'] as List) : const [];
 
     return QuotationModel(
       id: doc.id,
       jobId: (data['jobId'] ?? '').toString(),
       contractorId: (data['contractorId'] ?? '').toString(),
-      pricing: QuotationPricing(
-        platformFee: (pricing['platformFee'] ?? 0) as int,
-        serviceTotal: (pricing['serviceTotal'] ?? 0) as int,
-        totalAmount: (pricing['totalAmount'] ?? 0) as int,
-        visitationFee: (pricing['visitationFee'] ?? 0) as int,
-      ),
-      tasks: rawTasks.map((e) {
-        final m = e is Map ? Map<String, dynamic>.from(e) : <String, dynamic>{};
-        return QuotationTaskLine(
-          label: (m['label'] ?? '').toString(),
-          lineTotal: (m['lineTotal'] ?? 0) as int,
-          quantity: (m['quantity'] ?? 0) as int,
-          unitPrice: (m['unitPrice'] ?? 0) as int,
-        );
-      }).toList(),
+      pricing: QuotationPricing.fromMap(pricingMap),
+      tasks: rawTasks
+          .map((e) => e is Map ? Map<String, dynamic>.from(e) : <String, dynamic>{})
+          .map(QuotationTaskLine.fromMap)
+          .toList(),
       createdAt: data['createdAt'] is Timestamp ? data['createdAt'] as Timestamp : null,
     );
   }

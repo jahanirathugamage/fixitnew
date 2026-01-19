@@ -16,6 +16,8 @@ class ContractorJobsController {
   })  : _providersRepo = providersRepo ?? ProviderRepository(),
         _jobsRepo = jobsRepo ?? JobRequestRepository();
 
+  String _norm(String v) => v.trim().toLowerCase();
+
   /// ✅ Correct: serviceProviders where managedBy == contractors/{contractorUid}
   Stream<List<String>> watchProviderUids(String contractorUid) {
     return _providersRepo.watchProviderUidsForContractor(contractorUid);
@@ -32,10 +34,33 @@ class ContractorJobsController {
       return _jobsRepo
           .watchTodayJobsByProviderUids(providerUids: uids, nowLocal: now)
           .map((list) {
-        // Keep your filter if you want
         final filtered = list.where((j) {
-          final s = j.status.trim().toLowerCase();
-          return s == "accepted" || s == "in_progress" || s == "started";
+          final s = _norm(j.status);
+
+          // ✅ Keep visible across quotation + job lifecycle
+          if (s == "accepted") return true; // initial accepted
+          if (s == "quotation_created") return true;
+          if (s == "quotation_accepted") return true;
+
+          if (s == "in_progress" || s == "started") return true;
+
+          // ✅ Post-job statuses where invoice / payment happens
+          if (s == "completed_pending_payment" ||
+              s == "awaiting_final_payment_confirmation" ||
+              s == "invoice_paid" ||
+              s == "job_completed") {
+            return true;
+          }
+
+          // ✅ If client declined quotation: still keep visible (visitation flow)
+          if (s == "quotation_declined_pending_visitation" ||
+              s == "quotation_declined_pending_visitation_fee" ||
+              s == "awaiting_visitation_fee_confirmation" ||
+              s == "awaiting_visitation_confirmation") {
+            return true;
+          }
+
+          return false;
         }).toList();
 
         filtered.sort((a, b) {

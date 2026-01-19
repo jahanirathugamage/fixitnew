@@ -14,6 +14,32 @@ import 'job_details_screen.dart';
 class ProviderJobsScreen extends StatelessWidget {
   const ProviderJobsScreen({super.key});
 
+  String _norm(String v) => v.trim().toLowerCase();
+
+  bool _isAfterQuotationAccepted(JobRequestModel j) {
+    final s = _norm(j.status);
+    return s == 'quotation_accepted' ||
+        s == 'in_progress' ||
+        s == 'started' ||
+        s == 'completed_pending_payment' ||
+        s == 'awaiting_final_payment_confirmation' ||
+        s == 'invoice_paid' ||
+        s == 'job_completed';
+  }
+
+  bool _isAwaitingVisitation(JobRequestModel j) {
+    final s = _norm(j.status);
+    return s == "quotation_declined_pending_visitation" ||
+        s == "awaiting_visitation_fee_confirmation" ||
+        s == "awaiting_visitation_confirmation" ||
+        s == "quotation_declined_pending_visitation_fee";
+  }
+
+  bool _shouldUseUpdatedDetails(JobRequestModel j) {
+    // ✅ provider should confirm visitation + final payment on updated details page
+    return _isAfterQuotationAccepted(j) || _isAwaitingVisitation(j);
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = ProviderJobsController();
@@ -157,6 +183,15 @@ class ProviderJobsScreen extends StatelessWidget {
                       height: 44,
                       child: ElevatedButton(
                         onPressed: () {
+                          if (_shouldUseUpdatedDetails(j)) {
+                            Navigator.pushNamed(
+                              context,
+                              '/updated_job_details_provider',
+                              arguments: {'jobId': j.id},
+                            );
+                            return;
+                          }
+
                           Navigator.push(
                             context,
                             MaterialPageRoute(

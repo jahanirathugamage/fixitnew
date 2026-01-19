@@ -442,7 +442,7 @@ class _ContractorGenerateQuotationScreenState
                       const SizedBox(height: 10),
                       const _SummaryRow(
                         label: "Visitation Fees",
-                        value: "LKR 250",
+                        value: "LKR $visitationFee",
                         labelWeight: FontWeight.w700,
                         valueColor: Colors.black54,
                       ),

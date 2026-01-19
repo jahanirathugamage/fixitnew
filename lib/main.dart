@@ -52,6 +52,9 @@ import 'package:fixitnew/screens/dashboards/provider/job_details_screen.dart';
 import 'package:fixitnew/screens/quotations/client_quotation_screen.dart';
 import 'package:fixitnew/screens/invoices/client_invoice_review_screen.dart';
 
+// ✅ UPDATED JOB DETAILS (YOUR SHARED SCREEN)
+import 'package:fixitnew/screens/shared/updated_job_details.dart';
+
 // ADMIN SCREENS
 import 'package:fixitnew/screens/admin/create_admin_account_screen.dart';
 import 'package:fixitnew/screens/admin/admin_settings_screen.dart';
@@ -98,6 +101,28 @@ Future<void> main() async {
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
+
+  // ✅ Accept either:
+  // - String jobId
+  // - Map {"jobId": "..."}
+  String? _extractJobId(RouteSettings settings) {
+    final args = settings.arguments;
+
+    if (args is String) {
+      final id = args.trim();
+      return id.isEmpty ? null : id;
+    }
+
+    if (args is Map) {
+      final raw = args['jobId'];
+      if (raw is String) {
+        final id = raw.trim();
+        return id.isEmpty ? null : id;
+      }
+    }
+
+    return null;
+  }
 
   Route<dynamic>? _onGenerateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -225,13 +250,76 @@ class MyApp extends StatelessWidget {
           settings: settings,
         );
 
-      // ✅ FIX: Provider confirm visitation fee route (NO missing screen)
-      // Route it to ProviderJobDetailsScreen so notifications still open somewhere valid.
-      case '/provider/confirm_visitation_fee':
-        final args = settings.arguments;
-        if (args is String && args.trim().isNotEmpty) {
+      // ✅ NEW: Updated Job Details routes (works with String OR {jobId: ...})
+      case '/updated_job_details_client':
+        final jobId = _extractJobId(settings);
+        if (jobId != null) {
           return MaterialPageRoute(
-            builder: (_) => ProviderJobDetailsScreen(jobId: args),
+            builder: (_) => UpdatedJobDetailsScreen(
+              jobId: jobId,
+              role: UpdatedJobDetailsRole.client,
+            ),
+            settings: settings,
+          );
+        }
+        return MaterialPageRoute(
+          builder: (_) => const _RouteErrorScreen(
+            message:
+                "Missing or invalid jobId for '/updated_job_details_client'.\n\n"
+                "Fix:\nNavigator.pushNamed(context, '/updated_job_details_client', arguments: {'jobId': jobId});",
+          ),
+          settings: settings,
+        );
+
+      case '/updated_job_details_provider':
+        final jobId = _extractJobId(settings);
+        if (jobId != null) {
+          return MaterialPageRoute(
+            builder: (_) => UpdatedJobDetailsScreen(
+              jobId: jobId,
+              role: UpdatedJobDetailsRole.provider,
+            ),
+            settings: settings,
+          );
+        }
+        return MaterialPageRoute(
+          builder: (_) => const _RouteErrorScreen(
+            message:
+                "Missing or invalid jobId for '/updated_job_details_provider'.\n\n"
+                "Fix:\nNavigator.pushNamed(context, '/updated_job_details_provider', arguments: {'jobId': jobId});",
+          ),
+          settings: settings,
+        );
+
+      case '/updated_job_details_contractor':
+        final jobId = _extractJobId(settings);
+        if (jobId != null) {
+          return MaterialPageRoute(
+            builder: (_) => UpdatedJobDetailsScreen(
+              jobId: jobId,
+              role: UpdatedJobDetailsRole.contractor,
+            ),
+            settings: settings,
+          );
+        }
+        return MaterialPageRoute(
+          builder: (_) => const _RouteErrorScreen(
+            message:
+                "Missing or invalid jobId for '/updated_job_details_contractor'.\n\n"
+                "Fix:\nNavigator.pushNamed(context, '/updated_job_details_contractor', arguments: {'jobId': jobId});",
+          ),
+          settings: settings,
+        );
+
+      // ✅ FIX: Provider confirm visitation fee route -> Updated job details (provider)
+      case '/provider/confirm_visitation_fee':
+        final jobId = _extractJobId(settings);
+        if (jobId != null) {
+          return MaterialPageRoute(
+            builder: (_) => UpdatedJobDetailsScreen(
+              jobId: jobId,
+              role: UpdatedJobDetailsRole.provider,
+            ),
             settings: settings,
           );
         }
@@ -244,12 +332,15 @@ class MyApp extends StatelessWidget {
           settings: settings,
         );
 
-      // ✅ FIX: Provider confirm final payment route (NO missing screen)
+      // ✅ FIX: Provider confirm final payment route -> Updated job details (provider)
       case '/provider/confirm_final_payment':
-        final args = settings.arguments;
-        if (args is String && args.trim().isNotEmpty) {
+        final jobId = _extractJobId(settings);
+        if (jobId != null) {
           return MaterialPageRoute(
-            builder: (_) => ProviderJobDetailsScreen(jobId: args),
+            builder: (_) => UpdatedJobDetailsScreen(
+              jobId: jobId,
+              role: UpdatedJobDetailsRole.provider,
+            ),
             settings: settings,
           );
         }
