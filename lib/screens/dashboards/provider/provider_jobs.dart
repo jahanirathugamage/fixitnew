@@ -18,13 +18,14 @@ class ProviderJobsScreen extends StatelessWidget {
 
   bool _isAfterQuotationAccepted(JobRequestModel j) {
     final s = _norm(j.status);
+
+    // ❗ removed job_completed/completed (final hidden)
     return s == 'quotation_accepted' ||
         s == 'in_progress' ||
         s == 'started' ||
         s == 'completed_pending_payment' ||
         s == 'awaiting_final_payment_confirmation' ||
-        s == 'invoice_paid' ||
-        s == 'job_completed';
+        s == 'invoice_paid';
   }
 
   bool _isAwaitingVisitation(JobRequestModel j) {
@@ -35,9 +36,20 @@ class ProviderJobsScreen extends StatelessWidget {
         s == "quotation_declined_pending_visitation_fee";
   }
 
+  bool _isInvoiceFlow(JobRequestModel j) {
+    final s = _norm(j.status);
+
+    // ❗ removed job_completed/completed (final hidden)
+    return s == "completed_pending_payment" ||
+        s == "awaiting_final_payment_confirmation" ||
+        s == "invoice_paid" ||
+        s == "invoice_sent";
+  }
+
   bool _shouldUseUpdatedDetails(JobRequestModel j) {
-    // ✅ provider should confirm visitation + final payment on updated details page
-    return _isAfterQuotationAccepted(j) || _isAwaitingVisitation(j);
+    // ✅ Provider should confirm visitation on UPDATED details page
+    // BUT invoice flow goes to provider invoice page
+    return (_isAfterQuotationAccepted(j) || _isAwaitingVisitation(j)) && !_isInvoiceFlow(j);
   }
 
   @override
@@ -118,7 +130,6 @@ class ProviderJobsScreen extends StatelessWidget {
                     : (j.clientId.trim().isNotEmpty ? j.clientId.trim() : "Client");
 
                 final dateText = controller.formatDateText(j.scheduledDate);
-
                 final category = j.category.trim().isEmpty ? "—" : j.category.trim();
 
                 final rightType = controller.computeRightType(
@@ -134,7 +145,6 @@ class ProviderJobsScreen extends StatelessWidget {
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Left content
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -155,7 +165,6 @@ class ProviderJobsScreen extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 12),
-
                         _RightWidget(
                           type: rightType,
                           onNavigate: () {
@@ -171,7 +180,7 @@ class ProviderJobsScreen extends StatelessWidget {
                             );
                           },
                           onCancel: () {
-                            // left empty by design (no assumptions)
+                            // left empty by design
                           },
                         ),
                       ],
@@ -183,6 +192,16 @@ class ProviderJobsScreen extends StatelessWidget {
                       height: 44,
                       child: ElevatedButton(
                         onPressed: () {
+                          // ✅ invoice flow -> provider invoice details page
+                          if (_isInvoiceFlow(j)) {
+                            Navigator.pushNamed(
+                              context,
+                              '/provider/invoice_details',
+                              arguments: {'jobId': j.id},
+                            );
+                            return;
+                          }
+
                           if (_shouldUseUpdatedDetails(j)) {
                             Navigator.pushNamed(
                               context,

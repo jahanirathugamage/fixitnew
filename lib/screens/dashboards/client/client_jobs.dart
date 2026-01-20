@@ -53,18 +53,26 @@ class _ClientJobsScreenState extends State<ClientJobsScreen> {
   bool _isAfterQuotationAccepted(JobRequestModel j) {
     final s = _norm(j.status);
 
-    // quotation accepted and onwards
+    // ❗ removed job_completed/completed (final hidden)
     return s == 'quotation_accepted' ||
         s == 'in_progress' ||
         s == 'started' ||
+        s == 'invoice_sent' ||
         s == 'completed_pending_payment' ||
         s == 'awaiting_final_payment_confirmation' ||
-        s == 'invoice_paid' ||
-        s == 'job_completed';
+        s == 'invoice_paid';
   }
 
-  // ✅ Only show quotation button while it's relevant to view/decide.
-  // ❌ Do NOT show after quotation is accepted.
+  bool _isInvoiceFlowStatus(String status) {
+    final s = _norm(status);
+
+    // ❗ removed job_completed/completed (final hidden)
+    return s == 'invoice_sent' ||
+        s == 'completed_pending_payment' ||
+        s == 'awaiting_final_payment_confirmation' ||
+        s == 'invoice_paid';
+  }
+
   bool _shouldShowQuotationButton(JobRequestModel j) {
     final s = _norm(j.status);
 
@@ -78,7 +86,6 @@ class _ClientJobsScreenState extends State<ClientJobsScreen> {
 
   void _openJobDetails(JobRequestModel j) {
     if (_isAfterQuotationAccepted(j)) {
-      // ✅ Updated job details screen (quotation-driven)
       Navigator.pushNamed(
         context,
         '/updated_job_details_client',
@@ -87,7 +94,6 @@ class _ClientJobsScreenState extends State<ClientJobsScreen> {
       return;
     }
 
-    // ✅ Old job details screen (jobRequest-driven)
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -175,8 +181,8 @@ class _ClientJobsScreenState extends State<ClientJobsScreen> {
                 final categoryText = category.isEmpty ? "—" : category;
 
                 final rightType = controller.rightType(j);
-
                 final showQuotation = _shouldShowQuotationButton(j);
+                final showInvoice = _isInvoiceFlowStatus(j.status);
 
                 return Column(
                   children: [
@@ -206,14 +212,11 @@ class _ClientJobsScreenState extends State<ClientJobsScreen> {
                                   ),
                                   const SizedBox(height: 8),
                                   _MetaRow(
-                                    icon: Icons.access_time,
-                                    text: dateText,
-                                  ),
+                                      icon: Icons.access_time, text: dateText),
                                   const SizedBox(height: 6),
                                   _MetaRow(
-                                    icon: Icons.build_outlined,
-                                    text: categoryText,
-                                  ),
+                                      icon: Icons.build_outlined,
+                                      text: categoryText),
                                 ],
                               );
                             },
@@ -234,15 +237,24 @@ class _ClientJobsScreenState extends State<ClientJobsScreen> {
                               );
                             },
                           )
+                        else if (showInvoice)
+                          _BlackPillButton(
+                            text: "Invoice",
+                            onPressed: () {
+                              Navigator.pushNamed(
+                                context,
+                                '/client/invoice_review',
+                                arguments: j.id,
+                              );
+                            },
+                          )
                         else
                           _ClientRightWidget(
                             type: rightType,
                             onCancelAccepted: () => _confirmCancelAndRun(
                               () => controller.cancelAcceptedJob(j.id),
                             ),
-                            onRematch: () {
-                              // no-op for now
-                            },
+                            onRematch: () {},
                             onStop: () => _confirmCancelAndRun(
                               () async {
                                 await controller.cancelAcceptedJob(j.id);
@@ -276,10 +288,9 @@ class _ClientJobsScreenState extends State<ClientJobsScreen> {
                     ),
                     const SizedBox(height: 12),
                     const Divider(
-                      height: 1,
-                      thickness: 1,
-                      color: Color(0xFFE9E9E9),
-                    ),
+                        height: 1,
+                        thickness: 1,
+                        color: Color(0xFFE9E9E9)),
                   ],
                 );
               },

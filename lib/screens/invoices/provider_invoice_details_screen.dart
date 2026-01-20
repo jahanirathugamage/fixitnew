@@ -1,4 +1,4 @@
-// lib/screens/invoices/client_invoice_review_screen.dart
+// lib/screens/invoices/provider_invoice_details_screen.dart
 // ignore_for_file: use_build_context_synchronously
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -6,15 +6,20 @@ import 'package:flutter/material.dart';
 
 import 'package:fixitnew/backend/api_client.dart';
 
-class ClientInvoiceReviewScreen extends StatelessWidget {
+class ProviderInvoiceDetailsScreen extends StatelessWidget {
   final String jobId;
-  const ClientInvoiceReviewScreen({super.key, required this.jobId});
+  const ProviderInvoiceDetailsScreen({super.key, required this.jobId});
 
   Stream<DocumentSnapshot<Map<String, dynamic>>> _watchJob() {
     return FirebaseFirestore.instance.collection("jobRequest").doc(jobId).snapshots();
   }
 
-  // ✅ Fallback ONLY (no orderBy so no composite index needed)
+  // ✅ Preferred (NO index needed)
+  Stream<DocumentSnapshot<Map<String, dynamic>>> _watchInvoiceById(String invoiceId) {
+    return FirebaseFirestore.instance.collection("invoices").doc(invoiceId).snapshots();
+  }
+
+  // ✅ Fallback (NO orderBy => no composite index needed)
   Stream<QuerySnapshot<Map<String, dynamic>>> _watchAnyInvoiceForJob() {
     return FirebaseFirestore.instance
         .collection("invoices")
@@ -23,17 +28,14 @@ class ClientInvoiceReviewScreen extends StatelessWidget {
         .snapshots();
   }
 
-  Stream<DocumentSnapshot<Map<String, dynamic>>> _watchInvoiceById(String invoiceId) {
-    return FirebaseFirestore.instance.collection("invoices").doc(invoiceId).snapshots();
-  }
+  String _norm(String v) => v.trim().toLowerCase();
 
   String _formatDateTime(Timestamp? ts) {
     if (ts == null) return "—";
     final d = ts.toDate().toLocal();
 
     const months = [
-      "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+      "Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"
     ];
     final month = months[d.month - 1];
     final day = d.day;
@@ -42,7 +44,6 @@ class ClientInvoiceReviewScreen extends StatelessWidget {
     final ampm = d.hour >= 12 ? "pm" : "am";
     final mm = d.minute.toString().padLeft(2, "0");
 
-    // Nov 12 · 9.00am
     return "$month $day  ·  $hour12.$mm$ampm";
   }
 
@@ -71,25 +72,12 @@ class ClientInvoiceReviewScreen extends StatelessWidget {
     return "";
   }
 
-  Future<String> _resolveProviderNameFromJob(Map<String, dynamic> job) async {
-    final existing = (job["providerName"] ?? "").toString().trim();
+  Future<String> _resolveClientNameFromJob(Map<String, dynamic> job) async {
+    final existing = (job["clientName"] ?? "").toString().trim();
     if (existing.isNotEmpty) return existing;
 
-    final uid = (job["selectedProviderUid"] ?? "").toString().trim();
-    if (uid.isEmpty) return "";
-
-    // Try serviceProviders
-    try {
-      final doc = await FirebaseFirestore.instance.collection("serviceProviders").doc(uid).get();
-      final data = doc.data() ?? {};
-      final first = (data["firstName"] ?? "").toString().trim();
-      final last = (data["lastName"] ?? "").toString().trim();
-      final built = ("$first $last").trim();
-      if (built.isNotEmpty) return built;
-
-      final dn = (data["displayName"] ?? data["name"] ?? "").toString().trim();
-      if (dn.isNotEmpty) return dn;
-    } catch (_) {}
+    final uid = (job["clientId"] ?? "").toString().trim();
+    if (uid.isEmpty) return "Client";
 
     return _resolveUserNameFromUsers(uid);
   }
@@ -98,7 +86,6 @@ class ClientInvoiceReviewScreen extends StatelessWidget {
     final uid = contractorId.trim();
     if (uid.isEmpty) return "";
 
-    // Try contractors collection
     try {
       final doc = await FirebaseFirestore.instance.collection("contractors").doc(uid).get();
       final data = doc.data() ?? {};
@@ -114,31 +101,61 @@ class ClientInvoiceReviewScreen extends StatelessWidget {
     return _resolveUserNameFromUsers(uid);
   }
 
-  List<Map<String, dynamic>> _readLines(Map<String, dynamic> invoice) {
-    final raw = invoice["lines"];
-    if (raw is List) {
-      return raw
-          .whereType<Map>()
-          .map((m) => m.map((k, v) => MapEntry(k.toString(), v)))
-          .toList();
-    }
-    return const [];
-  }
-
   Map<String, dynamic> _readPricing(Map<String, dynamic> invoice) {
     final raw = invoice["pricing"];
     if (raw is Map) return raw.map((k, v) => MapEntry(k.toString(), v));
     return const {};
   }
 
-  int _computeSubtotalFromLines(List<Map<String, dynamic>> lines) {
-    return lines.fold<int>(0, (total, l) {
-      final qty = _readInt(l["quantity"]);
-      final unit = _readInt(l["unitPrice"]);
-      final lt = _readInt(l["lineTotal"]);
-      if (lt > 0) return total + lt;
-      return total + (unit * (qty <= 0 ? 1 : qty));
-    });
+  List<Map<String, dynamic>> _readLines(Map<String, dynamic> invoice) {
+    // Supports both:
+    // - lines: [{label, quantity, unitPrice, lineTotal}]
+    // - tasks: [{label/taskName, quantity, costLkr/lineTotal/unitPrice}]
+    final rawLines = invoice["lines"];
+    if (rawLines is List) {
+      return rawLines
+          .whereType<Map>()
+          .map((m) => m.map((k, v) => MapEntry(k.toString(), v)))
+          .toList();
+    }
+
+    final rawTasks = invoice["tasks"];
+    if (rawTasks is List) {
+      return rawTasks
+          .whereType<Map>()
+          .map((m) => m.map((k, v) => MapEntry(k.toString(), v)))
+          .toList();
+    }
+
+    return const [];
+  }
+
+  int _linePrice(Map<String, dynamic> l) {
+    final qty = _readInt(l["quantity"] ?? 1);
+
+    final lt = _readInt(l["lineTotal"]);
+    if (lt > 0) return lt;
+
+    // ✅ Your field name
+    final costLkr = _readInt(l["costLkr"]);
+    if (costLkr > 0) return costLkr * (qty <= 0 ? 1 : qty);
+
+    final unit = _readInt(l["unitPrice"]);
+    if (unit > 0) return unit * (qty <= 0 ? 1 : qty);
+
+    return 0;
+  }
+
+  String _lineLabel(Map<String, dynamic> l) {
+    final a = (l["label"] ?? "").toString().trim();
+    if (a.isNotEmpty) return a;
+    final b = (l["taskName"] ?? "").toString().trim();
+    if (b.isNotEmpty) return b;
+    return "Service";
+  }
+
+  bool _canProviderConfirm(String status) {
+    return _norm(status) == "awaiting_final_payment_confirmation";
   }
 
   Widget _errorCenter(Object? error) {
@@ -192,19 +209,22 @@ class ClientInvoiceReviewScreen extends StatelessWidget {
             return const Center(
               child: Text(
                 "Job not found",
-                style: TextStyle(fontFamily: "Montserrat", fontWeight: FontWeight.w600),
+                style: TextStyle(
+                  fontFamily: "Montserrat",
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             );
           }
 
+          final status = (jobData["status"] ?? "").toString();
           final scheduled = jobData["scheduledDate"];
           final whenText = scheduled is Timestamp ? _formatDateTime(scheduled) : "—";
 
+          final clientNameFuture = _resolveClientNameFromJob(jobData);
+
+          // ✅ Prefer invoice by ID (no orderBy/index needed)
           final latestInvoiceId = (jobData["latestInvoiceId"] ?? "").toString().trim();
-
-          final providerNameFuture = _resolveProviderNameFromJob(jobData);
-
-          // ✅ Prefer invoice by ID (NO index needed)
           if (latestInvoiceId.isNotEmpty) {
             return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
               stream: _watchInvoiceById(latestInvoiceId),
@@ -219,23 +239,26 @@ class ClientInvoiceReviewScreen extends StatelessWidget {
                   return const Center(
                     child: Text(
                       "Invoice not found",
-                      style: TextStyle(fontFamily: "Montserrat", fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                        fontFamily: "Montserrat",
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   );
                 }
 
-                return _buildInvoiceBody(
+                return _buildInvoice(
                   context: context,
+                  jobStatus: status,
                   whenText: whenText,
-                  jobData: jobData,
+                  clientNameFuture: clientNameFuture,
                   invoice: invoice,
-                  providerNameFuture: providerNameFuture,
                 );
               },
             );
           }
 
-          // ✅ Fallback query (no orderBy)
+          // ✅ Fallback: any invoice for job (no orderBy)
           return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
             stream: _watchAnyInvoiceForJob(),
             builder: (context, invSnap) {
@@ -249,19 +272,22 @@ class ClientInvoiceReviewScreen extends StatelessWidget {
                 return const Center(
                   child: Text(
                     "Invoice not found",
-                    style: TextStyle(fontFamily: "Montserrat", fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                      fontFamily: "Montserrat",
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 );
               }
 
               final invoice = docs.first.data();
 
-              return _buildInvoiceBody(
+              return _buildInvoice(
                 context: context,
+                jobStatus: status,
                 whenText: whenText,
-                jobData: jobData,
+                clientNameFuture: clientNameFuture,
                 invoice: invoice,
-                providerNameFuture: providerNameFuture,
               );
             },
           );
@@ -270,12 +296,12 @@ class ClientInvoiceReviewScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildInvoiceBody({
+  Widget _buildInvoice({
     required BuildContext context,
+    required String jobStatus,
     required String whenText,
-    required Map<String, dynamic> jobData,
+    required Future<String> clientNameFuture,
     required Map<String, dynamic> invoice,
-    required Future<String> providerNameFuture,
   }) {
     final contractorId = (invoice["contractorId"] ?? "").toString().trim();
     final contractorNameFuture = _resolveContractorName(contractorId);
@@ -283,15 +309,16 @@ class ClientInvoiceReviewScreen extends StatelessWidget {
     final lines = _readLines(invoice);
     final pricing = _readPricing(invoice);
 
-    final subtotalFromLines = _computeSubtotalFromLines(lines);
-
     final serviceTotal = _readInt(pricing["serviceTotal"]);
     final materialCost = _readInt(pricing["materialCost"]);
     final visitationFee = _readInt(pricing["visitationFee"]);
     final platformFee = _readInt(pricing["platformFee"]);
     final totalAmount = _readInt(pricing["totalAmount"]);
 
-    final shownSubtotal = serviceTotal > 0 ? serviceTotal : subtotalFromLines;
+    final computedServiceSubtotal =
+        lines.fold<int>(0, (acc, l) => acc + _linePrice(l));
+
+    final shownSubtotal = serviceTotal > 0 ? serviceTotal : computedServiceSubtotal;
 
     final computedTotal = totalAmount > 0
         ? totalAmount
@@ -302,7 +329,7 @@ class ClientInvoiceReviewScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header row: Provider image + provider name + View Profile
+          // Header: Client
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -321,11 +348,11 @@ class ClientInvoiceReviewScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     FutureBuilder<String>(
-                      future: providerNameFuture,
+                      future: clientNameFuture,
                       builder: (context, s) {
                         final name = (s.data ?? "").trim();
                         return Text(
-                          name.isEmpty ? "Service Provider" : name,
+                          name.isEmpty ? "Client" : name,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
@@ -369,7 +396,7 @@ class ClientInvoiceReviewScreen extends StatelessWidget {
 
           const SizedBox(height: 22),
 
-          // Contractor section
+          // Contractor
           const Text(
             "Contractor",
             style: TextStyle(
@@ -445,7 +472,6 @@ class ClientInvoiceReviewScreen extends StatelessWidget {
           ),
           const SizedBox(height: 10),
 
-          // Table
           Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(10),
@@ -506,7 +532,6 @@ class ClientInvoiceReviewScreen extends StatelessWidget {
                     ],
                   ),
                 ),
-
                 if (lines.isEmpty)
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
@@ -521,11 +546,9 @@ class ClientInvoiceReviewScreen extends StatelessWidget {
                   )
                 else
                   ...lines.map((l) {
-                    final label = (l["label"] ?? "").toString().trim();
-                    final qty = _readInt(l["quantity"]);
-                    final unit = _readInt(l["unitPrice"]);
-                    final lt = _readInt(l["lineTotal"]);
-                    final linePrice = lt > 0 ? lt : (unit * (qty <= 0 ? 1 : qty));
+                    final label = _lineLabel(l);
+                    final qty = _readInt(l["quantity"] ?? 1);
+                    final price = _linePrice(l);
 
                     return Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
@@ -539,7 +562,7 @@ class ClientInvoiceReviewScreen extends StatelessWidget {
                         children: [
                           Expanded(
                             child: Text(
-                              label.isEmpty ? "Service" : label,
+                              label,
                               style: const TextStyle(
                                 fontFamily: "Montserrat",
                                 fontWeight: FontWeight.w600,
@@ -569,7 +592,7 @@ class ClientInvoiceReviewScreen extends StatelessWidget {
                             child: Align(
                               alignment: Alignment.centerRight,
                               child: Text(
-                                _lkr(linePrice),
+                                _lkr(price),
                                 style: const TextStyle(
                                   fontFamily: "Montserrat",
                                   fontWeight: FontWeight.w700,
@@ -629,56 +652,72 @@ class ClientInvoiceReviewScreen extends StatelessWidget {
 
           const SizedBox(height: 22),
 
-          // Confirm Payment button (mock)
-          SizedBox(
-            width: double.infinity,
-            height: 56,
-            child: ElevatedButton(
-              onPressed: () async {
-                try {
-                  await ApiClient.postJson(
-                    "/api/client-mark-invoice-paid",
-                    body: {"jobId": jobId},
-                  );
+          if (_canProviderConfirm(jobStatus))
+            SizedBox(
+              width: double.infinity,
+              height: 56,
+              child: ElevatedButton(
+                onPressed: () async {
+                  try {
+                    await ApiClient.postJson(
+                      "/api/provider-confirm-final-payment",
+                      body: {"jobId": jobId},
+                    );
 
-                  if (!context.mounted) return;
+                    if (!context.mounted) return;
 
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("Payment marked. Provider will confirm receipt."),
-                    ),
-                  );
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text("Payment confirmed. Job completed."),
+                      ),
+                    );
 
-                  Navigator.pushNamedAndRemoveUntil(
-                    context,
-                    '/dashboards/client/client_jobs',
-                    (r) => false,
-                  );
-                } catch (e) {
-                  if (!context.mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text("$e")),
-                  );
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.black,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                    Navigator.pushNamedAndRemoveUntil(
+                      context,
+                      '/provider/provider_jobs',
+                      (r) => false,
+                    );
+                  } catch (e) {
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text("$e")),
+                    );
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.black,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text(
+                  "Confirm Payment Received",
+                  style: TextStyle(
+                    fontFamily: "Montserrat",
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                    fontSize: 16,
+                  ),
                 ),
               ),
-              child: const Text(
-                "Confirm Payment",
-                style: TextStyle(
+            )
+          else
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              child: Text(
+                _norm(jobStatus) == "completed_pending_payment"
+                    ? "Waiting for client to confirm payment."
+                    : "",
+                textAlign: TextAlign.center,
+                style: const TextStyle(
                   fontFamily: "Montserrat",
-                  fontWeight: FontWeight.w800,
-                  color: Colors.white,
-                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black54,
                 ),
               ),
             ),
-          ),
 
           const SizedBox(height: 10),
         ],

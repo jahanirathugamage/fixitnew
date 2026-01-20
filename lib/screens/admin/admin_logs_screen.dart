@@ -1,5 +1,3 @@
-// lib/screens/admin/admin_logs_screen.dart
-
 import 'package:flutter/material.dart';
 
 import 'package:fixitnew/controllers/admin/admin_audit_logs_controller.dart';
@@ -76,6 +74,23 @@ class _AdminLogsScreenState extends State<AdminLogsScreen> {
   Future<int> _resolveAmountIfMissing(AdminAuditLogEntry e) async {
     if (e.amountLkr > 0) return e.amountLkr;
 
+    // ✅ If invoice amount missing, derive from invoice doc (NOT quotation/job)
+    if (e.type == AdminAuditLogType.invoice) {
+      try {
+        final inv = await controller.getLatestInvoice(e.jobId);
+        if (inv.docs.isNotEmpty) {
+          final data = inv.docs.first.data();
+          final pricing = (data['pricing'] is Map) ? (data['pricing'] as Map) : {};
+          final total = pricing['totalAmount'] ?? data['totalAmount'] ?? data['amount'];
+          if (total is int) return total;
+          if (total is num) return total.toInt();
+          if (total is String) return int.tryParse(total) ?? 0;
+        }
+      } catch (_) {}
+      return 0;
+    }
+
+    // ✅ For quotations: fallback from job if missing
     final jobSnap = await controller.getJob(e.jobId);
     final job = jobSnap.data() ?? {};
     final pricing = (job['pricing'] is Map) ? (job['pricing'] as Map) : {};
@@ -157,7 +172,6 @@ class _AdminLogsScreenState extends State<AdminLogsScreen> {
 
                   Widget rightWidget;
 
-                  // ✅ Image 6 behaviour: quotations show Accepted / Declined
                   if (isQuotation) {
                     if (isDeclined) {
                       rightWidget = const Text(
@@ -180,7 +194,6 @@ class _AdminLogsScreenState extends State<AdminLogsScreen> {
                         ),
                       );
                     } else {
-                      // fallback if a quotation exists but not yet decided
                       rightWidget = Text(
                         _lkr(amount, showPlus: false),
                         style: const TextStyle(
@@ -192,7 +205,7 @@ class _AdminLogsScreenState extends State<AdminLogsScreen> {
                       );
                     }
                   } else {
-                    // invoices keep money
+                    // ✅ invoices always show amount (from invoices collection)
                     final isPlus = amount > 0;
                     rightWidget = Text(
                       _lkr(amount, showPlus: isPlus),

@@ -51,6 +51,7 @@ import 'package:fixitnew/screens/dashboards/provider/job_details_screen.dart';
 // ✅ NEW SCREENS (already in your file)
 import 'package:fixitnew/screens/quotations/client_quotation_screen.dart';
 import 'package:fixitnew/screens/invoices/client_invoice_review_screen.dart';
+import 'package:fixitnew/screens/invoices/provider_invoice_details_screen.dart';
 
 // ✅ UPDATED JOB DETAILS (YOUR SHARED SCREEN)
 import 'package:fixitnew/screens/shared/updated_job_details.dart';
@@ -246,6 +247,24 @@ class MyApp extends StatelessWidget {
             message:
                 "Missing or invalid jobId for '/client/invoice_review'.\n\n"
                 "Fix:\nNavigator.pushNamed(context, '/client/invoice_review', arguments: jobId);",
+          ),
+          settings: settings,
+        );
+
+      // ✅ NEW: Provider invoice details (USES the import, fixes the warning)
+      case '/provider/invoice_details':
+        final jobId = _extractJobId(settings);
+        if (jobId != null) {
+          return MaterialPageRoute(
+            builder: (_) => ProviderInvoiceDetailsScreen(jobId: jobId),
+            settings: settings,
+          );
+        }
+        return MaterialPageRoute(
+          builder: (_) => const _RouteErrorScreen(
+            message:
+                "Missing or invalid jobId for '/provider/invoice_details'.\n\n"
+                "Fix:\nNavigator.pushNamed(context, '/provider/invoice_details', arguments: {'jobId': jobId});",
           ),
           settings: settings,
         );

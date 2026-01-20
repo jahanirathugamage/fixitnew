@@ -72,15 +72,19 @@ class AdminAuditLogsController {
             ? data['createdAt'] as Timestamp
             : Timestamp.now();
 
-        final amount = _readInt(data['totalAmount'] ?? data['amount'] ?? 0);
+        // ✅ FIX: invoices store totals inside pricing
+        final pricing = (data['pricing'] is Map) ? (data['pricing'] as Map) : {};
+        final total = _readInt(pricing['totalAmount'] ?? data['totalAmount'] ?? data['amount'] ?? 0);
 
         final paidAt = (data['paidAt'] is Timestamp) ? data['paidAt'] as Timestamp : null;
-        final invoiceImageUrl = (data['invoiceImageUrl'] ?? '').toString().trim();
+
+        // ✅ FIX: invoice image field is materialInvoiceImageUrl (based on your Firestore screenshot)
+        final invoiceImageUrl = (data['materialInvoiceImageUrl'] ?? '').toString().trim();
 
         return AdminAuditLogEntry(
           type: AdminAuditLogType.invoice,
           jobId: jobId,
-          amountLkr: amount,
+          amountLkr: total,
           createdAt: createdAt,
           paidAt: paidAt,
           invoiceImageUrl: invoiceImageUrl.isEmpty ? null : invoiceImageUrl,
