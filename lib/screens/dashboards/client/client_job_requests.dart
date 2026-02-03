@@ -7,6 +7,7 @@ import 'package:fixitnew/models/jobs/job_request_model.dart';
 import 'package:fixitnew/widgets/nav/client_bottom_nav.dart';
 import 'package:fixitnew/widgets/sheets/confirm_cancel_sheet.dart';
 import 'package:fixitnew/screens/dashboards/client/client_job_details_screen.dart';
+import 'package:fixitnew/screens/dashboards/client/client_recurring_job_details_screen.dart';
 
 class ClientJobRequestsScreen extends StatefulWidget {
   const ClientJobRequestsScreen({super.key});
@@ -38,6 +39,25 @@ class _ClientJobRequestsScreenState extends State<ClientJobRequestsScreen> {
     } catch (e) {
       _toast("Action failed: $e");
     }
+  }
+
+  Widget _recurringPill() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE6E6E6),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: const Text(
+        "Recurring Service",
+        style: TextStyle(
+          fontFamily: "Montserrat",
+          fontWeight: FontWeight.w800,
+          fontSize: 11,
+          color: Colors.black,
+        ),
+      ),
+    );
   }
 
   @override
@@ -116,6 +136,17 @@ class _ClientJobRequestsScreenState extends State<ClientJobRequestsScreen> {
                 final isPending = controller.isPending(j);
                 final isDeclined = controller.isDeclined(j);
 
+                void openDetails() {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => j.isRecurring
+                          ? ClientRecurringJobDetailsScreen(jobId: j.id)
+                          : ClientJobDetailsScreen(jobId: j.id),
+                    ),
+                  );
+                }
+
                 return Column(
                   children: [
                     Row(
@@ -125,7 +156,8 @@ class _ClientJobRequestsScreenState extends State<ClientJobRequestsScreen> {
                           child: FutureBuilder<String>(
                             future: controller.resolveProviderName(j),
                             builder: (context, nameSnap) {
-                              final name = (nameSnap.data ?? "Service Provider").trim();
+                              final name =
+                                  (nameSnap.data ?? "Service Provider").trim();
                               return Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -147,6 +179,11 @@ class _ClientJobRequestsScreenState extends State<ClientJobRequestsScreen> {
                                     icon: Icons.home_repair_service,
                                     text: category,
                                   ),
+
+                                  if (j.isRecurring) ...[
+                                    const SizedBox(height: 8),
+                                    _recurringPill(),
+                                  ],
                                 ],
                               );
                             },
@@ -210,7 +247,6 @@ class _ClientJobRequestsScreenState extends State<ClientJobRequestsScreen> {
                                   ),
                                 ),
                               ] else if (isPending) ...[
-                                // ✅ Pending tag now matches button width + height
                                 SizedBox(
                                   width: 120,
                                   height: 36,
@@ -267,14 +303,7 @@ class _ClientJobRequestsScreenState extends State<ClientJobRequestsScreen> {
                       width: double.infinity,
                       height: 44,
                       child: ElevatedButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => ClientJobDetailsScreen(jobId: j.id),
-                            ),
-                          );
-                        },
+                        onPressed: openDetails,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.black,
                           foregroundColor: Colors.white,

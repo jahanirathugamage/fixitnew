@@ -25,13 +25,23 @@ class JobRequestModel {
   // ✅ optional fields used in your flow
   final int visitationFeeLkr;
 
-  // ✅ NEW: quotation linkage (THIS FIXES YOUR UI RELIABLY)
+  // ✅ quotation linkage
   final String quotationId;
   final Timestamp? quotationCreatedAt;
 
-  // ✅ NEW: for filtering “stopped by client” logic
+  // ✅ for filtering “stopped by client” logic
   final Timestamp? cancelledAt;
   final Timestamp? stoppedAt;
+
+  // ✅ NEW: Recurring Request support
+  final bool isRecurringRequest;
+
+  /// ✅ Stores recurrence details if isRecurringRequest = true
+  /// Expected keys (you can store whatever, UI reads safely):
+  /// - preferredDay: "Tuesday"
+  /// - frequency: "2 months" / "Every 2 months"
+  /// - startDateTime: Timestamp (optional)
+  final Map<String, dynamic> recurrence;
 
   JobRequestModel({
     required this.id,
@@ -50,13 +60,14 @@ class JobRequestModel {
     required this.quotationCreatedAt,
     this.cancelledAt,
     this.stoppedAt,
+    required this.isRecurringRequest,
+    required this.recurrence,
   });
 
   String _norm(String v) => v.trim().toLowerCase();
 
   bool get hasQuotation => quotationId.trim().isNotEmpty || _norm(status) == 'quotation_created';
 
-  // ✅ Keep as-is if you still use it somewhere, but make it safer
   bool get isQuotationDeclined {
     final s = _norm(status);
     return s == 'quotation_declined' ||
@@ -66,13 +77,15 @@ class JobRequestModel {
         s == 'terminated_after_quotation_decline';
   }
 
-  // ✅ IMPORTANT: Provider button should show for ANY “awaiting visitation” variant
   bool get isAwaitingVisitationConfirmation {
     final s = _norm(status);
     return s == 'awaiting_visitation_fee_confirmation' ||
         s == 'quotation_declined_pending_visitation' ||
         s == 'awaiting_visitation_confirmation';
   }
+
+  /// ✅ Convenient getter (used in UI)
+  bool get isRecurring => isRecurringRequest == true;
 
   factory JobRequestModel.fromDoc(
     DocumentSnapshot<Map<String, dynamic>> doc,
@@ -102,6 +115,16 @@ class JobRequestModel {
       return 0;
     }
 
+    bool readBool(dynamic v) {
+      if (v is bool) return v;
+      if (v is String) {
+        final s = v.trim().toLowerCase();
+        return s == 'true' || s == '1' || s == 'yes';
+      }
+      if (v is num) return v != 0;
+      return false;
+    }
+
     final scheduled =
         (data['scheduledDate'] is Timestamp) ? data['scheduledDate'] as Timestamp : null;
     final gp = (data['location'] is GeoPoint) ? data['location'] as GeoPoint : null;
@@ -119,10 +142,16 @@ class JobRequestModel {
     final stoppedAt =
         (data['stoppedAt'] is Timestamp) ? data['stoppedAt'] as Timestamp : null;
 
-    // ✅ quotation linkage (from your screenshot)
     final quotationId = readString(['quotationId']);
     final quotationCreatedAt =
         (data['quotationCreatedAt'] is Timestamp) ? data['quotationCreatedAt'] as Timestamp : null;
+
+    // ✅ Recurring parsing (safe)
+    final isRecurringRequest = readBool(data['isRecurringRequest'] ?? data['isRecurring'] ?? false);
+
+    final recurrence = (data['recurrence'] is Map)
+        ? Map<String, dynamic>.from(data['recurrence'])
+        : <String, dynamic>{};
 
     return JobRequestModel(
       id: doc.id,
@@ -146,6 +175,8 @@ class JobRequestModel {
       quotationCreatedAt: quotationCreatedAt,
       cancelledAt: cancelledAt,
       stoppedAt: stoppedAt,
+      isRecurringRequest: isRecurringRequest,
+      recurrence: recurrence,
     );
   }
 }

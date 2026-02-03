@@ -8,9 +8,29 @@ import 'package:fixitnew/models/jobs/job_request_model.dart';
 import 'package:fixitnew/widgets/nav/provider_bottom_nav.dart';
 
 import 'job_details_screen.dart';
+import 'provider_recurring_job_details_screen.dart';
 
 class ProviderJobRequestsScreen extends StatelessWidget {
   const ProviderJobRequestsScreen({super.key});
+
+  Widget _pill(String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE6E6E6),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontFamily: "Montserrat",
+          fontWeight: FontWeight.w800,
+          fontSize: 11,
+          color: Colors.black,
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -117,6 +137,17 @@ class ProviderJobRequestsScreen extends StatelessWidget {
                 }
               }
 
+              void openDetails() {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => j.isRecurring
+                        ? ProviderRecurringJobDetailsScreen(jobId: j.id)
+                        : ProviderJobDetailsScreen(jobId: j.id),
+                  ),
+                );
+              }
+
               return Column(
                 children: [
                   Row(
@@ -178,6 +209,11 @@ class ProviderJobRequestsScreen extends StatelessWidget {
                                 ),
                               ],
                             ),
+
+                            if (j.isRecurring) ...[
+                              const SizedBox(height: 8),
+                              _pill("Recurring Service"),
+                            ],
                           ],
                         ),
                       ),
@@ -259,14 +295,7 @@ class ProviderJobRequestsScreen extends StatelessWidget {
                     width: double.infinity,
                     height: 44,
                     child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => ProviderJobDetailsScreen(jobId: j.id),
-                          ),
-                        );
-                      },
+                      onPressed: openDetails,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.black,
                         foregroundColor: Colors.white,

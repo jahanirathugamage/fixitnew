@@ -17,6 +17,9 @@ import 'package:fixitnew/widgets/nav/client_bottom_nav.dart';
 // ✅ NEW: for Image 5 "Thank you" trigger (from notification)
 import 'package:fixitnew/services/notification_router.dart';
 
+// ✅ NEW: Recurring services placeholder screen
+import '../../services/recurring_service_request_screen.dart';
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -301,6 +304,16 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  // ✅ NEW: Recurring Services cards -> all lead to ONE placeholder page
+  void _openRecurringServicesHub(BuildContext context, String categoryKey) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => RecurringServiceRequestScreen(categoryKey: categoryKey),
+      ),
+    );
+  }
+
   String _categoryKeyFromDoc(String name, String iconKey) {
     final base = (iconKey.isNotEmpty ? iconKey : name).toLowerCase().trim();
 
@@ -431,6 +444,52 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // ✅ NEW: Recurring Services swipeable black cards (Image 3)
+  Widget _buildRecurringServicesCarousel() {
+    final items = <_RecurringItem>[
+      _RecurringItem(
+        keyName: 'cleaning',
+        label: 'Cleaning',
+        icon: Icons.cleaning_services,
+      ),
+      _RecurringItem(
+        keyName: 'gardening',
+        label: 'Gardening',
+        icon: Icons.grass,
+      ),
+      _RecurringItem(
+        keyName: 'ac',
+        label: 'AC',
+        icon: Icons.ac_unit,
+      ),
+      _RecurringItem(
+        keyName: 'pest_control',
+        label: 'Pest Control',
+        icon: Icons.pest_control,
+      ),
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.only(left: 20.0),
+      child: SizedBox(
+        height: 210,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          itemCount: items.length,
+          separatorBuilder: (context, index) => const SizedBox(width: 14),
+          itemBuilder: (context, index) {
+            final it = items[index];
+            return RecurringServiceCard(
+              label: it.label,
+              icon: it.icon,
+              onTap: () => _openRecurringServicesHub(context, it.keyName),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
   Widget _buildRepairsCarousel() {
     return StreamBuilder<QuerySnapshot>(
       stream: _homeController.repairsStream,
@@ -512,6 +571,10 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
+
+      // ✅ Bottom nav stays stationary (Scaffold handles it)
+      bottomNavigationBar: const ClientBottomNav(currentIndex: 0),
+
       body: SafeArea(
         child: StreamBuilder<User?>(
           // ✅ KEY FIX: don't start Firestore streams until auth is confirmed
@@ -531,7 +594,6 @@ class _HomeScreenState extends State<HomeScreen> {
               );
             }
 
-            // ✅ ORIGINAL UI (unchanged)
             return Column(
               children: [
                 Padding(
@@ -551,6 +613,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 Expanded(
                   child: SingleChildScrollView(
+                    // ✅ prevents bottom content from hiding behind the nav
+                    padding: const EdgeInsets.only(bottom: 24),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -567,7 +631,37 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         const SizedBox(height: 20),
                         _buildServicesGrid(),
-                        const SizedBox(height: 40),
+
+                        // ✅ NEW: Recurring Services section (Image 2/3)
+                        const SizedBox(height: 36),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 20.0),
+                          child: Text(
+                            'Recurring Services',
+                            style: TextStyle(
+                              fontFamily: 'Montserrat',
+                              fontSize: 20,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 20.0),
+                          child: Text(
+                            'Set it, forget it, and stay on schedule.',
+                            style: TextStyle(
+                              fontFamily: 'Montserrat',
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.black87,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        _buildRecurringServicesCarousel(),
+
+                        const SizedBox(height: 36),
                         const Padding(
                           padding: EdgeInsets.symmetric(horizontal: 20.0),
                           child: Text(
@@ -591,7 +685,6 @@ class _HomeScreenState extends State<HomeScreen> {
           },
         ),
       ),
-      bottomNavigationBar: const ClientBottomNav(currentIndex: 0),
     );
   }
 }
@@ -698,6 +791,110 @@ class _ServiceCardState extends State<ServiceCard> {
       ),
     );
   }
+}
+
+// ---------------------- RECURRING SERVICES CARD (NEW) ----------------------
+
+class RecurringServiceCard extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const RecurringServiceCard({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 165,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.black,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Stack(
+            children: [
+              // icon bubble
+              Positioned(
+                top: 16,
+                left: 16,
+                child: Container(
+                  width: 54,
+                  height: 54,
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Icon(
+                      icon,
+                      color: Colors.black,
+                      size: 26,
+                    ),
+                  ),
+                ),
+              ),
+
+              // label
+              Positioned(
+                left: 16,
+                right: 16,
+                bottom: 58,
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    fontFamily: 'Montserrat',
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+
+              // arrow bubble
+              Positioned(
+                bottom: 16,
+                right: 16,
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Center(
+                    child: Icon(
+                      Icons.arrow_forward_ios,
+                      size: 16,
+                      color: Colors.black,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RecurringItem {
+  final String keyName;
+  final String label;
+  final IconData icon;
+
+  _RecurringItem({
+    required this.keyName,
+    required this.label,
+    required this.icon,
+  });
 }
 
 // ---------------------- CAROUSEL ITEM ----------------------
