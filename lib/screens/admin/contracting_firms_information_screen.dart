@@ -1,3 +1,4 @@
+// lib/screens/admin/contracting_firms_information_screen.dart
 import 'package:flutter/material.dart';
 
 import '../../controllers/admin/contracting_firms_controller.dart';
@@ -57,7 +58,7 @@ class ContractingFirmsInformationScreen extends StatelessWidget {
 
           return ListView.separated(
             itemCount: firms.length,
-            separatorBuilder: (_, __) => const Divider(height: 1),
+            separatorBuilder: (context, index) => const Divider(height: 1),
             itemBuilder: (context, i) {
               final firm = firms[i];
 
@@ -79,12 +80,8 @@ class ContractingFirmsInformationScreen extends StatelessWidget {
                   ].join(' • '),
                   style: const TextStyle(color: Colors.black54),
                 ),
-                trailing:
-                    const Icon(Icons.chevron_right, color: Colors.black54),
-
-                // ✅ single reliable tap handler
+                trailing: const Icon(Icons.chevron_right, color: Colors.black54),
                 onTap: () {
-                  
                   final id = firm.id.trim();
 
                   if (id.isEmpty) {
@@ -99,7 +96,7 @@ class ContractingFirmsInformationScreen extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) =>
+                      builder: (context) =>
                           ContractorFirmInformationScreen(contractorId: id),
                     ),
                   );

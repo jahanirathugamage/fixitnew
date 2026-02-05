@@ -21,6 +21,8 @@ import 'package:fixitnew/screens/profile/profile_client_screen.dart';
 import 'package:fixitnew/screens/profile/profile_contractor_full_screen.dart';
 import 'package:fixitnew/screens/profile/add_provider_screen.dart';
 
+
+
 // DASHBOARDS – CLIENT
 import 'package:fixitnew/screens/dashboards/home_client.dart';
 import 'package:fixitnew/screens/dashboards/client/home_screen.dart';
@@ -42,6 +44,8 @@ import 'package:fixitnew/screens/dashboards/contractor/update_provider_screen.da
 import 'package:fixitnew/screens/dashboards/provider_home_screen.dart';
 import 'package:fixitnew/screens/dashboards/provider/provider_jobs.dart';
 import 'package:fixitnew/screens/dashboards/provider/job_requests_screen.dart';
+import 'package:fixitnew/screens/dashboards/provider/provider_profile_screen.dart';
+import 'package:fixitnew/screens/dashboards/provider/change_provider_password_screen.dart';
 
 // ADMIN SCREENS
 import 'package:fixitnew/screens/admin/create_admin_account_screen.dart';
@@ -114,7 +118,7 @@ class MyApp extends StatelessWidget {
           ),
           settings: settings,
         );
-
+      
       // ✅ NEW: Contractor Firm Info detail (Admin)
       case '/admin/contractor_firm_information_screen':
         final args = settings.arguments;
@@ -162,6 +166,7 @@ class MyApp extends StatelessWidget {
         '/profile_client': (_) => const ProfileClientScreen(),
         '/profile_contractor_full': (_) => const ProfileContractorFullScreen(),
         '/profile/add_provider_screen': (_) => const AddProviderScreen(),
+        
 
         // CLIENT DASHBOARD
         '/dashboards/home_client': (_) => const HomeClient(),
@@ -196,6 +201,9 @@ class MyApp extends StatelessWidget {
         '/provider/provider_jobs': (_) => const ProviderJobsScreen(),
         '/provider/job_requests_screen': (_) =>
             const ProviderJobRequestsScreen(),
+        '/dashboards/provider/profile': (context) => const ProviderProfileScreen(),
+        '/provider/change_password': (context) => const ChangeProviderPasswordScreen(),
+
 
         // ADMIN
         '/admin/create_admin_account_screen': (_) =>

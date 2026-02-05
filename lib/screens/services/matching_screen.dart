@@ -6,9 +6,11 @@ import 'package:http/http.dart' as http;
 
 import 'package:fixitnew/backend/api_config.dart';
 import '../../controllers/matching_controller.dart';
-import 'provider_profile_screen.dart';
 
 import 'package:fixitnew/screens/dashboards/client/request_sent_screen.dart';
+
+// ✅ NEW: slide-up provider details sheet (View-only)
+import 'package:fixitnew/widgets/sheets/provider_details_sheet.dart';
 
 class MatchingScreen extends StatefulWidget {
   final String jobId;
@@ -116,12 +118,12 @@ class _MatchingScreenState extends State<MatchingScreen> {
     }
   }
 
-  void _openProfile(String providerUid) {
-    Navigator.push(
+  // ✅ NEW: opens the bottom sheet (View-only)
+  void _openProviderSheet(MatchedProvider p) {
+    ProviderDetailsSheet.show(
       context,
-      MaterialPageRoute(
-        builder: (_) => ProviderProfileScreen(providerUid: providerUid),
-      ),
+      provider: p,
+      onPick: () => _pickProvider(providerUid: p.providerUid),
     );
   }
 
@@ -247,7 +249,6 @@ class _MatchingScreenState extends State<MatchingScreen> {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
                     itemCount: matches.length,
-                    // ✅ fixed "unnecessary underscores" warning
                     separatorBuilder: (_, _) => const Divider(
                       height: 18,
                       thickness: 1,
@@ -292,7 +293,8 @@ class _MatchingScreenState extends State<MatchingScreen> {
                           _picking && _pickingProviderUid == p.providerUid;
 
                       return InkWell(
-                        onTap: () => _openProfile(p.providerUid),
+                        // ✅ CHANGE: open slide-up sheet instead of navigating
+                        onTap: () => _openProviderSheet(p),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(vertical: 6),
                           child: Row(
@@ -367,13 +369,13 @@ class _MatchingScreenState extends State<MatchingScreen> {
                                 width: 62,
                                 height: 32,
                                 child: ElevatedButton(
+                                  // ✅ KEEP: your existing pick logic unchanged
                                   onPressed: _picking
                                       ? null
                                       : () => _pickProvider(
                                           providerUid: p.providerUid),
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.black,
-                                    // was: Colors.black.withOpacity(0.45)
                                     disabledBackgroundColor:
                                         Colors.black.withValues(alpha: 115),
                                     foregroundColor: Colors.white,

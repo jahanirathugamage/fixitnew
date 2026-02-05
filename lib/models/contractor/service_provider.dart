@@ -1,3 +1,5 @@
+// lib/models/contractor/service_provider.dart
+
 class ServiceProviderModel {
   final String id;
   final String firstName;

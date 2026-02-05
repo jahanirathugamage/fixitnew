@@ -18,6 +18,20 @@ class ContractorServiceProviders extends StatefulWidget {
 class _ContractorServiceProvidersState extends State<ContractorServiceProviders> {
   final _controller = ContractorProvidersController();
 
+  static const String _addProviderRoute = "/profile/add_provider_screen";
+  static const String _updateProviderRoute =
+      "/dashboards/contractor/update_provider_screen";
+
+  static const String _contractorJobsRoute =
+      "/dashboards/contractor/contractor_jobs";
+
+  Future<void> _safeBack() async {
+    final popped = await Navigator.of(context).maybePop();
+    if (!popped && mounted) {
+      Navigator.of(context).pushReplacementNamed(_contractorJobsRoute);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final contractorId = _controller.getCurrentContractorId();
@@ -33,16 +47,14 @@ class _ContractorServiceProvidersState extends State<ContractorServiceProviders>
       body: SafeArea(
         child: Column(
           children: [
-            // ------------------------------------------------------------------
-            // HEADER (matches image: centered title, back arrow left)
-            // ------------------------------------------------------------------
+            // HEADER
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 10, 14, 6),
               child: Row(
                 children: [
                   IconButton(
                     icon: const Icon(Icons.arrow_back_ios, size: 22),
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: _safeBack,
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                     splashRadius: 22,
@@ -60,27 +72,18 @@ class _ContractorServiceProvidersState extends State<ContractorServiceProviders>
                       ),
                     ),
                   ),
-                  // spacer to keep title perfectly centered
                   const SizedBox(width: 22),
                 ],
               ),
             ),
 
-            // ------------------------------------------------------------------
-            // CONTENT
-            // ------------------------------------------------------------------
             Expanded(
               child: SingleChildScrollView(
                 child: Column(
                   children: [
-                    // ---------------- Add Provider Row -------------------
+                    // Add Provider Row
                     InkWell(
-                      onTap: () {
-                        Navigator.pushNamed(
-                          context,
-                          "/profile/add_provider_screen",
-                        );
-                      },
+                      onTap: () => Navigator.pushNamed(context, _addProviderRoute),
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(18, 12, 18, 12),
                         child: Row(
@@ -121,7 +124,7 @@ class _ContractorServiceProvidersState extends State<ContractorServiceProviders>
                     ),
                     const Divider(height: 1, thickness: 1),
 
-                    // ---------------- Firestore Provider List -------------------
+                    // Providers list
                     StreamBuilder<QuerySnapshot>(
                       stream: _controller.providersStream(contractorId),
                       builder: (context, snapshot) {
@@ -148,23 +151,15 @@ class _ContractorServiceProvidersState extends State<ContractorServiceProviders>
 
                             final first =
                                 (data['firstName'] ?? '').toString().trim();
-                            final last =
-                                (data['lastName'] ?? '').toString().trim();
+                            final last = (data['lastName'] ?? '').toString().trim();
                             final name = "$first $last".trim();
 
-                            final profileImg =
-                                (data['profileImage'] as String?)?.trim();
-                            final imageUrl =
-                                (profileImg == null || profileImg.isEmpty)
-                                    ? null
-                                    : profileImg;
-
+                            // NOTE:
+                            // Your controller saves profileImageBase64, not a URL.
+                            // So we don't try Image.network here.
                             return _buildProviderRow(
-                              context: context,
-                              contractorId: contractorId,
                               providerId: doc.id,
                               name: name.isEmpty ? 'Unnamed Provider' : name,
-                              imageUrl: imageUrl,
                             );
                           }).toList(),
                         );
@@ -177,18 +172,13 @@ class _ContractorServiceProvidersState extends State<ContractorServiceProviders>
           ],
         ),
       ),
-
-      // ✅ Reusable nav (Providers selected)
       bottomNavigationBar: const ContractorBottomNav(currentIndex: 1),
     );
   }
 
   Widget _buildProviderRow({
-    required BuildContext context,
-    required String contractorId,
     required String providerId,
     required String name,
-    required String? imageUrl,
   }) {
     return Column(
       children: [
@@ -197,38 +187,20 @@ class _ContractorServiceProvidersState extends State<ContractorServiceProviders>
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // avatar
+              // avatar placeholder (since you store base64, not URL)
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
-                child: SizedBox(
+                child: Container(
                   width: 34,
                   height: 34,
-                  child: imageUrl == null
-                      ? Container(
-                          color: const Color(0xFFE6E6E6),
-                          child: const Icon(
-                            Icons.person,
-                            size: 18,
-                            color: Color(0xFF9A9A9A),
-                          ),
-                        )
-                      : Image.network(
-                          imageUrl,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Container(
-                              color: const Color(0xFFE6E6E6),
-                              child: const Icon(
-                                Icons.person,
-                                size: 18,
-                                color: Color(0xFF9A9A9A),
-                              ),
-                            );
-                          },
-                        ),
+                  color: const Color(0xFFE6E6E6),
+                  child: const Icon(
+                    Icons.person,
+                    size: 18,
+                    color: Color(0xFF9A9A9A),
+                  ),
                 ),
               ),
-
               const SizedBox(width: 12),
 
               Expanded(
@@ -253,13 +225,11 @@ class _ContractorServiceProvidersState extends State<ContractorServiceProviders>
                           width: 86,
                           child: ElevatedButton(
                             onPressed: () {
+                              // ✅ pass only providerId (controller uses auth contractor uid)
                               Navigator.pushNamed(
                                 context,
-                                "/provider/update",
-                                arguments: {
-                                  "providerId": providerId,
-                                  "contractorId": contractorId,
-                                },
+                                _updateProviderRoute,
+                                arguments: {"providerId": providerId},
                               );
                             },
                             style: ElevatedButton.styleFrom(
@@ -318,15 +288,23 @@ class _ContractorServiceProvidersState extends State<ContractorServiceProviders>
                                   ) ??
                                   false;
 
-                              if (!confirm || !context.mounted) return;
+                              if (!confirm || !mounted) return;
 
-                              final errorMessage =
-                                  await _controller.deleteProvider(
+                              final contractorId =
+                                  _controller.getCurrentContractorId();
+                              if (contractorId == null) {
+                                messenger.showSnackBar(
+                                  const SnackBar(content: Text("Not logged in")),
+                                );
+                                return;
+                              }
+
+                              final errorMessage = await _controller.deleteProvider(
                                 contractorId: contractorId,
                                 providerId: providerId,
                               );
 
-                              if (!context.mounted) return;
+                              if (!mounted) return;
 
                               if (errorMessage == null) {
                                 messenger.showSnackBar(
@@ -336,9 +314,7 @@ class _ContractorServiceProvidersState extends State<ContractorServiceProviders>
                                 );
                               } else {
                                 messenger.showSnackBar(
-                                  SnackBar(
-                                    content: Text(errorMessage),
-                                  ),
+                                  SnackBar(content: Text(errorMessage)),
                                 );
                               }
                             },
