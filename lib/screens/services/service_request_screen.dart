@@ -65,11 +65,12 @@ class _ServiceRequestScreenState extends State<ServiceRequestScreen> {
   }
 
   // ---------- PIN PICKER ----------
-
   Widget _locationPinPicker() {
-    final label = _pickedLatLng == null
-        ? 'Pick Job Location on Map'
-        : 'Location Selected: (${_pickedLatLng!.latitude.toStringAsFixed(5)}, ${_pickedLatLng!.longitude.toStringAsFixed(5)})';
+    final bool hasPin = _pickedLatLng != null;
+
+    final String label = hasPin
+        ? 'Adjust Location on Map (optional)\n(${_pickedLatLng!.latitude.toStringAsFixed(5)}, ${_pickedLatLng!.longitude.toStringAsFixed(5)})'
+        : 'Pick Job Location on Map (optional)';
 
     return SizedBox(
       width: double.infinity,
@@ -637,19 +638,18 @@ class _ServiceRequestScreenState extends State<ServiceRequestScreen> {
   }
 
   void _onContinuePressed() {
-    // ✅ Require pin (main requirement for proximity)
-    if (_pickedLatLng == null) {
+    final address = locationController.text.trim();
+
+    if (address.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please pick the job location on the map.')),
+        const SnackBar(content: Text('Please enter your address / landmark.')),
       );
       return;
     }
 
     if (_selectedServices.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select at least one service task.'),
-        ),
+        const SnackBar(content: Text('Please select at least one service task.')),
       );
       return;
     }
@@ -1023,8 +1023,41 @@ class _ServiceRequestScreenState extends State<ServiceRequestScreen> {
                                     ];
 
                                     try {
-                                      final lat = _pickedLatLng!.latitude;
-                                      final lng = _pickedLatLng!.longitude;
+                                      final address =
+                                          locationController.text.trim();
+
+                                      LatLng finalLatLng;
+
+                                      if (_pickedLatLng != null) {
+                                        // Optional override
+                                        finalLatLng = _pickedLatLng!;
+                                      } else {
+                                        // Mandatory address -> must geocode
+                                        final result = await _controller
+                                            .geocodeSriLankaAddress(address);
+                                        if (result == null) {
+                                          modalSetState(() => isSaving = false);
+                                          if (!mounted) return;
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            const SnackBar(
+                                              content: Text(
+                                                'Could not find that address in Sri Lanka. Try adding city/district.',
+                                              ),
+                                            ),
+                                          );
+                                          return;
+                                        }
+                                        finalLatLng = result;
+
+                                        // (Nice UX) store it so UI shows "Location Selected"
+                                        setState(() =>
+                                            _pickedLatLng = finalLatLng);
+                                      }
+
+                                      // ✅ FIX: use finalLatLng (not _pickedLatLng!)
+                                      final lat = finalLatLng.latitude;
+                                      final lng = finalLatLng.longitude;
 
                                       // ✅ IMPORTANT: get jobId back from Firestore
                                       final String jobId =
@@ -1172,7 +1205,7 @@ class _ServiceRequestScreenState extends State<ServiceRequestScreen> {
                       TextField(
                         controller: locationController,
                         decoration: InputDecoration(
-                          hintText: 'Address / Landmark (optional)',
+                          hintText: 'Address / Landmark',
                           hintStyle: TextStyle(
                             fontFamily: 'Montserrat',
                             fontSize: 14,

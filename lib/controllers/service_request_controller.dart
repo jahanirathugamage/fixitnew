@@ -3,6 +3,11 @@
 import '../models/service_request_item.dart';
 import '../repositories/service_request_repository.dart';
 
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:latlong2/latlong.dart';
+import '../backend/api_config.dart';
+
 class ServiceRequestController {
   final ServiceRequestRepository _repository;
 
@@ -48,6 +53,20 @@ class ServiceRequestController {
     );
 
     return jobId;
+  }
+
+  Future<LatLng?> geocodeSriLankaAddress(String address) async {
+    final uri = Uri.parse('${ApiConfig.baseUrl}/api/geocode')
+        .replace(queryParameters: {'q': address});
+
+    final res = await http.get(uri);
+
+    if (res.statusCode != 200) return null;
+
+    final data = jsonDecode(res.body) as Map<String, dynamic>;
+    final lat = (data['lat'] as num).toDouble();
+    final lon = (data['lon'] as num).toDouble();
+    return LatLng(lat, lon);
   }
 
   /// ✅ BACKWARD COMPAT (so you don't break existing calls)
