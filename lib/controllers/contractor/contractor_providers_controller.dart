@@ -48,28 +48,6 @@ class ContractorProvidersController {
     return doc.data();
   }
 
-  /// Update a provider’s data
-  Future<String?> updateProvider({
-    required String providerId,
-    required Map<String, dynamic> data,
-    String? contractorIdOverride,
-  }) async {
-    final contractorId = contractorIdOverride ?? getCurrentContractorId();
-    if (contractorId == null) return 'No authenticated contractor.';
-
-    try {
-      await _firestore
-          .collection('contractors')
-          .doc(contractorId)
-          .collection('providers')
-          .doc(providerId)
-          .update(data);
-      return null;
-    } catch (e) {
-      return e.toString();
-    }
-  }
-
   /// Delete a provider
   Future<String?> deleteProvider({
     required String contractorId,
@@ -94,7 +72,149 @@ class ContractorProvidersController {
     return Uri.parse('$_vercelBaseUrl/$clean');
   }
 
-  /// Create provider (Option A)
+  // ---------------------------------------------------------------------------
+  // ✅ MIRROR HELPERS (NEW)
+  // ---------------------------------------------------------------------------
+
+  /// Read providerUid from contractor subdoc
+  Future<String?> _getProviderUid({
+    required String contractorId,
+    required String providerDocId,
+  }) async {
+    final snap = await _firestore
+        .collection('contractors')
+        .doc(contractorId)
+        .collection('providers')
+        .doc(providerDocId)
+        .get();
+
+    final data = snap.data();
+    final uid = (data?['providerUid'] ?? '').toString().trim();
+    return uid.isEmpty ? null : uid;
+  }
+
+  /// Mirror contractor provider doc -> serviceProviders/{providerUid}
+  Future<void> _mirrorToServiceProviders({
+    required String contractorId,
+    required String providerDocId,
+    required String providerUid,
+  }) async {
+    final contractorDocRef = _firestore
+        .collection('contractors')
+        .doc(contractorId)
+        .collection('providers')
+        .doc(providerDocId);
+
+    final mirrorRef = _firestore.collection('serviceProviders').doc(providerUid);
+
+    final contractorSnap = await contractorDocRef.get();
+    final data = contractorSnap.data() ?? <String, dynamic>{};
+
+    // ✅ Ensure important linkage fields exist in mirror
+    final mirrorData = <String, dynamic>{
+      ...data,
+      'providerUid': providerUid,
+      'contractorId': contractorId,
+      'mirroredFrom': {
+        'contractorId': contractorId,
+        'providerDocId': providerDocId,
+      },
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+
+    await mirrorRef.set(mirrorData, SetOptions(merge: true));
+  }
+
+  // ---------------------------------------------------------------------------
+  // ✅ UPDATE METHODS (UPDATED to also mirror)
+  // ---------------------------------------------------------------------------
+
+  /// ✅ Update provider (basic) + mirror (if providerUid exists)
+  Future<String?> updateProvider({
+    required String providerId,
+    required Map<String, dynamic> data,
+    String? contractorIdOverride,
+  }) async {
+    final contractorId = contractorIdOverride ?? getCurrentContractorId();
+    if (contractorId == null) return 'No authenticated contractor.';
+
+    try {
+      await _firestore
+          .collection('contractors')
+          .doc(contractorId)
+          .collection('providers')
+          .doc(providerId)
+          .update(data);
+
+      // ✅ mirror if we know providerUid
+      final providerUid = await _getProviderUid(
+        contractorId: contractorId,
+        providerDocId: providerId,
+      );
+      if (providerUid != null) {
+        await _mirrorToServiceProviders(
+          contractorId: contractorId,
+          providerDocId: providerId,
+          providerUid: providerUid,
+        );
+      }
+
+      return null;
+    } catch (e) {
+      return e.toString();
+    }
+  }
+
+  /// ✅ Update provider INCLUDING profile image bytes + mirror
+  Future<String?> updateProviderProfile({
+    required String providerId,
+    required Map<String, dynamic> data,
+    Uint8List? newProfileImageBytes,
+    String? contractorIdOverride,
+  }) async {
+    final contractorId = contractorIdOverride ?? getCurrentContractorId();
+    if (contractorId == null) return 'No authenticated contractor.';
+
+    try {
+      final updateData = Map<String, dynamic>.from(data);
+
+      if (newProfileImageBytes != null) {
+        updateData['profileImageBase64'] = base64Encode(newProfileImageBytes);
+      }
+
+      updateData['updatedAt'] = FieldValue.serverTimestamp();
+
+      await _firestore
+          .collection('contractors')
+          .doc(contractorId)
+          .collection('providers')
+          .doc(providerId)
+          .update(updateData);
+
+      // ✅ mirror if providerUid exists
+      final providerUid = await _getProviderUid(
+        contractorId: contractorId,
+        providerDocId: providerId,
+      );
+      if (providerUid != null) {
+        await _mirrorToServiceProviders(
+          contractorId: contractorId,
+          providerDocId: providerId,
+          providerUid: providerUid,
+        );
+      }
+
+      return null;
+    } catch (e) {
+      return e.toString();
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // ✅ CREATE PROVIDER (UPDATED to mirror immediately after providerUid is known)
+  // ---------------------------------------------------------------------------
+
+  /// Create provider (Option A) — same logic, just adds mirror step.
   Future<String?> createProvider({
     required String firstName,
     required String lastName,
@@ -162,7 +282,7 @@ class ContractorProvidersController {
           .toSet()
           .toList();
 
-      // 1) Write provider profile under contractor
+      // 1) Write provider profile under contractor (includes skills ✅)
       await providerRef.set({
         'firstName': firstName,
         'lastName': lastName,
@@ -236,19 +356,12 @@ class ContractorProvidersController {
         SetOptions(merge: true),
       );
 
-      // 4) Backend mirrors serviceProviders
-      try {
-        final spDoc =
-            await _firestore.collection('serviceProviders').doc(providerUid).get();
-        if (!spDoc.exists) {
-          // ignore: avoid_print
-          print(
-              "NOTE: serviceProviders/$providerUid not found yet (server may still be writing).");
-        }
-      } catch (e) {
-        // ignore: avoid_print
-        print("Skipping serviceProviders read check (likely blocked by rules): $e");
-      }
+      // 4) ✅ MIRROR NOW (this is what fixes your bottom sheet)
+      await _mirrorToServiceProviders(
+        contractorId: contractorUid,
+        providerDocId: providerRef.id,
+        providerUid: providerUid,
+      );
 
       return null; // ✅ success
     } on FirebaseAuthException catch (e) {

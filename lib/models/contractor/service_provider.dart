@@ -3,6 +3,8 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+// lib/models/contractor/service_provider.dart
+
 class ServiceProviderModel {
   final String id;
   final String firstName;

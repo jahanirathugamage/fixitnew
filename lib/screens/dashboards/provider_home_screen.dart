@@ -185,12 +185,12 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                   _TileP(
                     icon: Icons.person_outline,
                     text: "Account Information",
-                    onTap: () => _go("/provider/profile"),
+                    onTap: () => _go("/dashboards/provider/profile"),
                   ),
                   _TileP(
                     icon: Icons.lock_outline,
                     text: "Change Password",
-                    onTap: () => _go("/provider/change_password"),
+                    onTap: () => _go("/dashboards/provider/change_password"),
                   ),
 
                   const Spacer(),
