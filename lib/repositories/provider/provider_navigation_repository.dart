@@ -180,9 +180,9 @@ class ProviderNavigationRepository {
       final payload = <String, dynamic>{
         "jobId": jobId,
         "type": type,
-        if (lat != null) "lat": lat,
-        if (lng != null) "lng": lng,
-        if (etaSeconds != null) "etaSeconds": etaSeconds,
+        "lat": ?lat,
+        "lng": ?lng,
+        "etaSeconds": ?etaSeconds,
       };
 
       final res = await _client
