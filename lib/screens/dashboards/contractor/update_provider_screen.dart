@@ -347,7 +347,7 @@ class _UpdateProviderScreenState extends State<UpdateProviderScreen> {
         'skills': skillsForFs,
         'updatedAt': FieldValue.serverTimestamp(),
         'location': GeoPoint(lat, lng),
-        if (profileBase64 != null) 'profileImageBase64': profileBase64,
+        'profileImageBase64': ?profileBase64,
       };
 
       final err = await _controller.updateProvider(

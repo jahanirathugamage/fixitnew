@@ -435,11 +435,9 @@ class MyApp extends StatelessWidget {
         '/dashboards/provider_home_screen': (_) => const ProviderHomeScreen(),
         '/provider/provider_jobs': (_) => const ProviderJobsScreen(),
         '/provider/job_requests_screen': (_) => const ProviderJobRequestsScreen(),
-        '/provider/job_requests_screen': (_) =>
-            const ProviderJobRequestsScreen(),
         '/dashboards/provider/profile': (context) => const ProviderProfileScreen(),
         '/provider/change_password': (context) => const ChangeProviderPasswordScreen(),
-
+        
 
         '/admin/create_admin_account_screen': (_) =>
             const CreateAdminAccountScreen(),
