@@ -437,7 +437,7 @@ class MyApp extends StatelessWidget {
         '/provider/job_requests_screen': (_) => const ProviderJobRequestsScreen(),
         '/dashboards/provider/profile': (context) => const ProviderProfileScreen(),
         '/provider/change_password': (context) => const ChangeProviderPasswordScreen(),
-
+        
 
         '/admin/create_admin_account_screen': (_) =>
             const CreateAdminAccountScreen(),

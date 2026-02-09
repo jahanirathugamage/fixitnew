@@ -69,7 +69,7 @@ class _ServiceRequestScreenState extends State<ServiceRequestScreen> {
     final bool hasPin = _pickedLatLng != null;
 
     final String label = hasPin
-        ? 'Adjust Location on Map (optional)\n(${_pickedLatLng!.latitude.toStringAsFixed(5)}, ${_pickedLatLng!.longitude.toStringAsFixed(5)})'
+        ? 'Adjust Location on Map (optional)\n'
         : 'Pick Job Location on Map (optional)';
 
     return SizedBox(

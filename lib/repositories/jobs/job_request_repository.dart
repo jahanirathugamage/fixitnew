@@ -34,7 +34,7 @@ class JobRequestRepository {
     return _col
         .where('clientId', isEqualTo: clientUid)
         .where('status', whereIn: ['pending', 'requested', 'holding', 'declined'])
-        .orderBy('scheduledDate') // requires composite index
+        .orderBy('scheduledDate', descending: true) // requires composite index
         .snapshots()
         .map((snap) => snap.docs.map(JobRequestModel.fromDoc).toList());
   }

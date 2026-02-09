@@ -197,7 +197,7 @@ class _MatchingScreenState extends State<MatchingScreen> {
                     ),
                     const Center(
                       child: Text(
-                        'Matched Pros',
+                        'Matched Professionals',
                         style: TextStyle(
                           fontFamily: 'Montserrat',
                           fontSize: 14,

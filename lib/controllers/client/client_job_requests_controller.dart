@@ -23,7 +23,7 @@ class ClientJobRequestsController {
       list.sort((a, b) {
         final am = a.scheduledDate?.millisecondsSinceEpoch ?? 0;
         final bm = b.scheduledDate?.millisecondsSinceEpoch ?? 0;
-        return am.compareTo(bm);
+        return bm.compareTo(am); // descending order
       });
       return list;
     });

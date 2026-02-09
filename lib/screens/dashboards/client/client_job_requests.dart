@@ -9,6 +9,9 @@ import 'package:fixitnew/widgets/sheets/confirm_cancel_sheet.dart';
 import 'package:fixitnew/screens/dashboards/client/client_job_details_screen.dart';
 import 'package:fixitnew/screens/dashboards/client/client_recurring_job_details_screen.dart';
 
+// ✅ NEW: for Rematch navigation
+import 'package:fixitnew/screens/services/matching_screen.dart';
+
 class ClientJobRequestsScreen extends StatefulWidget {
   const ClientJobRequestsScreen({super.key});
 
@@ -147,6 +150,16 @@ class _ClientJobRequestsScreenState extends State<ClientJobRequestsScreen> {
                   );
                 }
 
+                void openRematch() {
+                  // ✅ Show Matched Professionals again for THIS job request
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => MatchingScreen(jobId: j.id),
+                    ),
+                  );
+                }
+
                 return Column(
                   children: [
                     Row(
@@ -179,7 +192,6 @@ class _ClientJobRequestsScreenState extends State<ClientJobRequestsScreen> {
                                     icon: Icons.home_repair_service,
                                     text: category,
                                   ),
-
                                   if (j.isRecurring) ...[
                                     const SizedBox(height: 8),
                                     _recurringPill(),
@@ -200,9 +212,7 @@ class _ClientJobRequestsScreenState extends State<ClientJobRequestsScreen> {
                                   width: 120,
                                   height: 36,
                                   child: ElevatedButton(
-                                    onPressed: () {
-                                      // as requested: rematch does nothing for now
-                                    },
+                                    onPressed: openRematch,
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: Colors.black,
                                       foregroundColor: Colors.white,
