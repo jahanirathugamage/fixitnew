@@ -56,22 +56,21 @@ class ServiceRequestRepository {
       (total, item) => total + item.lineTotal,
     );
 
-    final int platformFee = (serviceTotal * 0.02).round();
+    // ✅ Recurring platform fee = 4%, normal = 2%
+    final double feeRate = isRecurring ? 0.04 : 0.02;
+    final int platformFee = (serviceTotal * feeRate).round();
+
     final int totalAmount = serviceTotal + visitationFee + platformFee;
 
     final docRef = _firestore.collection('jobRequest').doc();
 
-    // ✅ If recurring: decide the startAt to store (default = scheduledAt)
     final DateTime effectiveStartAt = startAt ?? scheduledAt;
 
-    // ✅ Build payload ONCE (so client create rule passes, no later merge needed)
     final Map<String, dynamic> payload = {
-      // 🔹 Identity
       'jobId': docRef.id,
       'clientId': user.uid,
-      'clientName': clientName, // ✅ IMPORTANT
+      'clientName': clientName,
 
-      // 🔹 Job details
       'category': category,
       'categoryNormalized': category.trim().toLowerCase(),
 
@@ -83,7 +82,6 @@ class ServiceRequestRepository {
       'languagePrefs': languages,
       'tasks': items.map((e) => e.toMap()).toList(),
 
-      // 🔹 Pricing
       'pricing': {
         'serviceTotal': serviceTotal,
         'visitationFee': visitationFee,
@@ -91,31 +89,27 @@ class ServiceRequestRepository {
         'totalAmount': totalAmount,
       },
 
-      // 🔹 Status & timestamps
       'status': 'pending',
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     };
 
-    // ✅ Recurring add-ons (only when isRecurring == true)
     if (isRecurring) {
       payload['isRecurring'] = true;
       payload['isRecurringRequest'] = true;
       payload['recurrence'] = {
-        'preferredDay': preferredDay, // e.g. "Tuesday"
-        'frequency': frequency, // e.g. "1 week"
-        'horizonCount': horizonCount, // e.g. 6
+        'preferredDay': preferredDay,
+        'frequency': frequency, // IMPORTANT: backend reads recurrence.frequency
+        'horizonCount': horizonCount,
         'startAt': Timestamp.fromDate(effectiveStartAt),
       };
     } else {
-      // Optional explicit defaults (safe)
       payload['isRecurring'] = false;
       payload['isRecurringRequest'] = false;
     }
 
     try {
       await docRef.set(payload);
-
       // ignore: avoid_print
       print('🔥 jobRequest saved with id: ${docRef.id}');
       return docRef.id;

@@ -59,7 +59,6 @@ class ContractingFirmsInformationScreen extends StatelessWidget {
 
           return ListView.separated(
             itemCount: firms.length,
-            separatorBuilder: (_, _) => const Divider(height: 1), // ✅ FIXED
             separatorBuilder: (context, index) => const Divider(height: 1),
             itemBuilder: (context, i) {
               final firm = firms[i];

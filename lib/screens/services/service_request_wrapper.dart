@@ -102,7 +102,7 @@ class ServiceRequestWrapper {
 
   // ------------ Electrical -------------
   static const ServiceConfig electricalConfig = ServiceConfig(
-    category: "electrical",
+    category: "Electrical",
     title: "Electrical",
     services: [
       ServiceOption(
@@ -145,7 +145,7 @@ class ServiceRequestWrapper {
 
   // ------------- Carpentry -------------
   static const ServiceConfig carpentryConfig = ServiceConfig(
-    category: "carpentry",
+    category: "Carpentry",
     title: "Carpentry",
     services: [
       ServiceOption(
@@ -198,7 +198,7 @@ class ServiceRequestWrapper {
 
   // ------------- Gardening -------------
   static const ServiceConfig gardeningConfig = ServiceConfig(
-    category: "gardening",
+    category: "Gardening",
     title: "Gardening",
     services: [
       ServiceOption(
@@ -246,7 +246,7 @@ class ServiceRequestWrapper {
 
   // ---------- Pest Control ----------
   static const ServiceConfig pestControlConfig = ServiceConfig(
-    category: "pest_control",
+    category: "Pest_Control",
     title: "Pest Control",
     services: [
       ServiceOption(
@@ -284,7 +284,7 @@ class ServiceRequestWrapper {
 
   // ------------- Appliances -------------
   static const ServiceConfig appliancesConfig = ServiceConfig(
-    category: "appliances",
+    category: "Appliances",
     title: "Appliances",
     services: [
       ServiceOption(
@@ -332,7 +332,7 @@ class ServiceRequestWrapper {
 
   // ------------- Cleaning -------------
   static const ServiceConfig cleaningConfig = ServiceConfig(
-    category: "cleaning",
+    category: "Cleaning",
     title: "Cleaning",
     services: [
       ServiceOption(

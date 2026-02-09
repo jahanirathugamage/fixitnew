@@ -90,6 +90,17 @@ class _HomeClientState extends State<HomeClient> {
     return null;
   }
 
+  // ✅ Recurring Services tile action (safe, won't crash if route is missing)
+  void _openScheduledServices() {
+    try {
+      Navigator.pushNamed(context, '/dashboards/client/scheduled_services');
+    } catch (_) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Scheduled Services screen is not available yet.')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final profileImageProvider = _buildProfileImageProvider();
@@ -112,7 +123,6 @@ class _HomeClientState extends State<HomeClient> {
         elevation: 0,
         centerTitle: true,
       ),
-
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -138,7 +148,6 @@ class _HomeClientState extends State<HomeClient> {
                         : null,
                   ),
                   const SizedBox(width: 14),
-
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -226,6 +235,50 @@ class _HomeClientState extends State<HomeClient> {
             ),
 
             if (_settings == null) const SizedBox(height: 2),
+
+            // ✅ Divider like mock
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 22),
+              child: Divider(
+                height: 26,
+                thickness: 1,
+                color: Color(0xFFE7E7E7),
+              ),
+            ),
+
+            // ----------------------- RECURRING SERVICES (matches mock) -----------------------
+            const Padding(
+              padding: EdgeInsets.fromLTRB(22, 6, 22, 6),
+              child: Text(
+                "Recurring Services",
+                style: TextStyle(
+                  fontFamily: 'Montserrat',
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.black,
+                ),
+              ),
+            ),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(22, 0, 22, 10),
+              child: Text(
+                "Recurring Services Management",
+                style: TextStyle(
+                  fontFamily: 'Montserrat',
+                  fontSize: 11.5,
+                  color: Color(0xFF8A8A8A),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+
+            InkWell(
+              onTap: _openScheduledServices,
+              child: const _TileC(
+                icon: Icons.event_note_outlined,
+                text: 'Scheduled Services',
+              ),
+            ),
 
             const Spacer(),
 

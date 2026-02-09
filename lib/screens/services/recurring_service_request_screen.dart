@@ -1,7 +1,6 @@
 // lib/screens/services/recurring_service_request_screen.dart
 // ignore_for_file: use_build_context_synchronously
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -39,8 +38,6 @@ class RecurringServiceRequestScreen extends StatefulWidget {
     final k = (key ?? '').trim().toLowerCase();
 
     if (!_allowedRecurringKeys.contains(k)) {
-      // ✅ Safe fallback so app doesn't crash
-      // (Ideally you should not navigate here with other categories)
       return ServiceRequestWrapper.cleaningConfig;
     }
 
@@ -52,7 +49,6 @@ class RecurringServiceRequestScreen extends StatefulWidget {
       case 'pest_control':
         return ServiceRequestWrapper.pestControlConfig;
       case 'cleaning':
-        return ServiceRequestWrapper.cleaningConfig;
       default:
         return ServiceRequestWrapper.cleaningConfig;
     }
@@ -67,7 +63,6 @@ class _RecurringServiceRequestScreenState
     extends State<RecurringServiceRequestScreen> {
   final ServiceRequestController _controller = ServiceRequestController();
 
-  // Location text (optional)
   final TextEditingController locationController = TextEditingController();
 
   // ✅ Pin location (required)
@@ -96,7 +91,7 @@ class _RecurringServiceRequestScreenState
   ];
   static const List<String> _daysShort = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-  String _preferredDay = "Tuesday"; // default selected like mock
+  String _preferredDay = "Tuesday";
 
   static const List<String> _frequencies = [
     "1 week",
@@ -106,7 +101,7 @@ class _RecurringServiceRequestScreenState
     "2 months",
     "3 months",
   ];
-  String? _frequency; // show "Repeat Interval" until chosen (like mock)
+  String? _frequency;
 
   // ✅ Used by backend for recurring availability horizon
   final int _horizonCount = 6;
@@ -115,7 +110,6 @@ class _RecurringServiceRequestScreenState
   void initState() {
     super.initState();
 
-    // ✅ If someone navigates here with a non-recurring category config, gently block usage
     final cat = widget.config.category.trim().toLowerCase();
     const allowedCats = {'gardening', 'cleaning', 'ac', 'pest_control'};
     if (!allowedCats.contains(cat)) {
@@ -198,7 +192,7 @@ class _RecurringServiceRequestScreenState
   void _onSchedulePressed() => _openScheduleBottomSheet();
   void _onLanguagePressed() => _openLanguageBottomSheet();
 
-  // ---------- TIME PICKER (inside schedule sheet) ----------
+  // ---------- TIME PICKER ----------
   Future<void> _selectTime(
     BuildContext sheetContext,
     StateSetter modalSetState,
@@ -231,7 +225,7 @@ class _RecurringServiceRequestScreenState
     }
   }
 
-  // ---------- SCHEDULE SHEET (mock #5) ----------
+  // ---------- SCHEDULE SHEET ----------
   void _openScheduleBottomSheet() {
     showModalBottomSheet(
       context: context,
@@ -542,7 +536,7 @@ class _RecurringServiceRequestScreenState
     );
   }
 
-  // ---------- LANGUAGE SHEET (from ServiceRequestScreen) ----------
+  // ---------- LANGUAGE SHEET ----------
   void _openLanguageBottomSheet() {
     showModalBottomSheet(
       context: context,
@@ -670,7 +664,7 @@ class _RecurringServiceRequestScreenState
     );
   }
 
-  // ---------- MOCK TASKS: force exact labels like your screenshots ----------
+  // ---------- MOCK TASKS ----------
   List<ServiceOption> _servicesForMock() {
     final cat = widget.config.category.trim().toLowerCase();
 
@@ -714,20 +708,16 @@ class _RecurringServiceRequestScreenState
       ];
     }
 
-    // Should never happen due to initState guard, but keep safe
     return const [];
   }
 
   int _getPriceForService(String label) {
-    // prefer real config prices if label exists there
     final fromConfig = widget.config.services.where((s) => s.label == label);
     if (fromConfig.isNotEmpty) return fromConfig.first.price;
-
-    // fallback: if we forced mock list with price 0, keep 0
     return 0;
   }
 
-  // ---------- VALIDATION + SUMMARY SHEET (mock #6) ----------
+  // ---------- VALIDATION + SUMMARY SHEET ----------
   void _onContinuePressed() {
     if (_pickedLatLng == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -755,19 +745,6 @@ class _RecurringServiceRequestScreenState
 
   String _two(int n) => n.toString().padLeft(2, '0');
 
-  Map<String, dynamic> _parseFrequency(String label) {
-    // label examples: "1 week", "2 weeks", "1 month", "3 months"
-    final parts = label.trim().toLowerCase().split(' ');
-    final count = int.tryParse(parts.first) ?? 1;
-    final unitRaw = parts.length > 1 ? parts[1] : 'week';
-    final unit = unitRaw.startsWith('month') ? 'month' : 'week';
-    return {
-      'intervalCount': count,
-      'intervalUnit': unit, // "week" | "month"
-      'label': label,
-    };
-  }
-
   void _openRequestSummaryBottomSheet() {
     final List<ServiceRequestItem> items = _selectedServices
         .map(
@@ -794,7 +771,8 @@ class _RecurringServiceRequestScreenState
               (total, item) => total + item.unitPrice * item.quantity,
             );
 
-            final int platformFee = (serviceTotal * 0.02).round();
+            // ✅ Recurring platform fee = 4%
+            final int platformFee = (serviceTotal * 0.04).round();
             final int totalAmount = serviceTotal + visitationFee + platformFee;
 
             void updateQuantity(int index, int delta) {
@@ -818,6 +796,14 @@ class _RecurringServiceRequestScreenState
                 }
               });
             }
+
+            final DateTime scheduledAt = DateTime(
+              _startDate.year,
+              _startDate.month,
+              _startDate.day,
+              _startTime.hour,
+              _startTime.minute,
+            );
 
             final String startLine =
                 "$_preferredDay · Starting from ${_two(_startDate.day)}/${_two(_startDate.month)}/${_startDate.year}";
@@ -1151,29 +1137,18 @@ class _RecurringServiceRequestScreenState
                                 : () async {
                                     modalSetState(() => isSaving = true);
 
-                                    final DateTime scheduledAt = DateTime(
-                                      _startDate.year,
-                                      _startDate.month,
-                                      _startDate.day,
-                                      _startTime.hour,
-                                      _startTime.minute,
-                                    );
-
                                     final List<String> languages = [
                                       if (_englishSelected) 'english',
                                       if (_sinhalaSelected) 'sinhala',
                                       if (_tamilSelected) 'tamil',
                                     ];
 
-                                    final freq = _parseFrequency((_frequency ?? '').trim());
-
                                     try {
                                       final lat = _pickedLatLng!.latitude;
                                       final lng = _pickedLatLng!.longitude;
 
-                                      // ✅ Step 1: create base job (scheduled)
-                                      // NOTE: we keep your existing controller method to avoid breaking existing code.
-                                      final String jobId = await _controller.createPlumbingJob(
+                                      // ✅ SINGLE WRITE: create recurring job with recurrence fields included
+                                      final String jobId = await _controller.createServiceJobRequest(
                                         locationText: locationController.text.trim(),
                                         latitude: lat,
                                         longitude: lng,
@@ -1183,39 +1158,19 @@ class _RecurringServiceRequestScreenState
                                         items: items,
                                         visitationFee: visitationFee,
                                         category: widget.config.category,
-                                      );
 
-                                      // ✅ Step 2: merge recurrence fields
-                                      // If this fails due to Firestore rules, you'll see it in debug + snackbar.
-                                      await FirebaseFirestore.instance
-                                          .collection('jobRequest')
-                                          .doc(jobId)
-                                          .set(
-                                        {
-                                          "requestType": "recurring",
-                                          "isRecurring": true,
-                                          "isRecurringRequest": true,
-                                          "recurrence": {
-                                            "preferredDay": _preferredDay,
-                                            "frequencyLabel": freq['label'],
-                                            "intervalCount": freq['intervalCount'],
-                                            "intervalUnit": freq['intervalUnit'], // week/month
-                                            "horizonCount": _horizonCount,
-                                            "startAt": Timestamp.fromDate(scheduledAt),
-                                          },
-                                          "updatedAt": FieldValue.serverTimestamp(),
-                                        },
-                                        SetOptions(merge: true),
+                                        // recurring
+                                        isRecurring: true,
+                                        preferredDay: _preferredDay,
+                                        frequency: (_frequency ?? '').trim(), // keep "1 week" etc
+                                        horizonCount: _horizonCount,
+                                        startAt: scheduledAt,
                                       );
-
-                                      debugPrint("✅ Recurring job created + recurrence saved: $jobId");
 
                                       if (!mounted) return;
 
-                                      // Close sheet first (rootNavigator is safer)
                                       Navigator.of(sheetContext, rootNavigator: true).pop();
 
-                                      // Then navigate
                                       Future.microtask(() {
                                         if (!mounted) return;
                                         Navigator.of(context).pushReplacement(
@@ -1225,15 +1180,12 @@ class _RecurringServiceRequestScreenState
                                         );
                                       });
                                     } catch (e) {
-                                      debugPrint("❌ Failed to create recurring request: $e");
                                       modalSetState(() => isSaving = false);
                                       if (!mounted) return;
 
                                       ScaffoldMessenger.of(context).showSnackBar(
                                         SnackBar(
-                                          content: Text(
-                                            'Failed to create recurring request: $e',
-                                          ),
+                                          content: Text('Failed to create recurring request: $e'),
                                         ),
                                       );
                                     }
@@ -1277,7 +1229,7 @@ class _RecurringServiceRequestScreenState
     );
   }
 
-  // ---------- MAIN BUILD (matches your mock layout) ----------
+  // ---------- MAIN BUILD ----------
   @override
   Widget build(BuildContext context) {
     final services = _servicesForMock();
@@ -1287,7 +1239,6 @@ class _RecurringServiceRequestScreenState
       body: SafeArea(
         child: Column(
           children: [
-            // Header
             Padding(
               padding: const EdgeInsets.all(20.0),
               child: Stack(
@@ -1318,7 +1269,6 @@ class _RecurringServiceRequestScreenState
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // top pills
                       Row(
                         children: [
                           Expanded(
@@ -1341,7 +1291,6 @@ class _RecurringServiceRequestScreenState
 
                       const SizedBox(height: 16),
 
-                      // location input (mock says Enter Location)
                       TextField(
                         controller: locationController,
                         decoration: InputDecoration(
@@ -1375,7 +1324,6 @@ class _RecurringServiceRequestScreenState
 
                       const SizedBox(height: 12),
 
-                      // ✅ keep pin picker (required)
                       _locationPinPicker(),
 
                       const SizedBox(height: 30),
@@ -1435,7 +1383,6 @@ class _RecurringServiceRequestScreenState
               ),
             ),
 
-            // Continue button
             Padding(
               padding: const EdgeInsets.all(20.0),
               child: SizedBox(
@@ -1469,7 +1416,7 @@ class _RecurringServiceRequestScreenState
   }
 }
 
-// ---------- SHARED WIDGETS (same style as your ServiceRequestScreen) ----------
+// ---------- SHARED WIDGETS ----------
 
 class BackButtonWidget extends StatefulWidget {
   const BackButtonWidget({super.key});

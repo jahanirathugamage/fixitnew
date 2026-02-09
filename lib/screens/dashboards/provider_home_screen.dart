@@ -193,6 +193,49 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                     onTap: () => _go("/dashboards/provider/change_password"),
                   ),
 
+                  // ✅ Divider between sections (matches mock spacing)
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(22, 10, 22, 10),
+                    child: Divider(
+                      height: 1,
+                      thickness: 1,
+                      color: Color(0xFFE7E7E7),
+                    ),
+                  ),
+
+                  // ✅ SECTION TITLE (Recurring Services)
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(22, 10, 22, 6),
+                    child: Text(
+                      "Recurring Services",
+                      style: TextStyle(
+                        fontFamily: 'Montserrat',
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.black,
+                      ),
+                    ),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(22, 0, 22, 10),
+                    child: Text(
+                      "Recurring Services Management",
+                      style: TextStyle(
+                        fontFamily: 'Montserrat',
+                        fontSize: 11.5,
+                        color: Color(0xFF8A8A8A),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+
+                  // ✅ TILE (Scheduled Services)
+                  _TileP(
+                    icon: Icons.event_available_outlined,
+                    text: "Scheduled Services",
+                    onTap: () => _go("/dashboards/provider/scheduled_services"),
+                  ),
+
                   const Spacer(),
 
                   // LOGOUT BUTTON (matches mock)

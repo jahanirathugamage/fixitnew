@@ -46,7 +46,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
       Navigator.of(context).pop();
       return;
     }
-    Navigator.of(context).pushReplacementNamed('/provider/home');
+    Navigator.of(context).pushReplacementNamed('/dashboard/provider_home_screen');
   }
 
   @override

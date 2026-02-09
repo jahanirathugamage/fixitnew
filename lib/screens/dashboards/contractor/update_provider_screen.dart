@@ -9,7 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:latlong2/latlong.dart';
 
-import 'package:fixitnew/controllers/contractor/contractor_providers_controller.dart'; 
+import 'package:fixitnew/controllers/contractor/contractor_providers_controller.dart';
 import 'package:fixitnew/screens/profile/pick_location_screen.dart';
 import 'package:fixitnew/widgets/nav/contractor_bottom_nav.dart';
 
@@ -347,7 +347,7 @@ class _UpdateProviderScreenState extends State<UpdateProviderScreen> {
         'skills': skillsForFs,
         'updatedAt': FieldValue.serverTimestamp(),
         'location': GeoPoint(lat, lng),
-        if (profileBase64 != null) 'profileImageBase64': profileBase64,
+        'profileImageBase64': ?profileBase64,
       };
 
       final err = await _controller.updateProvider(
@@ -849,6 +849,21 @@ class _UpdateProviderScreenState extends State<UpdateProviderScreen> {
     );
   }
 
+  // ✅ Fixes: use_null_aware_elements lint
+  List<Widget>? _errorWidgets(String? error) {
+    return error == null
+        ? null
+        : <Widget>[
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Text(
+                error,
+                style: const TextStyle(color: Colors.red),
+              ),
+            ),
+          ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final args = ModalRoute.of(context)?.settings.arguments;
@@ -936,14 +951,10 @@ class _UpdateProviderScreenState extends State<UpdateProviderScreen> {
                           _sectionTitle('Languages'),
                           const SizedBox(height: 8),
                           ..._languages.keys.map((lang) => _langCheckbox(lang)),
-                          if (_error != null)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 12),
-                              child: Text(
-                                _error!,
-                                style: const TextStyle(color: Colors.red),
-                              ),
-                            ),
+
+                          // ✅ null-aware element spread (fixes lint)
+                          ...?_errorWidgets(_error),
+
                           const SizedBox(height: 28),
                           _doneButton(),
                           const SizedBox(height: 24),
