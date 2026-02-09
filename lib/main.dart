@@ -24,8 +24,6 @@ import 'package:fixitnew/screens/profile/profile_client_screen.dart';
 import 'package:fixitnew/screens/profile/profile_contractor_full_screen.dart';
 import 'package:fixitnew/screens/profile/add_provider_screen.dart';
 
-
-
 // DASHBOARDS – CLIENT
 import 'package:fixitnew/screens/dashboards/home_client.dart';
 import 'package:fixitnew/screens/dashboards/client/home_screen.dart';
@@ -34,6 +32,12 @@ import 'package:fixitnew/screens/dashboards/client/change_client_password.dart';
 import 'package:fixitnew/screens/dashboards/client/update_client_profile.dart';
 import 'package:fixitnew/screens/dashboards/client/client_job_requests.dart';
 import 'package:fixitnew/screens/dashboards/client/client_job_details_screen.dart';
+
+// ✅ NEW: Recurring screens (Client + Provider)
+import 'package:fixitnew/screens/dashboards/client/client_recurring_jobs_screen.dart';
+import 'package:fixitnew/screens/dashboards/client/client_recurring_job_details_screen.dart';
+import 'package:fixitnew/screens/dashboards/provider/provider_recurring_jobs_screen.dart';
+import 'package:fixitnew/screens/dashboards/provider/provider_recurring_job_details_screen.dart';
 
 // DASHBOARDS – CONTRACTOR
 import 'package:fixitnew/screens/dashboards/home_contractor.dart';
@@ -148,6 +152,42 @@ class MyApp extends StatelessWidget {
           settings: settings,
         );
 
+      // ✅ NEW: Client recurring details route
+      case '/client/recurring_job_details':
+        final jobId = _extractJobId(settings);
+        if (jobId != null) {
+          return MaterialPageRoute(
+            builder: (_) => ClientRecurringJobDetailsScreen(jobId: jobId),
+            settings: settings,
+          );
+        }
+        return MaterialPageRoute(
+          builder: (_) => const _RouteErrorScreen(
+            message:
+                "Missing or invalid jobId for '/client/recurring_job_details'.\n\n"
+                "Fix:\nNavigator.pushNamed(context, '/client/recurring_job_details', arguments: jobId);",
+          ),
+          settings: settings,
+        );
+
+      // ✅ NEW: Provider recurring details route
+      case '/provider/recurring_job_details':
+        final jobId = _extractJobId(settings);
+        if (jobId != null) {
+          return MaterialPageRoute(
+            builder: (_) => ProviderRecurringJobDetailsScreen(jobId: jobId),
+            settings: settings,
+          );
+        }
+        return MaterialPageRoute(
+          builder: (_) => const _RouteErrorScreen(
+            message:
+                "Missing or invalid jobId for '/provider/recurring_job_details'.\n\n"
+                "Fix:\nNavigator.pushNamed(context, '/provider/recurring_job_details', arguments: jobId);",
+          ),
+          settings: settings,
+        );
+
       case '/admin/contractor_approval_detail_screen':
         final args = settings.arguments;
         if (args is String && args.trim().isNotEmpty) {
@@ -166,7 +206,6 @@ class MyApp extends StatelessWidget {
           settings: settings,
         );
 
-      
       // ✅ NEW: Contractor Firm Info detail (Admin)
       case '/admin/contractor_firm_information_screen':
         final args = settings.arguments;
@@ -257,7 +296,7 @@ class MyApp extends StatelessWidget {
           settings: settings,
         );
 
-      // ✅ NEW: Provider invoice details (USES the import, fixes the warning)
+      // ✅ NEW: Provider invoice details
       case '/provider/invoice_details':
         final jobId = _extractJobId(settings);
         if (jobId != null) {
@@ -275,7 +314,7 @@ class MyApp extends StatelessWidget {
           settings: settings,
         );
 
-      // ✅ NEW: Updated Job Details routes (works with String OR {jobId: ...})
+      // ✅ Updated Job Details routes (works with String OR {jobId: ...})
       case '/updated_job_details_client':
         final jobId = _extractJobId(settings);
         if (jobId != null) {
@@ -336,7 +375,7 @@ class MyApp extends StatelessWidget {
           settings: settings,
         );
 
-      // ✅ FIX: Provider confirm visitation fee route -> Updated job details (provider)
+      // ✅ Provider confirm visitation fee route -> Updated job details (provider)
       case '/provider/confirm_visitation_fee':
         final jobId = _extractJobId(settings);
         if (jobId != null) {
@@ -357,7 +396,7 @@ class MyApp extends StatelessWidget {
           settings: settings,
         );
 
-      // ✅ FIX: Provider confirm final payment route -> Updated job details (provider)
+      // ✅ Provider confirm final payment route -> Updated job details (provider)
       case '/provider/confirm_final_payment':
         final jobId = _extractJobId(settings);
         if (jobId != null) {
@@ -406,7 +445,6 @@ class MyApp extends StatelessWidget {
         '/profile_client': (_) => const ProfileClientScreen(),
         '/profile_contractor_full': (_) => const ProfileContractorFullScreen(),
         '/profile/add_provider_screen': (_) => const AddProviderScreen(),
-        
 
         '/dashboards/home_client': (_) => const HomeClient(),
         '/dashboards/client/home_screen': (_) => const HomeScreen(),
@@ -417,6 +455,10 @@ class MyApp extends StatelessWidget {
             const UpdateClientProfile(),
         '/dashboards/client/change_client_password': (_) =>
             const ChangeClientPasswordScreen(),
+
+        // ✅ Recurring list routes
+        '/client/recurring_jobs': (_) => const ClientRecurringJobsScreen(),
+        '/provider/recurring_jobs': (_) => const ProviderRecurringJobsScreen(),
 
         '/dashboards/home_contractor': (_) => const HomeContractor(),
         '/dashboards/contractor/contractor_account_info': (_) =>
@@ -435,9 +477,8 @@ class MyApp extends StatelessWidget {
         '/dashboards/provider_home_screen': (_) => const ProviderHomeScreen(),
         '/provider/provider_jobs': (_) => const ProviderJobsScreen(),
         '/provider/job_requests_screen': (_) => const ProviderJobRequestsScreen(),
-        '/dashboards/provider/profile': (context) => const ProviderProfileScreen(),
-        '/provider/change_password': (context) => const ChangeProviderPasswordScreen(),
-        
+        '/dashboards/provider/profile': (_) => const ProviderProfileScreen(),
+        '/provider/change_password': (_) => const ChangeProviderPasswordScreen(),
 
         '/admin/create_admin_account_screen': (_) =>
             const CreateAdminAccountScreen(),
@@ -450,7 +491,6 @@ class MyApp extends StatelessWidget {
         '/admin/admin_change_password_screen': (_) =>
             const AdminChangePasswordScreen(),
 
-        // ✅ ADDED: Admin Audit Logs Screen route
         '/admin/admin_logs_screen': (_) => const AdminLogsScreen(),
 
         '/service/ac': (_) =>
@@ -593,6 +633,7 @@ class VerifyEmailScreen extends StatelessWidget {
             ElevatedButton(
               onPressed: () async {
                 await user?.sendEmailVerification();
+                if (!context.mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Verification email sent')),
                 );
@@ -602,6 +643,7 @@ class VerifyEmailScreen extends StatelessWidget {
             TextButton(
               onPressed: () async {
                 await FirebaseAuth.instance.signOut();
+                if (!context.mounted) return;
                 Navigator.pushReplacementNamed(context, '/login');
               },
               child: const Text('Logout'),
@@ -654,6 +696,7 @@ class ContractorPendingApprovalScreen extends StatelessWidget {
               child: OutlinedButton(
                 onPressed: () async {
                   await FirebaseAuth.instance.signOut();
+                  if (!context.mounted) return;
                   Navigator.pushNamedAndRemoveUntil(
                     context,
                     '/login',
@@ -725,6 +768,7 @@ class ContractorRejectedScreen extends StatelessWidget {
               child: OutlinedButton(
                 onPressed: () async {
                   await FirebaseAuth.instance.signOut();
+                  if (!context.mounted) return;
                   Navigator.pushNamedAndRemoveUntil(
                     context,
                     '/login',

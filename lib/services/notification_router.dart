@@ -1,4 +1,5 @@
 // lib/services/notification_router.dart
+// UPDATED FILE
 
 import 'dart:async';
 import 'package:flutter/widgets.dart';
@@ -13,13 +14,22 @@ class NotificationRouter {
 
   RemoteMessage? _pending;
 
-  // ✅ NEW: Image 5 trigger
+  // ✅ Existing: Image 5 trigger (thank-you)
   bool _pendingClientThankYou = false;
 
   bool consumeClientThankYou() {
     final v = _pendingClientThankYou;
     _pendingClientThankYou = false;
     return v;
+  }
+
+  // ✅ NEW: Recurring (provider ended) sheet trigger (Image 5 equivalent for recurring)
+  String? _pendingClientRecurringEndedJobId;
+
+  bool consumeClientRecurringEnded(String jobId) {
+    final match = (_pendingClientRecurringEndedJobId ?? '').trim() == jobId.trim();
+    if (match) _pendingClientRecurringEndedJobId = null;
+    return match;
   }
 
   void init(GlobalKey<NavigatorState> navigatorKey) {
@@ -140,6 +150,13 @@ class NotificationRouter {
     // ✅ Contractor routing back to jobs list
     if (type == 'contractor_quotation_accepted' || type == 'contractor_quotation_declined') {
       nav.pushNamedAndRemoveUntil('/dashboards/contractor/contractor_jobs_screen', (r) => false);
+      return;
+    }
+
+    // ✅ NEW: Provider ended recurring service -> open recurring details and show bottom sheet
+    if (type == 'client_recurring_provider_ended' && jobId.isNotEmpty) {
+      _pendingClientRecurringEndedJobId = jobId;
+      nav.pushNamed('/client/recurring_job_details', arguments: jobId);
       return;
     }
   }

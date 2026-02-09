@@ -90,15 +90,9 @@ class _HomeClientState extends State<HomeClient> {
     return null;
   }
 
-  // ✅ Recurring Services tile action (safe, won't crash if route is missing)
+  // ✅ Recurring Services tile action -> Client Recurring Jobs list
   void _openScheduledServices() {
-    try {
-      Navigator.pushNamed(context, '/dashboards/client/scheduled_services');
-    } catch (_) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Scheduled Services screen is not available yet.')),
-      );
-    }
+    Navigator.pushNamed(context, '/client/recurring_jobs');
   }
 
   @override

@@ -190,7 +190,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                   _TileP(
                     icon: Icons.lock_outline,
                     text: "Change Password",
-                    onTap: () => _go("/dashboards/provider/change_password"),
+                    onTap: () => _go("/provider/change_password"),
                   ),
 
                   // ✅ Divider between sections (matches mock spacing)
@@ -229,11 +229,11 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                     ),
                   ),
 
-                  // ✅ TILE (Scheduled Services)
+                  // ✅ TILE (Recurring Jobs list)
                   _TileP(
                     icon: Icons.event_available_outlined,
                     text: "Scheduled Services",
-                    onTap: () => _go("/dashboards/provider/scheduled_services"),
+                    onTap: () => _go("/provider/recurring_jobs"),
                   ),
 
                   const Spacer(),
