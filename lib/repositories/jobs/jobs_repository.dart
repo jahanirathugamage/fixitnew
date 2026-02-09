@@ -14,6 +14,7 @@ class JobsRepository {
   Stream<List<JobModel>> watchByClientUid(String clientUid) {
     return _col
         .where('clientId', isEqualTo: clientUid)
+        .orderBy('scheduledDate', descending: true)
         .snapshots()
         .map((snap) => snap.docs.map(JobModel.fromDoc).toList());
   }

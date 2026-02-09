@@ -1,5 +1,6 @@
 // lib\screens\services\matching_screen.dart
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -148,6 +149,29 @@ class _MatchingScreenState extends State<MatchingScreen> {
       ),
     );
   }
+
+  bool _looksLikeUrl(String s) {
+    final t = s.trim().toLowerCase();
+    return t.startsWith('http://') || t.startsWith('https://');
+  }
+
+  Uint8List? _tryDecodeBase64(String s) {
+    var t = s.trim();
+    if (t.isEmpty) return null;
+
+    // handle data URI: data:image/jpeg;base64,....
+    final comma = t.indexOf(',');
+    if (t.startsWith('data:') && comma != -1) {
+      t = t.substring(comma + 1);
+    }
+
+    try {
+      return base64Decode(t);
+    } catch (_) {
+      return null;
+    }
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -307,11 +331,34 @@ class _MatchingScreenState extends State<MatchingScreen> {
                                   width: 54,
                                   height: 54,
                                   color: Colors.grey.shade200,
-                                  child: (photoUrl != null)
-                                      ? Image.network(photoUrl,
-                                          fit: BoxFit.cover)
-                                      : const Icon(Icons.person,
-                                          size: 28, color: Colors.black),
+                                  child: () {
+                                    final raw = (photoUrl ?? '').trim();
+                                    if (raw.isEmpty) {
+                                      return const Icon(Icons.person, size: 28, color: Colors.black);
+                                    }
+
+                                    if (_looksLikeUrl(raw)) {
+                                      return Image.network(
+                                        raw,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, _, _) =>
+                                            const Icon(Icons.person, size: 28, color: Colors.black),
+                                      );
+                                    }
+
+                                    final bytes = _tryDecodeBase64(raw);
+                                    if (bytes != null) {
+                                      return Image.memory(
+                                        bytes,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, _, _) =>
+                                            const Icon(Icons.person, size: 28, color: Colors.black),
+                                      );
+                                    }
+
+                                    return const Icon(Icons.person, size: 28, color: Colors.black);
+                                  }(),
+
                                 ),
                               ),
                               const SizedBox(width: 12),
