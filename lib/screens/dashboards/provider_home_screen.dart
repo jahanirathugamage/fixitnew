@@ -4,6 +4,9 @@ import 'package:fixitnew/controllers/provider/provider_home_controller.dart';
 import 'package:fixitnew/models/provider/provider_dashboard_model.dart';
 import 'package:fixitnew/widgets/nav/provider_bottom_nav.dart';
 
+// ✅ NEW: Rating sheet
+import 'package:fixitnew/widgets/sheets/rating_review_sheet.dart';
+
 class ProviderHomeScreen extends StatefulWidget {
   const ProviderHomeScreen({super.key});
 
@@ -18,24 +21,38 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
   bool _loading = true;
   String? _error;
 
+  bool _ratingShownOnce = false;
+
   @override
   void initState() {
     super.initState();
     _loadProviderData();
-
-    // ✅ Only enable this temporarily if you are debugging tokens
-    //_printIdToken();
   }
 
-  // Future<void> _printIdToken() async {
-  //   final user = FirebaseAuth.instance.currentUser;
-  //   if (user == null) {
-  //     debugPrint("❌ No user logged in.");
-  //     return;
-  //   }
-  //   final token = await user.getIdToken(true); // true = force refresh
-  //   debugPrint("✅ ID TOKEN: $token");
-  // }
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    final args = ModalRoute.of(context)?.settings.arguments;
+    if (args is Map) {
+      final showRating = args['showRating'] == true ||
+          (args['showRating']?.toString().toLowerCase() == 'true');
+      final jobId = (args['jobId'] ?? '').toString().trim();
+      final role = (args['role'] ?? 'provider').toString().trim().toLowerCase();
+
+      if (showRating && jobId.isNotEmpty && !_ratingShownOnce) {
+        _ratingShownOnce = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) async {
+          if (!mounted) return;
+          await RatingReviewSheet.show(
+            context: context,
+            jobId: jobId,
+            role: role,
+          );
+        });
+      }
+    }
+  }
 
   Future<void> _loadProviderData() async {
     try {
@@ -65,7 +82,6 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
 
-      // SETTINGS HEADER
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
@@ -89,7 +105,6 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                 children: [
                   const SizedBox(height: 8),
 
-                  // PROFILE HEADER (matches mock)
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 22),
                     child: Row(
@@ -155,7 +170,6 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                       ),
                     ),
 
-                  // SECTION TITLE (Account)
                   const Padding(
                     padding: EdgeInsets.fromLTRB(22, 14, 22, 6),
                     child: Text(
@@ -181,7 +195,6 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                     ),
                   ),
 
-                  // TILES (match mock: only two rows)
                   _TileP(
                     icon: Icons.person_outline,
                     text: "Account Information",
@@ -193,7 +206,6 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                     onTap: () => _go("/provider/change_password"),
                   ),
 
-                  // ✅ Divider between sections (matches mock spacing)
                   const Padding(
                     padding: EdgeInsets.fromLTRB(22, 10, 22, 10),
                     child: Divider(
@@ -203,7 +215,6 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                     ),
                   ),
 
-                  // ✅ SECTION TITLE (Recurring Services)
                   const Padding(
                     padding: EdgeInsets.fromLTRB(22, 10, 22, 6),
                     child: Text(
@@ -229,7 +240,6 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                     ),
                   ),
 
-                  // ✅ TILE (Recurring Jobs list)
                   _TileP(
                     icon: Icons.event_available_outlined,
                     text: "Scheduled Services",
@@ -238,7 +248,6 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
 
                   const Spacer(),
 
-                  // LOGOUT BUTTON (matches mock)
                   Padding(
                     padding: const EdgeInsets.fromLTRB(22, 0, 22, 14),
                     child: SizedBox(
@@ -278,15 +287,13 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
               ),
             ),
 
-      // ✅ REUSABLE PROVIDER NAVIGATION
       bottomNavigationBar: const ProviderBottomNav(
-        currentIndex: 3, // Settings
+        currentIndex: 3,
       ),
     );
   }
 }
 
-// TILE
 class _TileP extends StatelessWidget {
   final IconData icon;
   final String text;

@@ -1,4 +1,4 @@
-// lib\screens\dashboards\client\home_screen.dart
+// lib/screens/dashboards/client/home_screen.dart
 // ignore_for_file: use_build_context_synchronously
 
 import 'package:flutter/material.dart';
@@ -20,6 +20,9 @@ import 'package:fixitnew/services/notification_router.dart';
 // ✅ NEW: Recurring services placeholder screen
 import '../../services/recurring_service_request_screen.dart';
 
+// ✅ NEW: Rating sheet
+import 'package:fixitnew/widgets/sheets/rating_review_sheet.dart';
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -31,6 +34,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final _homeController = ClientHomeController();
 
   bool _thankYouShownOnce = false;
+  bool _ratingShownOnce = false;
 
   // ✅ DEBUG (remove later)
   Future<void> _debugFirebaseWiring() async {
@@ -90,7 +94,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _debugFirebaseWiring(); // debug only
     _probeHomeCollections(); // probe only
 
-    // ✅ Image 5: show thank you sheet if NotificationRouter set a pending flag
+    // ✅ show thank you sheet if NotificationRouter set a pending flag
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _maybeShowThankYouFromRouter();
     });
@@ -100,14 +104,33 @@ class _HomeScreenState extends State<HomeScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
 
-    // ✅ also allow route arguments (safe)
+    // ✅ Allow route arguments (safe)
     final args = ModalRoute.of(context)?.settings.arguments;
     if (args is Map) {
-      final show = args['showThankYou'] == true ||
+      // Existing thank-you support
+      final showThankYou = args['showThankYou'] == true ||
           (args['showThankYou']?.toString().toLowerCase() == 'true');
-      if (show) {
+      if (showThankYou) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           _showThankYouSheet();
+        });
+      }
+
+      // ✅ Rating trigger
+      final showRating = args['showRating'] == true ||
+          (args['showRating']?.toString().toLowerCase() == 'true');
+      final jobId = (args['jobId'] ?? '').toString().trim();
+      final role = (args['role'] ?? 'client').toString().trim().toLowerCase();
+
+      if (showRating && jobId.isNotEmpty && !_ratingShownOnce) {
+        _ratingShownOnce = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) async {
+          if (!mounted) return;
+          await RatingReviewSheet.show(
+            context: context,
+            jobId: jobId,
+            role: role,
+          );
         });
       }
     }
@@ -304,7 +327,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // ✅ NEW: Recurring Services cards -> all lead to ONE placeholder page
+  // ✅ Recurring Services cards -> all lead to ONE placeholder page
   void _openRecurringServicesHub(BuildContext context, String categoryKey) {
     Navigator.push(
       context,
@@ -444,7 +467,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ✅ NEW: Recurring Services swipeable black cards (Image 3)
+  // ✅ Recurring Services swipeable black cards
   Widget _buildRecurringServicesCarousel() {
     final items = <_RecurringItem>[
       _RecurringItem(
@@ -572,12 +595,10 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
 
-      // ✅ Bottom nav stays stationary (Scaffold handles it)
       bottomNavigationBar: const ClientBottomNav(currentIndex: 0),
 
       body: SafeArea(
         child: StreamBuilder<User?>(
-          // ✅ KEY FIX: don't start Firestore streams until auth is confirmed
           stream: FirebaseAuth.instance.authStateChanges(),
           builder: (context, authSnap) {
             if (authSnap.connectionState == ConnectionState.waiting) {
@@ -613,7 +634,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 Expanded(
                   child: SingleChildScrollView(
-                    // ✅ prevents bottom content from hiding behind the nav
                     padding: const EdgeInsets.only(bottom: 24),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -632,7 +652,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         const SizedBox(height: 20),
                         _buildServicesGrid(),
 
-                        // ✅ NEW: Recurring Services section (Image 2/3)
                         const SizedBox(height: 36),
                         const Padding(
                           padding: EdgeInsets.symmetric(horizontal: 20.0),
@@ -793,7 +812,7 @@ class _ServiceCardState extends State<ServiceCard> {
   }
 }
 
-// ---------------------- RECURRING SERVICES CARD (NEW) ----------------------
+// ---------------------- RECURRING SERVICES CARD ----------------------
 
 class RecurringServiceCard extends StatelessWidget {
   final IconData icon;
@@ -820,7 +839,6 @@ class RecurringServiceCard extends StatelessWidget {
           ),
           child: Stack(
             children: [
-              // icon bubble
               Positioned(
                 top: 16,
                 left: 16,
@@ -840,8 +858,6 @@ class RecurringServiceCard extends StatelessWidget {
                   ),
                 ),
               ),
-
-              // label
               Positioned(
                 left: 16,
                 right: 16,
@@ -856,8 +872,6 @@ class RecurringServiceCard extends StatelessWidget {
                   ),
                 ),
               ),
-
-              // arrow bubble
               Positioned(
                 bottom: 16,
                 right: 16,

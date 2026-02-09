@@ -629,7 +629,7 @@ class ClientInvoiceReviewScreen extends StatelessWidget {
 
           const SizedBox(height: 22),
 
-          // Confirm Payment button (mock)
+          // Confirm Payment button
           SizedBox(
             width: double.infinity,
             height: 56,
@@ -651,8 +651,13 @@ class ClientInvoiceReviewScreen extends StatelessWidget {
 
                   Navigator.pushNamedAndRemoveUntil(
                     context,
-                    '/dashboards/client/client_jobs',
+                    '/dashboards/client/home_screen',
                     (r) => false,
+                    arguments: {
+                      "showRating": true,
+                      "jobId": jobId,
+                      "role": "client",
+                    },
                   );
                 } catch (e) {
                   if (!context.mounted) return;

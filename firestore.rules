@@ -324,6 +324,29 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // ----------------- REVIEWS -----------------
+    match /reviews/{reviewId} {
+
+      // Create only by the reviewer themselves
+      allow create: if isSignedIn()
+        && request.resource.data.jobId is string
+        && request.resource.data.reviewerId is string
+        && request.resource.data.revieweeId is string
+        && request.resource.data.rating is int
+        && request.resource.data.rating >= 1
+        && request.resource.data.rating <= 5
+        && request.resource.data.review is string
+        && request.resource.data.reviewerId == request.auth.uid;
+
+      // Read only by admin OR reviewer OR reviewee
+      allow read: if isAdmin()
+        || (isSignedIn() && resource.data.reviewerId is string && resource.data.reviewerId == request.auth.uid)
+        || (isSignedIn() && resource.data.revieweeId is string && resource.data.revieweeId == request.auth.uid);
+
+      // No edits/deletes from client app (use backend/Admin SDK if ever needed)
+      allow update, delete: if false;
+    }
+
     // ----------------- JOBS -----------------
     match /jobs/{jobId} {
       allow read: if isAdmin()

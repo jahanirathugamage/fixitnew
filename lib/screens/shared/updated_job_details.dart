@@ -11,6 +11,7 @@ import 'package:fixitnew/models/quotations/quotation_model.dart';
 import 'package:fixitnew/controllers/payments/final_payment_controller.dart';
 import 'package:fixitnew/widgets/sheets/final_payment_confirm_sheet.dart';
 
+/// ✅ THIS is what main.dart is trying to reference
 enum UpdatedJobDetailsRole { client, provider, contractor }
 
 class UpdatedJobDetailsScreen extends StatefulWidget {
@@ -51,7 +52,20 @@ class _UpdatedJobDetailsScreenState extends State<UpdatedJobDetailsScreen> {
     if (ts == null) return "—";
     final d = ts.toDate().toLocal();
 
-    const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const months = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec"
+    ];
     final month = months[d.month - 1];
     final day = d.day;
 
@@ -59,7 +73,6 @@ class _UpdatedJobDetailsScreenState extends State<UpdatedJobDetailsScreen> {
     final ampm = d.hour >= 12 ? "pm" : "am";
     final mm = d.minute.toString().padLeft(2, "0");
 
-    // dot format: 9.00am
     return "$month $day  ·  $hour12.$mm$ampm";
   }
 
@@ -68,10 +81,13 @@ class _UpdatedJobDetailsScreenState extends State<UpdatedJobDetailsScreen> {
   Future<String> _resolveUserNameFromUsers(String uid) async {
     if (uid.trim().isEmpty) return "";
     try {
-      final doc = await FirebaseFirestore.instance.collection("users").doc(uid).get();
+      final doc =
+          await FirebaseFirestore.instance.collection("users").doc(uid).get();
       final data = doc.data() ?? {};
-      final first = (data["firstName"] ?? data["first_name"] ?? "").toString().trim();
-      final last = (data["lastName"] ?? data["last_name"] ?? "").toString().trim();
+      final first =
+          (data["firstName"] ?? data["first_name"] ?? "").toString().trim();
+      final last =
+          (data["lastName"] ?? data["last_name"] ?? "").toString().trim();
       final full = (data["fullName"] ?? data["name"] ?? "").toString().trim();
 
       final built = ("$first $last").trim();
@@ -86,10 +102,11 @@ class _UpdatedJobDetailsScreenState extends State<UpdatedJobDetailsScreen> {
     final uid = job.selectedProviderUid.trim();
     if (uid.isEmpty) return "";
 
-    // Try serviceProviders collection
     try {
-      final doc =
-          await FirebaseFirestore.instance.collection("serviceProviders").doc(uid).get();
+      final doc = await FirebaseFirestore.instance
+          .collection("serviceProviders")
+          .doc(uid)
+          .get();
       final data = doc.data() ?? {};
       final first = (data["firstName"] ?? "").toString().trim();
       final last = (data["lastName"] ?? "").toString().trim();
@@ -99,7 +116,6 @@ class _UpdatedJobDetailsScreenState extends State<UpdatedJobDetailsScreen> {
       if (dn.isNotEmpty) return dn;
     } catch (_) {}
 
-    // fallback: users
     return _resolveUserNameFromUsers(uid);
   }
 
@@ -112,9 +128,11 @@ class _UpdatedJobDetailsScreenState extends State<UpdatedJobDetailsScreen> {
     final uid = contractorId.trim();
     if (uid.isEmpty) return "";
 
-    // Try contractors collection
     try {
-      final doc = await FirebaseFirestore.instance.collection("contractors").doc(uid).get();
+      final doc = await FirebaseFirestore.instance
+          .collection("contractors")
+          .doc(uid)
+          .get();
       final data = doc.data() ?? {};
       final first = (data["firstName"] ?? "").toString().trim();
       final last = (data["lastName"] ?? "").toString().trim();
@@ -124,13 +142,10 @@ class _UpdatedJobDetailsScreenState extends State<UpdatedJobDetailsScreen> {
       if (name.isNotEmpty) return name;
     } catch (_) {}
 
-    // fallback: users
     return _resolveUserNameFromUsers(uid);
   }
 
   Future<void> _maybeAutoShowClientFinalSheet(String status, String jobId) async {
-    // Client sheet only when job is asking client to confirm they paid final
-    // (your flow: completed_pending_payment)
     if (widget.role != UpdatedJobDetailsRole.client) return;
     if (_autoClientFinalShown) return;
 
@@ -156,13 +171,14 @@ class _UpdatedJobDetailsScreenState extends State<UpdatedJobDetailsScreen> {
         await _finalPaymentController.clientConfirmFinalPayment(jobId: jobId);
       } catch (e) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("$e")));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text("$e")));
       }
     });
   }
 
-  Future<void> _maybeAutoShowProviderFinalSheet(String status, String jobId) async {
-    // Provider sheet only when waiting provider confirmation
+  Future<void> _maybeAutoShowProviderFinalSheet(
+      String status, String jobId) async {
     if (widget.role != UpdatedJobDetailsRole.provider) return;
     if (_autoProviderFinalShown) return;
 
@@ -177,20 +193,22 @@ class _UpdatedJobDetailsScreenState extends State<UpdatedJobDetailsScreen> {
       final ok = await FinalPaymentConfirmSheet.show(
         context: context,
         title: "Confirm Payment",
-        message:
-            "Please confirm that you have received the final from the client.",
+        message: "Please confirm that you have received the final from the client.",
         buttonText: "Confirm Payment Received",
       );
 
       if (ok != true) return;
 
       try {
-        await _finalPaymentController.providerConfirmFinalPaymentReceived(jobId: jobId);
+        await _finalPaymentController.providerConfirmFinalPaymentReceived(
+          jobId: jobId,
+        );
         if (!mounted) return;
         Navigator.pop(context);
       } catch (e) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("$e")));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text("$e")));
       }
     });
   }
@@ -253,7 +271,6 @@ class _UpdatedJobDetailsScreenState extends State<UpdatedJobDetailsScreen> {
               ? _quotationRepo.watchById(job.quotationId)
               : _quotationRepo.watchByJobId(job.id);
 
-          // final payment sheets now happen ONLY in this updated page
           _maybeAutoShowClientFinalSheet(job.status, job.id);
           _maybeAutoShowProviderFinalSheet(job.status, job.id);
 
@@ -277,7 +294,6 @@ class _UpdatedJobDetailsScreenState extends State<UpdatedJobDetailsScreen> {
                 );
               }
 
-              // Quotation is the source of truth for THIS page
               final qPricing = q.pricing;
               final qTasks = q.tasks;
 
@@ -293,7 +309,8 @@ class _UpdatedJobDetailsScreenState extends State<UpdatedJobDetailsScreen> {
                 return subtotal + (t.unitPrice * qty);
               });
 
-              final shownSubtotal = serviceTotal > 0 ? serviceTotal : computedSubtotal;
+              final shownSubtotal =
+                  serviceTotal > 0 ? serviceTotal : computedSubtotal;
 
               final computedTotal = totalAmount > 0
                   ? totalAmount
@@ -301,23 +318,20 @@ class _UpdatedJobDetailsScreenState extends State<UpdatedJobDetailsScreen> {
 
               final whenText = _formatDateTime(job.scheduledDate);
 
-              // Header person:
-              // - client sees provider at top
-              // - provider sees client at top
-              // - contractor sees client at top (per your mock)
-              final headerNameFuture = (widget.role == UpdatedJobDetailsRole.client)
-                  ? _resolveProviderName(job)
-                  : _resolveClientName(job);
+              final headerNameFuture =
+                  (widget.role == UpdatedJobDetailsRole.client)
+                      ? _resolveProviderName(job)
+                      : _resolveClientName(job);
 
               final providerNameFuture = _resolveProviderName(job);
               final contractorNameFuture = _resolveContractorName(q.contractorId);
 
               return SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Header row
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -327,7 +341,8 @@ class _UpdatedJobDetailsScreenState extends State<UpdatedJobDetailsScreen> {
                             width: 60,
                             height: 60,
                             color: Colors.grey.shade200,
-                            child: const Icon(Icons.person, color: Colors.black),
+                            child:
+                                const Icon(Icons.person, color: Colors.black),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -341,7 +356,8 @@ class _UpdatedJobDetailsScreenState extends State<UpdatedJobDetailsScreen> {
                                   final name = (nameSnap.data ?? "").trim();
                                   return Text(
                                     name.isEmpty
-                                        ? (widget.role == UpdatedJobDetailsRole.client
+                                        ? (widget.role ==
+                                                UpdatedJobDetailsRole.client
                                             ? "Service Provider"
                                             : "Client")
                                         : name,
@@ -385,8 +401,6 @@ class _UpdatedJobDetailsScreenState extends State<UpdatedJobDetailsScreen> {
                         ),
                       ],
                     ),
-
-                    // Role-specific middle section
                     const SizedBox(height: 22),
 
                     if (widget.role == UpdatedJobDetailsRole.client) ...[
@@ -402,7 +416,8 @@ class _UpdatedJobDetailsScreenState extends State<UpdatedJobDetailsScreen> {
                       const SizedBox(height: 10),
                       Row(
                         children: [
-                          const Icon(Icons.person_outline, size: 20, color: Colors.black),
+                          const Icon(Icons.person_outline,
+                              size: 20, color: Colors.black),
                           const SizedBox(width: 10),
                           FutureBuilder<String>(
                             future: contractorNameFuture,
@@ -437,7 +452,8 @@ class _UpdatedJobDetailsScreenState extends State<UpdatedJobDetailsScreen> {
                       const SizedBox(height: 10),
                       Row(
                         children: [
-                          const Icon(Icons.person_outline, size: 20, color: Colors.black),
+                          const Icon(Icons.person_outline,
+                              size: 20, color: Colors.black),
                           const SizedBox(width: 10),
                           FutureBuilder<String>(
                             future: providerNameFuture,
@@ -459,7 +475,6 @@ class _UpdatedJobDetailsScreenState extends State<UpdatedJobDetailsScreen> {
                       const SizedBox(height: 22),
                     ],
 
-                    // Date & Time
                     const Text(
                       "Date & Time",
                       style: TextStyle(
@@ -472,7 +487,8 @@ class _UpdatedJobDetailsScreenState extends State<UpdatedJobDetailsScreen> {
                     const SizedBox(height: 10),
                     Row(
                       children: [
-                        const Icon(Icons.schedule, size: 20, color: Colors.black),
+                        const Icon(Icons.schedule,
+                            size: 20, color: Colors.black),
                         const SizedBox(width: 10),
                         Text(
                           whenText,
@@ -488,7 +504,6 @@ class _UpdatedJobDetailsScreenState extends State<UpdatedJobDetailsScreen> {
 
                     const SizedBox(height: 22),
 
-                    // Task Details
                     const Text(
                       "Task Details",
                       style: TextStyle(
@@ -500,19 +515,21 @@ class _UpdatedJobDetailsScreenState extends State<UpdatedJobDetailsScreen> {
                     ),
                     const SizedBox(height: 10),
 
-                    // Table
                     Container(
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.grey.shade300, width: 1),
+                        border:
+                            Border.all(color: Colors.grey.shade300, width: 1),
                       ),
                       child: Column(
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 10),
                             decoration: const BoxDecoration(
                               color: Color(0xFF3A3A3A),
-                              borderRadius: BorderRadius.vertical(top: Radius.circular(10)),
+                              borderRadius:
+                                  BorderRadius.vertical(top: Radius.circular(10)),
                             ),
                             child: const Row(
                               children: [
@@ -562,15 +579,20 @@ class _UpdatedJobDetailsScreenState extends State<UpdatedJobDetailsScreen> {
                             ),
                           ),
                           ...qTasks.map((t) {
-                            final label = t.label.trim().isEmpty ? "Service" : t.label.trim();
+                            final label = t.label.trim().isEmpty
+                                ? "Service"
+                                : t.label.trim();
                             final qty = t.quantity <= 0 ? 1 : t.quantity;
-                            final price = t.lineTotal > 0 ? t.lineTotal : (t.unitPrice * qty);
+                            final price =
+                                t.lineTotal > 0 ? t.lineTotal : (t.unitPrice * qty);
 
                             return Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 12),
                               decoration: BoxDecoration(
                                 border: Border(
-                                  top: BorderSide(color: Colors.grey.shade200, width: 1),
+                                  top: BorderSide(
+                                      color: Colors.grey.shade200, width: 1),
                                 ),
                               ),
                               child: Row(
@@ -627,7 +649,6 @@ class _UpdatedJobDetailsScreenState extends State<UpdatedJobDetailsScreen> {
                     ),
 
                     const SizedBox(height: 18),
-
                     const Divider(height: 1, thickness: 1, color: Color(0xFFE9E9E9)),
                     const SizedBox(height: 14),
 
