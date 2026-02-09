@@ -14,6 +14,11 @@ class ProviderDetailsModel {
   final double? rating;
   final double? cancellationPercent;
 
+  // Needed for conditional sections + avatar
+  final List<String> languages;
+  final List<String> categories;
+  final String? profileImageBase64;
+
   ProviderDetailsModel({
     required this.providerUid,
     required this.firstName,
@@ -25,6 +30,9 @@ class ProviderDetailsModel {
     required this.mainSkillName,
     required this.rating,
     required this.cancellationPercent,
+    required this.languages,
+    required this.categories,
+    required this.profileImageBase64,
   });
 
   String get fullName => ('$firstName $lastName').trim().isEmpty
@@ -42,8 +50,7 @@ class ProviderDetailsModel {
 
     final yearsExperience = _toIntNullable(skill0?['experience']);
     final mainSkillNameRaw = (skill0?['name'] ?? '').toString().trim();
-    final mainSkillName =
-        mainSkillNameRaw.isEmpty ? null : mainSkillNameRaw;
+    final mainSkillName = mainSkillNameRaw.isEmpty ? null : mainSkillNameRaw;
 
     final education = _readListMap(skill0?['education'])
         .map(EducationItem.fromMap)
@@ -62,6 +69,24 @@ class ProviderDetailsModel {
       data['cancellationPercent'] ?? data['cancellationRate'],
     );
 
+    final languages = (data['languages'] is List)
+        ? (data['languages'] as List)
+            .map((e) => e.toString().trim())
+            .where((s) => s.isNotEmpty)
+            .toList()
+        : <String>[];
+
+    final categories = (data['categories'] is List)
+        ? (data['categories'] as List)
+            .map((e) => e.toString().trim())
+            .where((s) => s.isNotEmpty)
+            .toList()
+        : <String>[];
+
+    final profileImageBase64 = (data['profileImageBase64'] ?? '').toString().trim();
+    final profileImageBase64OrNull =
+        profileImageBase64.isEmpty ? null : profileImageBase64;
+
     return ProviderDetailsModel(
       providerUid: uid,
       firstName: firstName,
@@ -73,6 +98,9 @@ class ProviderDetailsModel {
       mainSkillName: mainSkillName,
       rating: rating,
       cancellationPercent: cancellationPercent,
+      languages: languages,
+      categories: categories,
+      profileImageBase64: profileImageBase64OrNull,
     );
   }
 
@@ -151,8 +179,10 @@ class CertificationItem {
   });
 
   factory CertificationItem.fromMap(Map<String, dynamic> m) {
-    final title = (m['title'] ?? m['name'] ?? m['certificationName'] ?? '').toString();
-    final issuer = (m['issuer'] ?? m['institutionName'] ?? m['issuedBy'] ?? '').toString();
+    final title = (m['title'] ?? m['name'] ?? m['certificationName'] ?? '')
+        .toString();
+    final issuer =
+        (m['issuer'] ?? m['institutionName'] ?? m['issuedBy'] ?? '').toString();
     final issued = (m['issued'] ?? m['issuedDate'] ?? m['year'] ?? '').toString();
 
     return CertificationItem(
@@ -193,3 +223,4 @@ class JobExperienceItem {
     return s.isNotEmpty ? s : e;
   }
 }
+  

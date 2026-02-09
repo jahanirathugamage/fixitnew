@@ -1,10 +1,16 @@
 // lib/screens/dashboards/provider/job_details_screen.dart
 // ignore_for_file: use_build_context_synchronously
 
+import 'dart:convert';
+import 'dart:typed_data';
+
+import 'package:fixitnew/utils/image_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'package:fixitnew/controllers/provider/provider_job_details_controller.dart';
+import 'package:fixitnew/controllers/provider/provider_job_client_controller.dart';
+import 'package:fixitnew/models/client/client_model.dart';
 import 'package:fixitnew/models/jobs/job_request_model.dart';
 
 class ProviderJobDetailsScreen extends StatefulWidget {
@@ -12,13 +18,101 @@ class ProviderJobDetailsScreen extends StatefulWidget {
   const ProviderJobDetailsScreen({super.key, required this.jobId});
 
   @override
-  State<ProviderJobDetailsScreen> createState() => _ProviderJobDetailsScreenState();
+  State<ProviderJobDetailsScreen> createState() =>
+      _ProviderJobDetailsScreenState();
 }
 
 class _ProviderJobDetailsScreenState extends State<ProviderJobDetailsScreen> {
   final controller = ProviderJobDetailsController();
 
+  // ✅ Added for client image
+  final _clientController = ProviderJobClientController();
+  ClientModel? _client;
+  bool _loadingClient = true;
+  String? _clientError;
+
   bool _autoVisitationSheetShown = false;
+
+  // ✅ Keep only ONE decoder (duplicate removed)
+  Uint8List? _safeDecodeClientImage(String? raw) {
+    if (raw == null) return null;
+
+    var s = raw.trim();
+    if (s.isEmpty) return null;
+
+    // If stored as: data:image/png;base64,XXXX...
+    final comma = s.indexOf(',');
+    if (s.startsWith('data:image') && comma != -1) {
+      s = s.substring(comma + 1).trim();
+    }
+
+    // Remove all whitespace/newlines
+    s = s.replaceAll(RegExp(r'\s+'), '');
+
+    // Handle URL-safe base64 (common)
+    s = s.replaceAll('-', '+').replaceAll('_', '/');
+
+    // Fix missing padding
+    final mod4 = s.length % 4;
+    if (mod4 != 0) {
+      s = s.padRight(s.length + (4 - mod4), '=');
+    }
+
+    // Try existing helper first (if it returns Uint8List?)
+    final bytes1 = decodeBase64Image(s);
+    if (bytes1 != null) return bytes1;
+
+    try {
+      return base64Decode(s);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ✅ Added: fetch client for THIS job (once job loads)
+  Future<void> _loadClientForJob() async {
+    try {
+      final result = await _clientController.loadClientForJob(
+        jobId: widget.jobId,
+        jobsCollection: 'jobs',
+      );
+      if (!mounted) return;
+      setState(() {
+        _client = result;
+        _loadingClient = false;
+        _clientError = null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _client = null;
+        _loadingClient = false;
+        _clientError = e.toString();
+      });
+    }
+  }
+
+  // ✅ Added: avatar builder (prevents “final bytes = …” inside children list)
+  Widget _buildClientAvatar() {
+    final bytes = _safeDecodeClientImage(_client?.profileImageBase64);
+
+    if (bytes != null) {
+      return Image.memory(
+        bytes,
+        width: 60,
+        height: 60,
+        fit: BoxFit.cover,
+        gaplessPlayback: true,
+      );
+    }
+
+    return Container(
+      width: 60,
+      height: 60,
+      color: Colors.grey.shade200,
+      child: const Icon(Icons.person, color: Colors.black),
+    );
+  }
 
   String _norm(String v) => v.trim().toLowerCase();
 
@@ -35,7 +129,18 @@ class _ProviderJobDetailsScreenState extends State<ProviderJobDetailsScreen> {
     final d = ts.toDate().toLocal();
 
     const months = [
-      "Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec",
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
     ];
 
     final month = months[d.month - 1];
@@ -57,7 +162,8 @@ class _ProviderJobDetailsScreenState extends State<ProviderJobDetailsScreen> {
 
   String _lkrInt(int amount) => "LKR $amount";
 
-  Future<void> _maybeAutoShowVisitationSheet(JobRequestModel job, int visitationFee) async {
+  Future<void> _maybeAutoShowVisitationSheet(
+      JobRequestModel job, int visitationFee) async {
     if (_autoVisitationSheetShown) return;
     if (!_isAwaitingVisitationStatus(job.status)) return;
 
@@ -135,12 +241,22 @@ class _ProviderJobDetailsScreenState extends State<ProviderJobDetailsScreen> {
             );
           }
 
-          final clientName = job.clientName.trim().isNotEmpty ? job.clientName.trim() : "Client";
+          // ✅ Only fetch client once (after job exists)
+          if (_loadingClient && _client == null && _clientError == null) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) _loadClientForJob();
+            });
+          }
+
+          final clientName = job.clientName.trim().isNotEmpty
+              ? job.clientName.trim()
+              : "Client";
 
           final pricing = job.pricing;
           final serviceTotal = _readInt(pricing["serviceTotal"]);
           final materialCost = _readInt(pricing["materialCost"]);
-          final visitationFee = _readInt(pricing["visitationFee"] ?? job.visitationFeeLkr);
+          final visitationFee =
+              _readInt(pricing["visitationFee"] ?? job.visitationFeeLkr);
           final platformFee = _readInt(pricing["platformFee"]);
           final totalAmount = _readInt(pricing["totalAmount"]);
 
@@ -164,7 +280,6 @@ class _ProviderJobDetailsScreenState extends State<ProviderJobDetailsScreen> {
                   visitationFee +
                   platformFee);
 
-          // ✅ Only visitation confirmation remains here.
           _maybeAutoShowVisitationSheet(job, visitationFee);
 
           return SingleChildScrollView(
@@ -177,11 +292,10 @@ class _ProviderJobDetailsScreenState extends State<ProviderJobDetailsScreen> {
                   children: [
                     ClipRRect(
                       borderRadius: BorderRadius.circular(12),
-                      child: Container(
+                      child: SizedBox(
                         width: 60,
                         height: 60,
-                        color: Colors.grey.shade200,
-                        child: const Icon(Icons.person, color: Colors.black),
+                        child: _buildClientAvatar(),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -279,10 +393,12 @@ class _ProviderJobDetailsScreenState extends State<ProviderJobDetailsScreen> {
                   child: Column(
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 10),
                         decoration: const BoxDecoration(
                           color: Color(0xFF3A3A3A),
-                          borderRadius: BorderRadius.vertical(top: Radius.circular(10)),
+                          borderRadius:
+                              BorderRadius.vertical(top: Radius.circular(10)),
                         ),
                         child: const Row(
                           children: [
@@ -332,7 +448,8 @@ class _ProviderJobDetailsScreenState extends State<ProviderJobDetailsScreen> {
                         ),
                       ),
                       ...tasks.map((m) {
-                        final label = (m["label"] ?? m["taskName"] ?? "").toString().trim();
+                        final label =
+                            (m["label"] ?? m["taskName"] ?? "").toString().trim();
                         final qty = _readInt(m["quantity"] ?? 1);
 
                         final price = _readInt(m["lineTotal"] ?? 0) > 0
@@ -340,10 +457,12 @@ class _ProviderJobDetailsScreenState extends State<ProviderJobDetailsScreen> {
                             : _readInt(m["unitPrice"]) * (qty <= 0 ? 1 : qty);
 
                         return Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 12),
                           decoration: BoxDecoration(
                             border: Border(
-                              top: BorderSide(color: Colors.grey.shade200, width: 1),
+                              top: BorderSide(
+                                  color: Colors.grey.shade200, width: 1),
                             ),
                           ),
                           child: Row(
@@ -401,19 +520,22 @@ class _ProviderJobDetailsScreenState extends State<ProviderJobDetailsScreen> {
 
                 const SizedBox(height: 18),
 
-                const Divider(height: 1, thickness: 1, color: Color(0xFFE9E9E9)),
+                const Divider(
+                    height: 1, thickness: 1, color: Color(0xFFE9E9E9)),
                 const SizedBox(height: 14),
 
                 _SummaryRow(label: "Subtotal", value: _lkrInt(shownSubtotal)),
                 const SizedBox(height: 10),
                 _SummaryRow(label: "Material Cost", value: _lkrInt(materialCost)),
                 const SizedBox(height: 10),
-                _SummaryRow(label: "Visitation Fees", value: _lkrInt(visitationFee)),
+                _SummaryRow(
+                    label: "Visitation Fees", value: _lkrInt(visitationFee)),
                 const SizedBox(height: 10),
                 _SummaryRow(label: "Platform Fees", value: _lkrInt(platformFee)),
 
                 const SizedBox(height: 16),
-                const Divider(height: 1, thickness: 1, color: Color(0xFFE9E9E9)),
+                const Divider(
+                    height: 1, thickness: 1, color: Color(0xFFE9E9E9)),
                 const SizedBox(height: 14),
 
                 Row(

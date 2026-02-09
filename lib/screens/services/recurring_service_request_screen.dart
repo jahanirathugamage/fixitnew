@@ -717,13 +717,35 @@ class _RecurringServiceRequestScreenState
     return 0;
   }
 
-  // ---------- VALIDATION + SUMMARY SHEET ----------
-  void _onContinuePressed() {
+  // ---------- VALIDATION + SUMMARY SHEET (mock #6) ----------
+  void _onContinuePressed() async {
+    // ✅ If pin is not selected, geocode using typed location (same behavior as Request a Service)
     if (_pickedLatLng == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please pick the job location on the map.')),
-      );
-      return;
+      final query = locationController.text.trim();
+      if (query.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please enter a location or pick it on the map.')),
+        );
+        return;
+      }
+
+      try {
+        final LatLng? geocoded = await _controller.geocodeSriLankaAddress(query);
+        if (geocoded == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not find that address. Please try again.')),
+          );
+          return;
+        }
+
+        setState(() => _pickedLatLng = geocoded);
+      } catch (e) {
+        debugPrint('❌ Geocoding failed: $e');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to get location: $e')),
+        );
+        return;
+      }
     }
 
     if (_selectedServices.isEmpty) {

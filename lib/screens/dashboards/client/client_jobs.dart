@@ -137,6 +137,7 @@ class _ClientJobsScreenState extends State<ClientJobsScreen> {
       ),
       body: SafeArea(
         child: StreamBuilder<List<JobRequestModel>>(
+          // ✅ IMPORTANT: Jobs come from jobRequest, not jobs collection
           stream: controller.watchClientJobs(uid),
           builder: (context, snap) {
             if (snap.connectionState == ConnectionState.waiting) {
@@ -223,7 +224,6 @@ class _ClientJobsScreenState extends State<ClientJobsScreen> {
                           ),
                         ),
                         const SizedBox(width: 12),
-
                         if (showQuotation)
                           _BlackPillButton(
                             text: "Quotation",

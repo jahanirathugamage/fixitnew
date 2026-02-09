@@ -122,8 +122,8 @@ class MatchingController {
             .collection('serviceProviders')
             .doc(providerUid)
             .get();
-        final data = snap.data();
 
+        final data = snap.data();
         if (data != null) {
           // name
           final fn = (data['firstName'] ?? '').toString().trim();
@@ -131,12 +131,11 @@ class MatchingController {
           final merged = ('$fn $ln').trim();
           if (merged.isNotEmpty) fullName = merged;
 
-          // ✅ location (supports GeoPoint / list / map)
+          // location (supports GeoPoint / list / map)
           providerLatLng = _readLatLng(data['location']);
           if (data['location'] is GeoPoint) {
             providerGeo = data['location'] as GeoPoint;
-          } else if (providerLatLng != null) {
-            // keep GeoPoint optional; distance calc uses providerLatLng
+          } else {
             providerGeo = null;
           }
 
@@ -161,14 +160,23 @@ class MatchingController {
                 .toList();
           }
 
-          // image
+          // image (support URL + base64)
           photoUrl = (data['photoUrl'] ??
                   data['profileImageUrl'] ??
                   data['avatarUrl'])
               ?.toString();
 
-          // ✅ FIX: remove unnecessary "!"
-          if (photoUrl != null && photoUrl.trim().isEmpty) photoUrl = null;
+          if (photoUrl != null && photoUrl.trim().isEmpty) {
+            photoUrl = null;
+          }
+
+          // If no URL image, fall back to base64 stored in Firestore
+          if (photoUrl == null) {
+            final b64 = (data['profileImageBase64'] ?? '').toString().trim();
+            if (b64.isNotEmpty) {
+              photoUrl = b64; // ProviderDetailsSheet Avatar handles base64
+            }
+          }
         }
       } catch (_) {
         // ignore, UI will show fallback values

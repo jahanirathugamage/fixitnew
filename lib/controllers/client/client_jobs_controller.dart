@@ -17,7 +17,8 @@ class ClientJobsController {
   bool _isAccepted(String status) => _norm(status) == "accepted";
   bool _isCancelledByProvider(String status) =>
       _norm(status) == "cancelled_by_provider";
-  bool _isCancelledByClient(String status) => _norm(status) == "cancelled_by_client";
+  bool _isCancelledByClient(String status) =>
+      _norm(status) == "cancelled_by_client";
 
   /// ✅ FINAL hidden statuses (after BOTH client & provider confirmed final payment)
   bool _isFinalHidden(String status) {
@@ -46,7 +47,7 @@ class ClientJobsController {
     return s == "quotation_accepted" ||
         s == "in_progress" ||
         s == "started" ||
-        s == "invoice_sent" || // if you ever use this in UI
+        s == "invoice_sent" ||
         s == "completed_pending_payment" ||
         s == "awaiting_final_payment_confirmation" ||
         s == "invoice_paid";
@@ -124,11 +125,11 @@ class ClientJobsController {
         }
       }
 
-      // ✅ Soonest first (fallback to 0 if null)
+      // ✅ MOST RECENT FIRST (descending)
       filtered.sort((a, b) {
         final am = a.scheduledDate?.millisecondsSinceEpoch ?? 0;
         final bm = b.scheduledDate?.millisecondsSinceEpoch ?? 0;
-        return am.compareTo(bm);
+        return bm.compareTo(am);
       });
 
       return filtered;
@@ -174,8 +175,18 @@ class ClientJobsController {
     final d = ts.toDate().toLocal();
 
     const months = [
-      "Jan","Feb","Mar","Apr","May","Jun",
-      "Jul","Aug","Sep","Oct","Nov","Dec"
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec"
     ];
     final month = months[d.month - 1];
     final day = d.day;
